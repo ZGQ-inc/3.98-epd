@@ -300,7 +300,7 @@
       <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);" class="dim-text">768 × 552</span>
     </div>
     <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
-      支持横竖屏自适应、双向挂绳佩戴、极客/商务/同人/展会风格与二维码扫码
+      支持横竖屏自适应、双向挂绳佩戴、极客/商务/兽聚/展会风格与二维码扫码
     </div>
 
     <div class="chip-group">
@@ -327,7 +327,7 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>联系方式 / 电话:</label>
-        <input type="text" id="badgeContact" placeholder="1145141919810" oninput="renderBadgePreview()">
+        <input type="text" id="badgeContact" placeholder="t.me/ZGQinc" oninput="renderBadgePreview()">
       </div>
       <div>
         <label>电子邮箱 / 即时通讯:</label>
@@ -339,7 +339,7 @@
     <input type="text" id="badgeMotto" placeholder="用代码连接物理世界，专注低功耗嵌入式！" oninput="renderBadgePreview()">
 
     <label>右下角二维码扫描内容 (网址 / 即时通讯用户名 / 个人主页):</label>
-    <input type="text" id="badgeQr" placeholder="https://github.com/ZGQ-inc" oninput="renderBadgePreview()">
+    <input type="text" id="badgeQr" placeholder="https://domain.zgqinc.gq" oninput="renderBadgePreview()">
 
     <!-- 1:1 Preview -->
     <label>效果预览 (768 × 552):</label>
@@ -353,11 +353,11 @@
   </div>
 </div>
 
-<!-- TAB 2: 🎒 漫展痛卡 / 角色立绘挂饰 -->
+<!-- TAB 2: 🎒 痛卡 / 挂饰 -->
 <div id="view-itabag" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">
-      <span>🎒 漫展痛卡 / 角色插画挂件</span>
+      <span>🎒 痛卡 / 挂件</span>
       <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">外壳挂孔适用</span>
     </div>
     <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
@@ -386,19 +386,19 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>角色名 / 标题 (大字):</label>
-        <input type="text" id="itaTitle" placeholder="初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
+        <input type="text" id="itaTitle" placeholder="ZeroVulp" oninput="renderItaPreview()">
       </div>
       <div>
         <label>作品 / 出处:</label>
-        <input type="text" id="itaSource" placeholder="VOCALOID 01" oninput="renderItaPreview()">
+        <input type="text" id="itaSource" placeholder="自家孩子" oninput="renderItaPreview()">
       </div>
     </div>
 
     <label>专属台词 / 签名题字 (底部叠加):</label>
-    <input type="text" id="itaQuote" placeholder="世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
+    <input type="text" id="itaQuote" placeholder="大楚兴，陈胜王！" oninput="renderItaPreview()">
 
     <!-- 1:1 Preview -->
-    <label>4 色微粒扩散抖动渲染效果:</label>
+    <label>渲染效果:</label>
     <div class="preview-box">
       <canvas id="itaCanvas" width="768" height="552"></canvas>
     </div>
@@ -409,9 +409,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 3: 📝 随身备忘 / 便签清单 -->
-<!-- ========================================================================= -->
 <div id="view-memo" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">📝 随身待办 / 便签清单</div>
@@ -423,7 +421,7 @@
     <input type="text" id="memoTitle" placeholder="TODAY TO-DO LIST" oninput="renderMemoPreview()">
 
     <label>待办项目 (每行一项):</label>
-    <textarea id="memoItems" rows="5" placeholder="例如:&#10;1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 整理展会电子名片参数&#10;4. 傍晚跑步 5 公里锻炼身体" oninput="renderMemoPreview()"></textarea>
+    <textarea id="memoItems" rows="5" placeholder="例如:&#10;1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 修复 SRAM 爆内存与 LwIP 报文池耗尽&#10;4. 没有了" oninput="renderMemoPreview()"></textarea>
 
     <label>底部便签提示语:</label>
     <input type="text" id="memoFooter" placeholder="保持专注，逐项击破！" oninput="renderMemoPreview()">
@@ -438,9 +436,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 4: 🎨 4色画板 / 手绘涂鸦 -->
-<!-- ========================================================================= -->
 <div id="view-paint" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">
@@ -490,9 +486,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 5: 🖼️ 全能图片调色工坊 (Image Lab) -->
-<!-- ========================================================================= -->
 <div id="view-imagelab" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">🖼️ 全能图片调色与四色抖动工坊</div>
