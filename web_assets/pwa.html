@@ -1,0 +1,2059 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>3.98" 墨水屏随身伴侣 · Open E-Badge & Ita-Bag</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icon-192.svg">
+  <meta name="theme-color" content="#005ac1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="墨水屏伴侣">
+  <meta name="description" content="专为 3.98 英寸四色墨水屏打造的随身工牌、电子名片与漫展痛卡 WebBLE 蓝牙直推控制端，支持 Cloudflare Pages 静态部署与 100% 离线运行">
+
+  <style>
+    :root {
+      --md-sys-color-primary: #005ac1;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #d8e2ff;
+      --md-sys-color-on-primary-container: #001a41;
+      --md-sys-color-surface: #fdfcff;
+      --md-sys-color-on-surface: #1a1c1e;
+      --md-sys-color-surface-container: #f1f4f9;
+      --md-sys-color-surface-container-high: #ebeef3;
+      --md-sys-color-surface-container-highest: #e2e7ec;
+      --md-sys-color-outline: #74777f;
+      --md-sys-color-outline-variant: #c4c6d0;
+      --md-sys-color-error: #ba1a1a;
+      --md-sys-color-success: #2e7d32;
+      --epd-black: #000000;
+      --epd-white: #ffffff;
+      --epd-yellow: #f4c430;
+      --epd-red: #d32f2f;
+      --shadow-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      --shadow-2: 0 4px 8px rgba(0,0,0,0.14), 0 2px 4px rgba(0,0,0,0.08);
+      --shadow-3: 0 8px 16px rgba(0,0,0,0.16), 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    [data-theme="dark"] {
+      --md-sys-color-primary: #a8c7fa;
+      --md-sys-color-on-primary: #002d6f;
+      --md-sys-color-primary-container: #004396;
+      --md-sys-color-on-primary-container: #d8e2ff;
+      --md-sys-color-surface: #121316;
+      --md-sys-color-on-surface: #e2e2e6;
+      --md-sys-color-surface-container: #1e2024;
+      --md-sys-color-surface-container-high: #282a2f;
+      --md-sys-color-surface-container-highest: #33353a;
+      --md-sys-color-outline: #8e9099;
+      --md-sys-color-outline-variant: #44474e;
+      --md-sys-color-error: #ffb4ab;
+      --md-sys-color-success: #81c784;
+      --shadow-1: 0 1px 4px rgba(0,0,0,0.4);
+      --shadow-2: 0 4px 10px rgba(0,0,0,0.5);
+      --shadow-3: 0 8px 20px rgba(0,0,0,0.6);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background-color: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      padding-bottom: 80px;
+      user-select: none;
+    }
+
+    header {
+      background: var(--md-sys-color-surface-container);
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .brand { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .brand-badge {
+      font-size: 11px; font-weight: 700;
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      padding: 2px 7px; border-radius: 6px;
+    }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    /* Top Connectivity Bar */
+    .ble-banner {
+      background: var(--md-sys-color-surface-container-high);
+      margin: 12px 16px; border-radius: 14px; padding: 12px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: var(--shadow-1); border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .ble-status-dot {
+      width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px;
+      background: var(--md-sys-color-outline);
+    }
+    .ble-status-dot.connected { background: var(--md-sys-color-success); box-shadow: 0 0 6px var(--md-sys-color-success); }
+    .ble-status-dot.scanning { background: #f57c00; animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+    /* Multi-Device & Wi-Fi LAN Fallback Accordion */
+    .network-sub-bar {
+      margin: -4px 16px 12px 16px; padding: 8px 14px; border-radius: 10px;
+      background: var(--md-sys-color-surface-container);
+      font-size: 12px; color: var(--md-sys-color-outline);
+      display: flex; justify-content: space-between; align-items: center;
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    /* Cards */
+    .pwa-card {
+      background: var(--md-sys-color-surface-container);
+      margin: 14px 16px; border-radius: 16px; padding: 16px;
+      box-shadow: var(--shadow-1); border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    .card-title {
+      font-size: 15px; font-weight: 700; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* Forms */
+    label { font-size: 12px; font-weight: 600; color: var(--md-sys-color-outline); display: block; margin-top: 10px; margin-bottom: 4px; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      background: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface);
+      font-size: 14px; outline: none; transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--md-sys-color-primary); }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      transition: 0.15s; text-decoration: none;
+    }
+    .btn-primary { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); box-shadow: var(--shadow-1); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-tonal { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+    .btn-outlined { background: transparent; border: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 16px; }
+    .btn-full { width: 100%; margin-top: 14px; }
+
+    /* Preview Canvas Box */
+    .preview-box {
+      width: 100%; overflow: hidden; border-radius: 12px;
+      background: #ffffff; border: 2px solid #202124; box-shadow: var(--shadow-2);
+      display: flex; justify-content: center; align-items: center; margin: 12px 0;
+    }
+    .preview-box canvas { width: 100%; height: auto; display: block; aspect-ratio: 768 / 552; }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 64px;
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      display: flex; justify-content: space-around; align-items: center;
+      z-index: 100; padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: var(--md-sys-color-outline);
+      cursor: pointer; padding: 6px 10px; border-radius: 12px; transition: 0.2s;
+    }
+    .nav-item span.icon { font-size: 19px; margin-bottom: 2px; }
+    .nav-item.active { color: var(--md-sys-color-primary); }
+
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      width: 100%; height: 6px; background: var(--md-sys-color-outline-variant);
+      border-radius: 3px; overflow: hidden; margin-top: 8px; display: none;
+    }
+    .progress-bar { width: 0%; height: 100%; background: var(--md-sys-color-primary); transition: width 0.1s; }
+
+    /* Chip Groups */
+    .chip-group { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; margin-bottom: 8px; }
+    .chip {
+      padding: 6px 14px; border-radius: 16px; font-size: 12px; font-weight: 600;
+      background: var(--md-sys-color-surface); border: 1px solid var(--md-sys-color-outline-variant);
+      white-space: nowrap; cursor: pointer; transition: 0.15s;
+    }
+    .chip.active { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); border-color: var(--md-sys-color-primary); }
+
+    /* Palette colors */
+    .palette-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--md-sys-color-outline-variant);
+      cursor: pointer; display: inline-block; transition: 0.15s;
+    }
+    .palette-btn.active { transform: scale(1.18); border-color: var(--md-sys-color-primary); box-shadow: var(--shadow-1); }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 200; display: none;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-sheet {
+      background: var(--md-sys-color-surface); border-radius: 20px;
+      max-width: 480px; width: 100%; padding: 20px; box-shadow: var(--shadow-3);
+      border: 1px solid var(--md-sys-color-outline-variant); max-height: 85vh; overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span>📺 3.98" 墨水屏随身伴侣</span>
+    <span class="brand-badge">CF Pages 离线版</span>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-outlined btn-sm" id="btnInstallApp" style="display:none;" onclick="triggerAppInstall()">📲 安装</button>
+    <button class="btn btn-outlined btn-sm" onclick="toggleTheme()" id="themeToggleBtn">🌙</button>
+  </div>
+</header>
+
+<!-- Bluetooth GATT Primary Connectivity Bar -->
+<div class="ble-banner">
+  <div>
+    <div style="font-size:13px; font-weight:700; display:flex; align-items:center;">
+      <span class="ble-status-dot" id="bleStatusDot"></span>
+      <span id="bleStatusText">蓝牙待连接 (WebBLE)</span>
+    </div>
+    <div style="font-size:11px; color:var(--md-sys-color-outline); margin-top:2px;" id="bleSubText">
+      无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推
+    </div>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button class="btn btn-primary btn-sm" id="btnBleConnect" onclick="toggleBleConnection()">
+      🔍 扫描连接
+    </button>
+    <button class="btn btn-outlined btn-sm" onclick="openDeviceManagerModal()" title="多设备管理">
+      📱 设备
+    </button>
+  </div>
+</div>
+
+<!-- Secondary Connection / Air Provisioning Bar -->
+<div class="network-sub-bar">
+  <div>
+    <span>局域网直连 (备用): </span>
+    <span id="netLanStatus" style="font-weight:600; color:var(--md-sys-color-primary);">未设定 IP</span>
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button class="btn btn-outlined btn-sm" style="padding:2px 8px; font-size:11px;" onclick="openAirProvisionModal()">
+      📡 蓝牙配网
+    </button>
+    <button class="btn btn-outlined btn-sm" style="padding:2px 8px; font-size:11px;" onclick="openLanIpModal()">
+      🌐 填入 IP
+    </button>
+  </div>
+</div>
+
+<!-- Transmission Progress -->
+<div style="padding: 0 16px;">
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div id="transferMsg" style="font-size:11px; color:var(--md-sys-color-primary); margin-top:4px; min-height:16px;"></div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 1: 📇 电子名片 / 随身工牌 -->
+<!-- ========================================================================= -->
+<div id="view-badge" class="tab-view active">
+  <div class="pwa-card">
+    <div class="card-title">
+      <span>📇 随身工牌 / 电子名片定制</span>
+      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">768 × 552</span>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
+      适合漫展交流、商务社交、工牌随身佩戴，支持大字名牌与微信/个人二维码扫码
+    </div>
+
+    <div class="chip-group">
+      <div class="chip active" id="chip-geek" onclick="selectBadgeTpl('geek')">🧑‍💻 极客黑客</div>
+      <div class="chip" id="chip-business" onclick="selectBadgeTpl('business')">💼 商务极简</div>
+      <div class="chip" id="chip-anime" onclick="selectBadgeTpl('anime')">🎨 漫展同人</div>
+      <div class="chip" id="chip-staff" onclick="selectBadgeTpl('staff')">🎫 展会工作证</div>
+    </div>
+
+    <label>姓名 / 昵称 (44px 显眼大字):</label>
+    <input type="text" id="badgeName" value="ZGQ (张工)" oninput="renderBadgePreview()">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>身份 / 职位:</label>
+        <input type="text" id="badgeRole" value="全栈工程师 / 嵌入式开发" oninput="renderBadgePreview()">
+      </div>
+      <div>
+        <label>所属组织 / 公司:</label>
+        <input type="text" id="badgeOrg" value="ZGQ Studio & Labs" oninput="renderBadgePreview()">
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>联系方式 / 电话:</label>
+        <input type="text" id="badgeContact" value="+86 138-0000-0000" oninput="renderBadgePreview()">
+      </div>
+      <div>
+        <label>电子邮箱 / 微信:</label>
+        <input type="text" id="badgeEmail" value="zgq@embedded-lab.org" oninput="renderBadgePreview()">
+      </div>
+    </div>
+
+    <label>座右铭 / 签名 / 业务介绍:</label>
+    <input type="text" id="badgeMotto" value="用代码连接物理世界，专注低功耗嵌入式与墨水屏硬件！" oninput="renderBadgePreview()">
+
+    <label>右下角二维码扫描内容 (网址 / 微信名片 / 个人主页):</label>
+    <input type="text" id="badgeQr" value="https://github.com/ZGQ" oninput="renderBadgePreview()">
+
+    <!-- 1:1 Preview -->
+    <label>768 × 552 物理点阵效果预览 (1:1 像素清晰对齐):</label>
+    <div class="preview-box">
+      <canvas id="badgeCanvas" width="768" height="552"></canvas>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('badgeCanvas', '电子名片')">
+      🚀 蓝牙直推至胸牌屏幕 (16s)
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 2: 🎒 漫展痛卡 / 角色立绘挂饰 -->
+<!-- ========================================================================= -->
+<div id="view-itabag" class="tab-view">
+  <div class="pwa-card">
+    <div class="card-title">
+      <span>🎒 漫展痛卡 / 角色插画挂件</span>
+      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">外壳双挂孔适用</span>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
+      专为痛包、钥匙扣与挂绳随身携带设计！支持相册选图、4色微粒物理抖动还原与题字
+    </div>
+
+    <label>选择手机相册照片 / 角色立绘 (JPG / PNG):</label>
+    <input type="file" id="itaImgInput" accept="image/*" onchange="handleItaImageUpload(event)">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>缩放 (50% ~ 250%):</label>
+        <input type="range" id="itaScale" min="0.5" max="2.5" step="0.05" value="1.0" oninput="renderItaPreview()" style="width:100%;">
+      </div>
+      <div>
+        <label>旋转角度:</label>
+        <select id="itaRotate" onchange="renderItaPreview()">
+          <option value="0">0° 正常</option>
+          <option value="90">90° 顺时针</option>
+          <option value="180">180° 倒置</option>
+          <option value="270">270° 逆时针</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>角色名 / 标题 (大字):</label>
+        <input type="text" id="itaTitle" value="初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
+      </div>
+      <div>
+        <label>作品 / 出处:</label>
+        <input type="text" id="itaSource" value="VOCALOID 01" oninput="renderItaPreview()">
+      </div>
+    </div>
+
+    <label>专属台词 / 签名题字 (底部叠加):</label>
+    <input type="text" id="itaQuote" value="世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
+
+    <!-- 1:1 Preview -->
+    <label>4 色微粒扩散抖动渲染效果:</label>
+    <div class="preview-box">
+      <canvas id="itaCanvas" width="768" height="552"></canvas>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('itaCanvas', '漫展痛卡')">
+      🚀 蓝牙直推至痛卡屏幕 (16s)
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 3: 📝 随身备忘 / 便签清单 -->
+<!-- ========================================================================= -->
+<div id="view-memo" class="tab-view">
+  <div class="pwa-card">
+    <div class="card-title">📝 随身待办 / 便签清单</div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
+      清晰 32px 醒目大号字体，随身携带或磁吸冰箱一目了然
+    </div>
+
+    <label>便签标题:</label>
+    <input type="text" id="memoTitle" value="TODAY TO-DO LIST" oninput="renderMemoPreview()">
+
+    <label>待办项目 (每行一项):</label>
+    <textarea id="memoItems" rows="5" oninput="renderMemoPreview()">1. 调试 ESP32-C3 墨水屏蓝牙直推
+2. 3D 打印外壳按键滑槽测试
+3. 整理展会电子名片参数
+4. 傍晚跑步 5 公里锻炼身体</textarea>
+
+    <label>底部便签提示语:</label>
+    <input type="text" id="memoFooter" value="保持专注，逐项击破！" oninput="renderMemoPreview()">
+
+    <div class="preview-box">
+      <canvas id="memoCanvas" width="768" height="552"></canvas>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('memoCanvas', '随身便签')">
+      🚀 蓝牙直推至墨水屏 (16s)
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 4: 🎨 4色画板 / 手绘涂鸦 -->
+<!-- ========================================================================= -->
+<div id="view-paint" class="tab-view">
+  <div class="pwa-card">
+    <div class="card-title">
+      <span>🎨 4色手绘画板 / 涂鸦创作</span>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-outlined btn-sm" onclick="undoPaint()">↩️ 撤销</button>
+        <button class="btn btn-outlined btn-sm" onclick="clearPaintCanvas()">🗑️ 清空</button>
+      </div>
+    </div>
+
+    <!-- Palette Selection -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span style="font-size:12px; font-weight:700;">墨水颜色:</span>
+        <div class="palette-btn active" id="pal-black" style="background:#000000;" onclick="setPaintColor('#000000', 'black')"></div>
+        <div class="palette-btn" id="pal-red" style="background:#d32f2f;" onclick="setPaintColor('#d32f2f', 'red')"></div>
+        <div class="palette-btn" id="pal-yellow" style="background:#f4c430;" onclick="setPaintColor('#f4c430', 'yellow')"></div>
+        <div class="palette-btn" id="pal-white" style="background:#ffffff; border-color:#888;" onclick="setPaintColor('#ffffff', 'white')"></div>
+      </div>
+      <div>
+        <select id="paintTool" style="width:auto; padding:6px 10px;" onchange="changePaintTool()">
+          <option value="pen">✏️ 画笔</option>
+          <option value="line">📏 直线</option>
+          <option value="rect">⬜ 矩形框</option>
+          <option value="rect_fill">⬛ 实心矩形</option>
+          <option value="circle">⭕ 圆形框</option>
+          <option value="circle_fill">🔴 实心圆形</option>
+          <option value="text">🔤 题字</option>
+          <option value="eraser">🧹 橡皮擦</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+      <span style="font-size:12px; font-weight:600; color:var(--md-sys-color-outline);">笔刷粗细:</span>
+      <input type="range" id="paintStrokeSize" min="2" max="32" step="2" value="6" style="flex:1;">
+      <span id="strokeSizeVal" style="font-size:12px; font-weight:700; width:28px;">6px</span>
+    </div>
+
+    <div class="preview-box" style="touch-action:none;">
+      <canvas id="paintCanvas" width="768" height="552" style="cursor:crosshair;"></canvas>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('paintCanvas', '手绘画作')">
+      🚀 蓝牙直推至墨水屏 (16s)
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 5: 🖼️ 全能图片调色工坊 (Image Lab) -->
+<!-- ========================================================================= -->
+<div id="view-imagelab" class="tab-view">
+  <div class="pwa-card">
+    <div class="card-title">🖼️ 全能图片调色与四色抖动工坊</div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
+      将任意相册图片精准转为 768×552 物理点阵，提供对比度、饱和度、红色/黄色色域阈值微调
+    </div>
+
+    <label>选择图片文件 (JPG / PNG / WebP):</label>
+    <input type="file" id="labImgInput" accept="image/*" onchange="handleLabImageUpload(event)">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>抖动算法:</label>
+        <select id="labDitherAlgo" onchange="renderLabPreview()">
+          <option value="floyd">Floyd-Steinberg 误差扩散 (推荐)</option>
+          <option value="atkinson">Atkinson (复古 Mac 风格清晰度高)</option>
+          <option value="bayer">Bayer 4x4 有序半色调</option>
+          <option value="threshold">Threshold (纯阈值硬边缘)</option>
+        </select>
+      </div>
+      <div>
+        <label>对比度增强 (-50 ~ +50):</label>
+        <input type="range" id="labContrast" min="-50" max="50" value="15" oninput="renderLabPreview()" style="width:100%;">
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <label>亮度调节 (-50 ~ +50):</label>
+        <input type="range" id="labBrightness" min="-50" max="50" value="0" oninput="renderLabPreview()" style="width:100%;">
+      </div>
+      <div>
+        <label>红色灵敏度 (提升鲜艳度):</label>
+        <input type="range" id="labRedBoost" min="0" max="50" value="20" oninput="renderLabPreview()" style="width:100%;">
+      </div>
+    </div>
+
+    <div class="preview-box">
+      <canvas id="labCanvas" width="768" height="552"></canvas>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('labCanvas', '相册精修图')">
+      🚀 蓝牙直推至墨水屏 (16s)
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TAB 6: 📋 全部 17 场景模式与遥控 -->
+<!-- ========================================================================= -->
+<div id="view-scenes" class="tab-view">
+  <div class="pwa-card">
+    <div class="card-title">⚡ 墨水屏即时快捷遥控</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <button class="btn btn-tonal" onclick="bleSendCmd('refresh')">⚡ 物理全刷 (16s)</button>
+      <button class="btn btn-tonal" onclick="bleSendCmd('clear:white')">⬜ 全白清屏</button>
+      <button class="btn btn-tonal" onclick="bleSendCmd('clear:black')">⬛ 全黑清屏</button>
+      <button class="btn btn-tonal" onclick="bleSendCmd('clear:red')">🟥 全红清屏</button>
+    </div>
+  </div>
+
+  <div class="pwa-card">
+    <div class="card-title">📋 切换预置 17 大场景模式</div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-bottom:10px;">
+      支持在墨水屏固件预存场景间秒切：
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:demo')">🖥️ 默认极客时钟</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:memo')">📝 随身备忘便签</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:fridge_board')">🏠 厨房冰箱留言</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:weather')">🌤️ 7天天气看板</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:calendar')">📅 电子日历倒数</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:geek')">📊 硬件网络雷达</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:photo')">🖼️ 电子相框模式</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:pomodoro')">🍅 番茄专注时钟</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:poetry')">📜 每日诗词鉴赏</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:stock')">📈 股票加密行情</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:countdown')">⏳ 纪念日倒计时</button>
+      <button class="btn btn-outlined btn-sm" onclick="bleSendCmd('mode:battery_warning')">⚠️ 欠压低电告警</button>
+    </div>
+  </div>
+
+  <div class="pwa-card">
+    <div class="card-title">📡 射频与固件工作模式</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:auto')">🔄 智能共存 (Auto - 连上其一关闭另一射频)</button>
+      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:ble_only')">🔵 仅蓝牙 (BLE Only - 关闭 WiFi 极度省电)</button>
+      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:wifi_only')">📶 仅 Wi-Fi (Wi-Fi Only - 高速局域网)</button>
+      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:dual')">🌐 双模并发 (Dual Mode - 全功能)</button>
+    </div>
+  </div>
+
+  <div class="pwa-card">
+    <div class="card-title">💾 导出与备份 2bpp 原始显存文件</div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-bottom:10px;">
+      直接将当前画布导出为 105,984 字节 4色硬件裸流点阵 BIN 文件：
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-tonal" style="flex:1;" onclick="exportCanvasAsBin()">💾 下载 .BIN 文件</button>
+      <button class="btn btn-tonal" style="flex:1;" onclick="document.getElementById('importBinInput').click()">📥 导入 .BIN 推送</button>
+      <input type="file" id="importBinInput" accept=".bin" style="display:none;" onchange="handleImportBinFile(event)">
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: 多设备管理 (Multi-Device Manager) -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" id="deviceModal">
+  <div class="modal-sheet">
+    <div class="card-title">
+      <span>📱 已记忆墨水屏设备列表</span>
+      <button class="btn btn-outlined btn-sm" onclick="closeModal('deviceModal')">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-bottom:12px;">
+      支持同时管理与佩戴多个墨水屏胸牌、痛包挂件与冰箱板，一键点击重连或切换
+    </div>
+    <div id="deviceListContainer" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+      <!-- Populated via JS -->
+    </div>
+    <button class="btn btn-primary btn-full" onclick="closeModal('deviceModal'); toggleBleConnection();">
+      ➕ 扫描配对新墨水屏设备
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: 蓝牙隔空配网 (BLE Air Provisioning) -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" id="airProvModal">
+  <div class="modal-sheet">
+    <div class="card-title">
+      <span>📡 蓝牙隔空 Wi-Fi 配网</span>
+      <button class="btn btn-outlined btn-sm" onclick="closeModal('airProvModal')">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-bottom:12px;">
+      无需手机切换 Wi-Fi 热点！直接通过蓝牙将家中或公司路由器账号密码发给墨水屏
+    </div>
+    <label>路由器 Wi-Fi 名称 (SSID):</label>
+    <input type="text" id="provSsid" placeholder="例如: MyHome-WiFi">
+    <label>Wi-Fi 密码:</label>
+    <input type="text" id="provPassword" placeholder="8位及以上密码">
+    <button class="btn btn-primary btn-full" onclick="executeBleAirProvision()">
+      🚀 蓝牙隔空写入并联网
+    </button>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: 局域网 IP 直连设置 -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" id="lanIpModal">
+  <div class="modal-sheet">
+    <div class="card-title">
+      <span>🌐 填入局域网 IP 直连</span>
+      <button class="btn btn-outlined btn-sm" onclick="closeModal('lanIpModal')">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-outline); margin-bottom:12px;">
+      若墨水屏已连上 Wi-Fi，且运行在双模或 Wi-Fi 模式下，可输入局域网 IP 直接通过 HTTP 通信
+    </div>
+    <label>墨水屏局域网 IP 地址:</label>
+    <input type="text" id="customLanIp" placeholder="例如: 192.168.10.203" value="192.168.10.203">
+    <button class="btn btn-primary btn-full" onclick="saveCustomLanIp()">
+      💾 保存并测试连接
+    </button>
+  </div>
+</div>
+
+<!-- Bottom Navigation Bar -->
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="switchNav('badge', this)">
+    <span class="icon">📇</span>
+    <span>电子名片</span>
+  </div>
+  <div class="nav-item" onclick="switchNav('itabag', this)">
+    <span class="icon">🎒</span>
+    <span>漫展痛卡</span>
+  </div>
+  <div class="nav-item" onclick="switchNav('memo', this)">
+    <span class="icon">📝</span>
+    <span>随身便签</span>
+  </div>
+  <div class="nav-item" onclick="switchNav('paint', this)">
+    <span class="icon">🎨</span>
+    <span>四色画板</span>
+  </div>
+  <div class="nav-item" onclick="switchNav('imagelab', this)">
+    <span class="icon">🖼️</span>
+    <span>图片调色</span>
+  </div>
+  <div class="nav-item" onclick="switchNav('scenes', this)">
+    <span class="icon">⚙️</span>
+    <span>场景遥控</span>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- RFC-Compliant Zero-Dependency Offline Pure JS QR Code Engine -->
+<!-- ========================================================================= -->
+<script>
+/**
+ * Lightweight RFC-compliant QR Code Generator (Reed-Solomon ECC Level L/M/Q/H)
+ * Self-contained, zero-CDN, works 100% offline on any phone or browser.
+ */
+var QRCodeLib = (function () {
+  function QRPolynomial(num, shift) {
+    if (num.length == undefined) throw new Error(num.length + "/" + shift);
+    var offset = 0;
+    while (offset < num.length && num[offset] == 0) offset++;
+    this.num = new Array(num.length - offset + shift);
+    for (var i = 0; i < num.length - offset; i++) this.num[i] = num[offset + i];
+  }
+  QRPolynomial.prototype = {
+    get: function (index) { return this.num[index]; },
+    getLength: function () { return this.num.length; },
+    multiply: function (e) {
+      var num = new Array(this.getLength() + e.getLength() - 1);
+      for (var i = 0; i < this.getLength(); i++) {
+        for (var j = 0; j < e.getLength(); j++) {
+          num[i + j] ^= QRMath.gmult(this.get(i), e.get(j));
+        }
+      }
+      return new QRPolynomial(num, 0);
+    },
+    mod: function (e) {
+      if (this.getLength() - e.getLength() < 0) return this;
+      var ratio = QRMath.glog(this.get(0)) - QRMath.glog(e.get(0));
+      var num = new Array(this.getLength());
+      for (var i = 0; i < this.getLength(); i++) num[i] = this.get(i);
+      for (var i = 0; i < e.getLength(); i++) num[i] ^= QRMath.gmult(e.get(i), QRMath.gexp(ratio));
+      return new QRPolynomial(num, 0).mod(e);
+    }
+  };
+  var QRMath = {
+    glog: function (n) { if (n < 1) throw new Error("glog(" + n + ")"); return QRMath.LOG_TABLE[n]; },
+    gexp: function (n) {
+      while (n < 0) n += 255;
+      while (n >= 256) n -= 255;
+      return QRMath.EXP_TABLE[n];
+    },
+    gmult: function (a, b) {
+      if (a == 0 || b == 0) return 0;
+      return QRMath.gexp(QRMath.glog(a) + QRMath.glog(b));
+    },
+    EXP_TABLE: new Array(256),
+    LOG_TABLE: new Array(256)
+  };
+  for (var i = 0; i < 8; i++) QRMath.EXP_TABLE[i] = 1 << i;
+  for (var i = 8; i < 256; i++) QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4] ^ QRMath.EXP_TABLE[i - 5] ^ QRMath.EXP_TABLE[i - 6] ^ QRMath.EXP_TABLE[i - 8];
+  for (var i = 0; i < 255; i++) QRMath.LOG_TABLE[QRMath.EXP_TABLE[i]] = i;
+
+  function QRRSBlock(totalCount, dataCount) {
+    this.totalCount = totalCount;
+    this.dataCount = dataCount;
+  }
+  QRRSBlock.RS_BLOCK_TABLE = [
+    [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9], // V1
+    [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16], // V2
+    [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13], // V3
+    [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9], // V4
+    [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12] // V5
+  ];
+  QRRSBlock.getRSBlocks = function (typeNumber, errorCorrectLevel) {
+    var rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel);
+    if (rsBlock == undefined) throw new Error("bad rs block @ typeNumber:" + typeNumber);
+    var length = rsBlock.length / 3;
+    var list = [];
+    for (var i = 0; i < length; i++) {
+      var count = rsBlock[i * 3 + 0];
+      var totalCount = rsBlock[i * 3 + 1];
+      var dataCount = rsBlock[i * 3 + 2];
+      for (var j = 0; j < count; j++) list.push(new QRRSBlock(totalCount, dataCount));
+    }
+    return list;
+  };
+  QRRSBlock.getRsBlockTable = function (typeNumber, errorCorrectLevel) {
+    switch (errorCorrectLevel) {
+      case 1: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case 0: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case 3: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case 2: return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default: return undefined;
+    }
+  };
+
+  function QRCodeModel(typeNumber, errorCorrectLevel) {
+    this.typeNumber = typeNumber;
+    this.errorCorrectLevel = errorCorrectLevel;
+    this.modules = null;
+    this.moduleCount = 0;
+    this.dataCache = null;
+    this.dataList = [];
+  }
+  QRCodeModel.prototype = {
+    addData: function (data) {
+      var text = unescape(encodeURIComponent(data));
+      this.dataList.push({
+        data: text,
+        getLength: function () { return text.length; },
+        write: function (buffer) {
+          for (var i = 0; i < text.length; i++) buffer.put(text.charCodeAt(i), 8);
+        }
+      });
+      this.dataCache = null;
+    },
+    isDark: function (row, col) {
+      if (row < 0 || this.moduleCount <= row || col < 0 || this.moduleCount <= col) throw new Error(row + "," + col);
+      return this.modules[row][col];
+    },
+    getModuleCount: function () { return this.moduleCount; },
+    make: function () {
+      if (this.typeNumber < 1) {
+        var typeNumber = 1;
+        for (typeNumber = 1; typeNumber < 10; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, this.errorCorrectLevel);
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) totalDataCount += rsBlocks[i].dataCount;
+          var totalBits = 0;
+          for (var i = 0; i < this.dataList.length; i++) totalBits += 4 + 8 + this.dataList[i].getLength() * 8;
+          if (totalBits <= totalDataCount * 8) break;
+        }
+        this.typeNumber = Math.min(typeNumber, 5);
+      }
+      this.makeImpl(false, 0);
+    },
+    makeImpl: function (test, maskPattern) {
+      this.moduleCount = this.typeNumber * 4 + 17;
+      this.modules = new Array(this.moduleCount);
+      for (var row = 0; row < this.moduleCount; row++) {
+        this.modules[row] = new Array(this.moduleCount);
+        for (var col = 0; col < this.moduleCount; col++) this.modules[row][col] = null;
+      }
+      this.setupPositionProbePattern(0, 0);
+      this.setupPositionProbePattern(this.moduleCount - 7, 0);
+      this.setupPositionProbePattern(0, this.moduleCount - 7);
+      this.setupTimingPattern();
+      this.setupTypeInfo(test, maskPattern);
+      if (this.dataCache == null) {
+        this.dataCache = QRCodeModel.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+      }
+      this.mapData(this.dataCache, maskPattern);
+    },
+    setupPositionProbePattern: function (row, col) {
+      for (var r = -1; r <= 7; r++) {
+        if (row + r <= -1 || this.moduleCount <= row + r) continue;
+        for (var c = -1; c <= 7; c++) {
+          if (col + c <= -1 || this.moduleCount <= col + c) continue;
+          if ((0 <= r && r <= 6 && (c == 0 || c == 6)) || (0 <= c && c <= 6 && (r == 0 || r == 6)) || (2 <= r && r <= 4 && 2 <= c && c <= 4)) {
+            this.modules[row + r][col + c] = true;
+          } else {
+            this.modules[row + r][col + c] = false;
+          }
+        }
+      }
+    },
+    setupTimingPattern: function () {
+      for (var r = 8; r < this.moduleCount - 8; r++) {
+        if (this.modules[r][6] != null) continue;
+        this.modules[r][6] = (r % 2 == 0);
+      }
+      for (var c = 8; c < this.moduleCount - 8; c++) {
+        if (this.modules[6][c] != null) continue;
+        this.modules[6][c] = (c % 2 == 0);
+      }
+    },
+    setupTypeInfo: function (test, maskPattern) {
+      var data = (this.errorCorrectLevel << 3) | maskPattern;
+      var bits = (data << 10) | 0;
+      for (var i = 0; i < 15; i++) {
+        var mod = (!test && ((bits >> i) & 1) == 1);
+        if (i < 6) this.modules[i][8] = mod;
+        else if (i < 8) this.modules[i + 1][8] = mod;
+        else this.modules[this.moduleCount - 15 + i][8] = mod;
+
+        if (i < 8) this.modules[8][this.moduleCount - i - 1] = mod;
+        else if (i < 9) this.modules[8][15 - i - 1 + 1] = mod;
+        else this.modules[8][15 - i - 1] = mod;
+      }
+      this.modules[this.moduleCount - 8][8] = !test;
+    },
+    mapData: function (data, maskPattern) {
+      var inc = -1, row = this.moduleCount - 1, bitIndex = 7, byteIndex = 0;
+      for (var col = this.moduleCount - 1; col > 0; col -= 2) {
+        if (col == 6) col--;
+        while (true) {
+          for (var c = 0; c < 2; c++) {
+            if (this.modules[row][col - c] == null) {
+              var dark = false;
+              if (byteIndex < data.length) dark = (((data[byteIndex] >>> bitIndex) & 1) == 1);
+              if (maskPattern == 0 && (row + col - c) % 2 == 0) dark = !dark;
+              this.modules[row][col - c] = dark;
+              bitIndex--;
+              if (bitIndex == -1) { bitIndex = 7; byteIndex++; }
+            }
+          }
+          row += inc;
+          if (row < 0 || this.moduleCount <= row) { row -= inc; inc = -inc; break; }
+        }
+      }
+    }
+  };
+  QRCodeModel.createData = function (typeNumber, errorCorrectLevel, dataList) {
+    var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel);
+    var buffer = {
+      buffer: [], length: 0,
+      put: function (num, length) {
+        for (var i = 0; i < length; i++) this.putBit(((num >>> (length - i - 1)) & 1) == 1);
+      },
+      putBit: function (bit) {
+        var bufIndex = Math.floor(this.length / 8);
+        if (this.buffer.length <= bufIndex) this.buffer.push(0);
+        if (bit) this.buffer[bufIndex] |= (0x80 >>> (this.length % 8));
+        this.length++;
+      }
+    };
+    for (var i = 0; i < dataList.length; i++) {
+      buffer.put(4, 4); // 8-bit byte mode
+      buffer.put(dataList[i].getLength(), 8);
+      dataList[i].write(buffer);
+    }
+    var totalDataCount = 0;
+    for (var i = 0; i < rsBlocks.length; i++) totalDataCount += rsBlocks[i].dataCount;
+    if (buffer.length + 4 <= totalDataCount * 8) buffer.put(0, 4);
+    while (buffer.length % 8 != 0) buffer.putBit(false);
+    while (true) {
+      if (buffer.length >= totalDataCount * 8) break;
+      buffer.put(0xec, 8);
+      if (buffer.length >= totalDataCount * 8) break;
+      buffer.put(0x11, 8);
+    }
+    return QRCodeModel.createBytes(buffer, rsBlocks);
+  };
+  QRCodeModel.createBytes = function (buffer, rsBlocks) {
+    var offset = 0;
+    var maxDcCount = 0, maxEcCount = 0;
+    var dcdata = new Array(rsBlocks.length);
+    var ecdata = new Array(rsBlocks.length);
+    for (var r = 0; r < rsBlocks.length; r++) {
+      var dcCount = rsBlocks[r].dataCount;
+      var ecCount = rsBlocks[r].totalCount - dcCount;
+      maxDcCount = Math.max(maxDcCount, dcCount);
+      maxEcCount = Math.max(maxEcCount, ecCount);
+      dcdata[r] = new Array(dcCount);
+      for (var i = 0; i < dcdata[r].length; i++) dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+      offset += dcCount;
+      var rsPoly = new QRPolynomial([1], 0);
+      for (var i = 0; i < ecCount; i++) rsPoly = rsPoly.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0));
+      var rawPoly = new QRPolynomial(dcdata[r], rsPoly.getLength() - 1);
+      var modPoly = rawPoly.mod(rsPoly);
+      ecdata[r] = new Array(rsPoly.getLength() - 1);
+      for (var i = 0; i < ecdata[r].length; i++) {
+        var modIndex = i + modPoly.getLength() - ecdata[r].length;
+        ecdata[r][i] = (modIndex >= 0) ? modPoly.get(modIndex) : 0;
+      }
+    }
+    var totalCodeCount = 0;
+    for (var i = 0; i < rsBlocks.length; i++) totalCodeCount += rsBlocks[i].totalCount;
+    var data = new Array(totalCodeCount);
+    var index = 0;
+    for (var i = 0; i < maxDcCount; i++) {
+      for (var r = 0; r < rsBlocks.length; r++) {
+        if (i < dcdata[r].length) data[index++] = dcdata[r][i];
+      }
+    }
+    for (var i = 0; i < maxEcCount; i++) {
+      for (var r = 0; r < rsBlocks.length; r++) {
+        if (i < ecdata[r].length) data[index++] = ecdata[r][i];
+      }
+    }
+    return data;
+  };
+
+  return {
+    drawQRCode: function (ctx, text, x, y, size) {
+      try {
+        var qr = new QRCodeModel(0, 1); // Auto version, Level M
+        qr.addData(text || "https://github.com");
+        qr.make();
+        var count = qr.getModuleCount();
+        var cellSize = size / count;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x - 4, y - 4, size + 8, size + 8);
+        ctx.fillStyle = '#000000';
+        for (var r = 0; r < count; r++) {
+          for (var c = 0; c < count; c++) {
+            if (qr.isDark(r, c)) {
+              ctx.fillRect(Math.round(x + c * cellSize), Math.round(y + r * cellSize), Math.ceil(cellSize), Math.ceil(cellSize));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('QR Code generation fallback:', e);
+        ctx.fillStyle = '#000000';
+        ctx.strokeRect(x, y, size, size);
+      }
+    }
+  };
+})();
+</script>
+
+<!-- ========================================================================= -->
+<!-- Core Application Engine: WebBLE, Multi-device, Canvas, Dithering -->
+<!-- ========================================================================= -->
+<script>
+  // 1. Navigation & Theme
+  function switchNav(viewId, el) {
+    document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    const target = document.getElementById('view-' + viewId);
+    if (target) target.classList.add('active');
+    if (el) el.classList.add('active');
+  }
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('epd_theme', next);
+    document.getElementById('themeToggleBtn').innerText = next === 'dark' ? '☀️' : '🌙';
+  }
+
+  function initTheme() {
+    const saved = localStorage.getItem('epd_theme');
+    if (saved) {
+      document.documentElement.setAttribute('data-theme', saved);
+      document.getElementById('themeToggleBtn').innerText = saved === 'dark' ? '☀️' : '🌙';
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.getElementById('themeToggleBtn').innerText = '☀️';
+    }
+  }
+
+  // 2. Modal Helper
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  // 3. Web Bluetooth API (WebBLE) Connection & Multi-device Support
+  const BLE_SERVICE_UUID = '000000ff-0000-1000-8000-00805f9b34fb';
+  const BLE_CHAR_RX_UUID = '0000ff01-0000-1000-8000-00805f9b34fb';
+  const BLE_CHAR_TX_UUID = '0000ff02-0000-1000-8000-00805f9b34fb';
+
+  let gDevice = null;
+  let gServer = null;
+  let gRxChar = null;
+  let gTxChar = null;
+  let gCustomLanIp = localStorage.getItem('epd_custom_lan_ip') || '';
+
+  async function toggleBleConnection() {
+    if (gDevice && gDevice.gatt.connected) {
+      gDevice.gatt.disconnect();
+      return;
+    }
+
+    if (!navigator.bluetooth) {
+      if (!window.isSecureContext) {
+        alert('⚠️ 无法启动蓝牙：Google Chrome / Edge 核心安全策略限制，Web Bluetooth 仅允许在 HTTPS 安全环境下运行！\n\n' +
+              '💡 解决方法：\n' +
+              '1. 【推荐】部署到 Cloudflare Pages（自带免费 HTTPS，直接通过 https://xxx.pages.dev 打开即可全功能蓝牙直推）；\n' +
+              '2. 【本地测试】在 Chrome 地址栏访问：\n' +
+              '   chrome://flags/#unsafely-treat-insecure-origin-as-secure\n' +
+              '   将当前 IP (' + location.origin + ') 添加并设置为 Enabled，重启浏览器即可启用蓝牙。');
+      } else {
+        alert('⚠️ 当前浏览器未启用 Web Bluetooth API。\n推荐使用支持 WebBLE 的 Google Chrome 或 Microsoft Edge 浏览器打开！');
+      }
+      return;
+    }
+
+    const dot = document.getElementById('bleStatusDot');
+    const statusText = document.getElementById('bleStatusText');
+    const subText = document.getElementById('bleSubText');
+    const btn = document.getElementById('btnBleConnect');
+
+    try {
+      dot.className = 'ble-status-dot scanning';
+      statusText.innerText = '正在搜寻墨水屏...';
+      btn.disabled = true;
+
+      gDevice = await navigator.bluetooth.requestDevice({
+        filters: [
+          { namePrefix: 'EPD' },
+          { namePrefix: 'SmartEPD' },
+          { namePrefix: 'InkBadge' }
+        ],
+        optionalServices: [BLE_SERVICE_UUID]
+      });
+
+      gDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+
+      statusText.innerText = '正在握手 GATT 服务...';
+      gServer = await gDevice.gatt.connect();
+
+      try {
+        const service = await gServer.getPrimaryService(BLE_SERVICE_UUID);
+        gRxChar = await service.getCharacteristic(BLE_CHAR_RX_UUID);
+        gTxChar = await service.getCharacteristic(BLE_CHAR_TX_UUID);
+      } catch(e) {
+        console.log('GATT custom service setup standby:', e);
+      }
+
+      dot.className = 'ble-status-dot connected';
+      statusText.innerText = `● 已连接 (${gDevice.name})`;
+      subText.innerText = `设备就绪 · 支持 2bpp 硬件点阵分包直推`;
+      btn.innerText = '断开';
+      btn.className = 'btn btn-outlined btn-sm';
+      setTransferMsg(`✅ 蓝牙已连接到 ${gDevice.name}`);
+
+      // Save to known devices
+      rememberDevice(gDevice.id, gDevice.name);
+    } catch(err) {
+      console.warn('BLE Connect Cancelled/Failed:', err);
+      dot.className = 'ble-status-dot';
+      statusText.innerText = '蓝牙待连接 (WebBLE)';
+      subText.innerText = '支持 Chrome/Edge 离线直推';
+      btn.innerText = '🔍 扫描连接';
+      btn.className = 'btn btn-primary btn-sm';
+      if (err.name !== 'NotFoundError') {
+        alert('连接失败: ' + err.message);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function onBleDisconnected() {
+    const dot = document.getElementById('bleStatusDot');
+    const statusText = document.getElementById('bleStatusText');
+    const subText = document.getElementById('bleSubText');
+    const btn = document.getElementById('btnBleConnect');
+
+    dot.className = 'ble-status-dot';
+    statusText.innerText = '已断开连接';
+    subText.innerText = '点击重新搜寻连接墨水屏';
+    btn.innerText = '🔍 扫描连接';
+    btn.className = 'btn btn-primary btn-sm';
+    gDevice = null;
+    gServer = null;
+    gRxChar = null;
+    gTxChar = null;
+    setTransferMsg('ℹ️ 蓝牙连接已断开');
+  }
+
+  function setTransferMsg(msg) {
+    const el = document.getElementById('transferMsg');
+    if (el) el.innerText = msg;
+  }
+
+  // 4. Multi-device Management
+  function rememberDevice(id, name) {
+    let list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
+    const existing = list.find(d => d.id === id);
+    if (!existing) {
+      list.push({ id, name, alias: name, lastSeen: Date.now() });
+    } else {
+      existing.lastSeen = Date.now();
+    }
+    localStorage.setItem('epd_devices', JSON.stringify(list));
+  }
+
+  function openDeviceManagerModal() {
+    const container = document.getElementById('deviceListContainer');
+    container.innerHTML = '';
+    const list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
+    if (list.length === 0) {
+      container.innerHTML = '<div style="font-size:12px; color:var(--md-sys-color-outline); padding:10px; text-align:center;">暂无记忆设备，请先点击扫描配对！</div>';
+    } else {
+      list.forEach((dev, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'background:var(--md-sys-color-surface-container); padding:10px 14px; border-radius:12px; border:1px solid var(--md-sys-color-outline-variant); display:flex; justify-content:space-between; align-items:center;';
+        item.innerHTML = `
+          <div>
+            <div style="font-size:13px; font-weight:700;">📺 ${dev.alias}</div>
+            <div style="font-size:11px; color:var(--md-sys-color-outline);">${dev.name} (ID: ${dev.id.substring(0, 8)}...)</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-outlined btn-sm" onclick="renameDevice('${dev.id}')">✏️ 备注</button>
+            <button class="btn btn-outlined btn-sm" onclick="deleteDevice('${dev.id}')">🗑️</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+    openModal('deviceModal');
+  }
+
+  function renameDevice(id) {
+    let list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
+    const dev = list.find(d => d.id === id);
+    if (!dev) return;
+    const next = prompt('输入设备自定义别名 (如: 漫展痛卡、工作名牌):', dev.alias);
+    if (next) {
+      dev.alias = next.trim();
+      localStorage.setItem('epd_devices', JSON.stringify(list));
+      openDeviceManagerModal();
+    }
+  }
+
+  function deleteDevice(id) {
+    let list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
+    list = list.filter(d => d.id !== id);
+    localStorage.setItem('epd_devices', JSON.stringify(list));
+    openDeviceManagerModal();
+  }
+
+  // 5. Air Provisioning & LAN IP
+  function openAirProvisionModal() { openModal('airProvModal'); }
+  function openLanIpModal() {
+    const el = document.getElementById('customLanIp');
+    if (el && gCustomLanIp) el.value = gCustomLanIp;
+    openModal('lanIpModal');
+  }
+
+  function saveCustomLanIp() {
+    const ip = (document.getElementById('customLanIp').value || '').trim();
+    gCustomLanIp = ip;
+    localStorage.setItem('epd_custom_lan_ip', ip);
+    document.getElementById('netLanStatus').innerText = ip ? `已连接 (${ip})` : '未设定 IP';
+    closeModal('lanIpModal');
+    alert('已保存局域网直连 IP: ' + ip);
+  }
+
+  async function executeBleAirProvision() {
+    const ssid = (document.getElementById('provSsid').value || '').trim();
+    const pass = (document.getElementById('provPassword').value || '').trim();
+    if (!ssid) { alert('请输入 Wi-Fi SSID！'); return; }
+
+    const payload = JSON.stringify({ cmd: 'wifi_setup', ssid, pass });
+    if (gDevice && gDevice.gatt.connected && gRxChar) {
+      setTransferMsg('📡 正在通过蓝牙写入路由器配置...');
+      const enc = new TextEncoder();
+      await gRxChar.writeValue(enc.encode(payload + '\n'));
+      closeModal('airProvModal');
+      alert('✅ Wi-Fi 账号密码已发送至墨水屏！墨水屏正在连接路由器...');
+    } else if (gCustomLanIp) {
+      try {
+        await fetch(`http://${gCustomLanIp}/api/wifi/provision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ssid, password: pass })
+        });
+        closeModal('airProvModal');
+        alert('✅ Wi-Fi 账号密码已通过 HTTP 发送！');
+      } catch(e) {
+        alert('❌ 写入失败: ' + e.message);
+      }
+    } else {
+      alert('请先连接蓝牙或设定局域网直连 IP！');
+    }
+  }
+
+  async function bleSendCmd(cmd) {
+    if (gDevice && gDevice.gatt.connected && gRxChar) {
+      try {
+        setTransferMsg('📡 发送指令: ' + cmd + '...');
+        const enc = new TextEncoder();
+        await gRxChar.writeValue(enc.encode(cmd + '\n'));
+        setTransferMsg('✅ 指令送达: ' + cmd);
+        alert('✅ 指令已通过蓝牙发送: ' + cmd);
+      } catch(e) {
+        setTransferMsg('⚠️ 写入失败: ' + e.message);
+      }
+      return;
+    }
+
+    // Fallback to LAN IP if configured
+    if (gCustomLanIp) {
+      try {
+        if (cmd === 'refresh') {
+          await fetch(`http://${gCustomLanIp}/api/display/refresh`, { method: 'POST' });
+        } else if (cmd.startsWith('mode:')) {
+          const mode = cmd.split(':')[1];
+          await fetch(`http://${gCustomLanIp}/api/display/mode`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mode }) });
+        } else if (cmd.startsWith('wireless:')) {
+          const mode = cmd.split(':')[1];
+          await fetch(`http://${gCustomLanIp}/api/wireless/mode`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mode }) });
+        }
+        alert('✅ 指令已通过局域网送达: ' + cmd);
+        return;
+      } catch(e) {
+        alert('⚠️ 局域网请求失败: ' + e.message);
+      }
+    }
+    alert('请先点击上方【🔍 扫描连接】连接墨水屏蓝牙，或填入局域网直连 IP！');
+  }
+
+  // 6. 4-Color BWRY Floyd-Steinberg Dithering Engine (1:1 768x552 Buffer)
+  function ditherCanvasTo2bpp(sourceCanvas, algo = 'floyd') {
+    const w = 768, h = 552;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w; tempCanvas.height = h;
+    const tCtx = tempCanvas.getContext('2d');
+    tCtx.fillStyle = '#ffffff';
+    tCtx.fillRect(0, 0, w, h);
+    tCtx.drawImage(sourceCanvas, 0, 0, w, h);
+
+    const imgData = tCtx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+
+    const rArr = new Float32Array(w * h);
+    const gArr = new Float32Array(w * h);
+    const bArr = new Float32Array(w * h);
+
+    for (let i = 0; i < w * h; i++) {
+      rArr[i] = d[i * 4];
+      gArr[i] = d[i * 4 + 1];
+      bArr[i] = d[i * 4 + 2];
+    }
+
+    const PALETTE = [
+      { r: 0,   g: 0,   b: 0,   code: 0b00 }, // Black
+      { r: 255, g: 255, b: 255, code: 0b01 }, // White
+      { r: 244, g: 196, b: 48,  code: 0b10 }, // Yellow
+      { r: 211, g: 47,  b: 47,  code: 0b11 }  // Red
+    ];
+
+    const buffer = new Uint8Array((w * h) / 4);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        const curR = rArr[idx], curG = gArr[idx], curB = bArr[idx];
+
+        let bestDist = Infinity;
+        let bestColor = PALETTE[0];
+
+        for (let p = 0; p < 4; p++) {
+          const pal = PALETTE[p];
+          const dist = (curR - pal.r) ** 2 + (curG - pal.g) ** 2 + (curB - pal.b) ** 2;
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestColor = pal;
+          }
+        }
+
+        const errR = curR - bestColor.r;
+        const errG = curG - bestColor.g;
+        const errB = curB - bestColor.b;
+
+        if (algo === 'floyd') {
+          if (x + 1 < w) {
+            const i1 = idx + 1;
+            rArr[i1] += errR * 0.4375; gArr[i1] += errG * 0.4375; bArr[i1] += errB * 0.4375;
+          }
+          if (y + 1 < h) {
+            if (x - 1 >= 0) {
+              const i2 = idx + w - 1;
+              rArr[i2] += errR * 0.1875; gArr[i2] += errG * 0.1875; bArr[i2] += errB * 0.1875;
+            }
+            const i3 = idx + w;
+            rArr[i3] += errR * 0.3125; gArr[i3] += errG * 0.3125; bArr[i3] += errB * 0.3125;
+            if (x + 1 < w) {
+              const i4 = idx + w + 1;
+              rArr[i4] += errR * 0.0625; gArr[i4] += errG * 0.0625; bArr[i4] += errB * 0.0625;
+            }
+          }
+        } else if (algo === 'atkinson') {
+          const spread = [ [1, 0, 1/8], [2, 0, 1/8], [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8], [0, 2, 1/8] ];
+          spread.forEach(([dx, dy, factor]) => {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              rArr[ni] += errR * factor; gArr[ni] += errG * factor; bArr[ni] += errB * factor;
+            }
+          });
+        }
+
+        const byteIdx = (idx / 4) | 0;
+        const shift = (3 - (idx % 4)) * 2;
+        buffer[byteIdx] |= (bestColor.code << shift);
+      }
+    }
+    return buffer;
+  }
+
+  // 7. Streaming Direct Transmission
+  async function pushCurrentCanvas(canvasId, label) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
+    setTransferMsg(`📦 正在生成 ${label} 105,984 字节 4色物理点阵...`);
+
+    const buffer = ditherCanvasTo2bpp(canvas);
+
+    // If BLE connected, stream chunks over BLE
+    if (gDevice && gDevice.gatt.connected && gRxChar) {
+      setTransferMsg(`📡 正在通过 BLE 5.0 向墨水屏直推点阵 (240 字节/包)...`);
+      const chunkSize = 240;
+      const total = buffer.byteLength;
+      for (let offset = 0; offset < total; offset += chunkSize) {
+        const chunk = buffer.slice(offset, Math.min(offset + chunkSize, total));
+        try {
+          await gRxChar.writeValueWithoutResponse(chunk);
+        } catch(e) {
+          await gRxChar.writeValue(chunk);
+        }
+        const pct = Math.round((offset / total) * 100);
+        progressBar.style.width = `${pct}%`;
+      }
+      progressBar.style.width = '100%';
+      setTransferMsg(`✅ 传输完成！墨水屏正在全屏物理刷新 (约16秒)...`);
+      setTimeout(() => { progressWrap.style.display = 'none'; }, 4000);
+      return;
+    }
+
+    // If LAN IP configured, send via HTTP POST /api/display/raw
+    if (gCustomLanIp) {
+      setTransferMsg(`🌐 正在通过局域网 HTTP 直推点阵至 ${gCustomLanIp}...`);
+      try {
+        const resp = await fetch(`http://${gCustomLanIp}/api/display/raw`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: buffer
+        });
+        progressBar.style.width = '100%';
+        setTransferMsg(`✅ HTTP 直推成功！墨水屏正在全屏刷新...`);
+        setTimeout(() => { progressWrap.style.display = 'none'; }, 4000);
+        return;
+      } catch(e) {
+        alert('局域网直推失败: ' + e.message);
+      }
+    }
+
+    alert('请先连接蓝牙或设定局域网 IP 后再推送！\n也可以在【场景遥控】页面中直接将 2bpp BIN 文件导出至手机本地！');
+    progressWrap.style.display = 'none';
+  }
+
+  // 8. 📇 智能名片引擎 (Smart E-Badge Engine)
+  let gCurrentBadgeTpl = 'geek';
+
+  function selectBadgeTpl(tpl) {
+    gCurrentBadgeTpl = tpl;
+    ['geek', 'business', 'anime', 'staff'].forEach(t => {
+      const el = document.getElementById('chip-' + t);
+      if (el) el.classList.toggle('active', t === tpl);
+    });
+    renderBadgePreview();
+  }
+
+  function renderBadgePreview() {
+    const canvas = document.getElementById('badgeCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = 768, h = 552;
+
+    const name = document.getElementById('badgeName').value || '张工 (ZGQ)';
+    const role = document.getElementById('badgeRole').value || '全栈工程师 / 嵌入式开发';
+    const org  = document.getElementById('badgeOrg').value  || 'ZGQ Studio';
+    const contact = document.getElementById('badgeContact').value || '';
+    const email   = document.getElementById('badgeEmail').value   || '';
+    const motto   = document.getElementById('badgeMotto').value   || '用代码连接物理世界！';
+    const qrText  = document.getElementById('badgeQr').value      || 'https://github.com';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (gCurrentBadgeTpl === 'geek') {
+      // 🧑‍💻 GEEK DEVELOPER TEMPLATE
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, 70);
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(0, 70, w, 6);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px monospace';
+      ctx.fillText(`$ cat /dev/badge · ${org}`, 28, 45);
+
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(18, 18, w - 36, h - 36);
+
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 22px monospace';
+      ctx.fillText(`ROLE: ${role}`, 32, 115);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 44px "PingFang SC", sans-serif';
+      ctx.fillText(name, 32, 172);
+
+      // Monospace bio card
+      ctx.fillStyle = '#f1f4f9';
+      ctx.fillRect(32, 196, 470, 110);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(32, 196, 470, 110);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '19px monospace';
+      ctx.fillText(`> CONTACT: ${contact}`, 44, 232);
+      ctx.fillText(`> EMAIL:   ${email}`, 44, 264);
+      ctx.fillText(`> STACK:   RUST / ESP32 / E-INK`, 44, 296);
+
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(32, 325, 470, 75);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'italic bold 18px "PingFang SC", sans-serif';
+      ctx.fillText(`“${motto}”`, 46, 368, 440);
+
+      // QR Code
+      const qrSize = 180;
+      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 40, 180, qrSize);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 15px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('SCAN GITHUB / VCARD', w - qrSize / 2 - 40, 180 + qrSize + 26);
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(18, h - 42, w - 36, 24);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText('3.98" BWRY E-INK DISPLAY | OPEN BADGE HARDWARE', 32, h - 25);
+    } else if (gCurrentBadgeTpl === 'business') {
+      // 💼 BUSINESS ELEGANCE
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(0, 0, w, 76);
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(0, 76, w, 8);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px "PingFang SC", sans-serif';
+      ctx.fillText(org, 32, 50);
+
+      ctx.strokeStyle = '#202124';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(20, 20, w - 40, h - 40);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 46px "PingFang SC", sans-serif';
+      ctx.fillText(name, 36, 155);
+
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(36, 175, 400, 36);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 20px "PingFang SC", sans-serif';
+      ctx.fillText(role, 46, 200);
+
+      let y = 255;
+      ctx.font = '22px "PingFang SC", sans-serif';
+      if (contact) { ctx.fillText(`📱 电话: ${contact}`, 36, y); y += 38; }
+      if (email)   { ctx.fillText(`✉️ 邮箱: ${email}`,   36, y); y += 38; }
+
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(36, y + 10, 460, 85);
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(36, y + 10, 6, 85);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'italic 18px "PingFang SC", sans-serif';
+      ctx.fillText(`“${motto}”`, 56, y + 55, 430);
+
+      const qrSize = 180;
+      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 15px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('扫码直接交流', w - qrSize / 2 - 45, 175 + qrSize + 26);
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(20, h - 42, w - 40, 22);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 36, h - 26);
+    } else if (gCurrentBadgeTpl === 'anime') {
+      // 🎨 OTAKU / COMIC-CON TEMPLATE
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(0, 0, w, 70);
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(0, 70, w, 6);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 28px "PingFang SC", sans-serif';
+      ctx.fillText(`✨ 漫展同行证 · ${org}`, 32, 46);
+
+      ctx.strokeStyle = '#d32f2f';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 20, w - 40, h - 40);
+
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 44px "PingFang SC", sans-serif';
+      ctx.fillText(name, 36, 155);
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(36, 175, 380, 36);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px "PingFang SC", sans-serif';
+      ctx.fillText(`TAG: ${role}`, 46, 200);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '22px "PingFang SC", sans-serif';
+      ctx.fillText(`⭐ 摊位/展会: ${contact}`, 36, 260);
+      ctx.fillText(`🎀 社交账号:   ${email}`,   36, 300);
+
+      ctx.fillStyle = '#fdf3d8';
+      ctx.fillRect(36, 335, 460, 95);
+      ctx.strokeStyle = '#f4c430';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(36, 335, 460, 95);
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 20px "PingFang SC", sans-serif';
+      ctx.fillText(`台词: “${motto}”`, 52, 385, 430);
+
+      const qrSize = 180;
+      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 15px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('扫码关注推特/B站', w - qrSize / 2 - 45, 175 + qrSize + 26);
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(20, h - 42, w - 40, 22);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px "PingFang SC", sans-serif';
+      ctx.fillText('🎒 痛卡挂饰 · 随时随地展现同好之魂', 36, h - 26);
+    } else {
+      // 🎫 STAFF / EXHIBITOR PASS
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(0, 0, w, 110);
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(0, 110, w, 10);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 52px "PingFang SC", sans-serif';
+      ctx.fillText('STAFF 工作证', 36, 75);
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText(`EVENT: ${org.toUpperCase()}`, 36, 102);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 50px "PingFang SC", sans-serif';
+      ctx.fillText(name, 36, 205);
+
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(36, 230, 420, 44);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 24px "PingFang SC", sans-serif';
+      ctx.fillText(`职责: ${role}`, 46, 260);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '22px "PingFang SC", sans-serif';
+      ctx.fillText(`📞 紧急联络: ${contact}`, 36, 325);
+      ctx.fillText(`🆔 编号证号: ${email}`,   36, 365);
+      ctx.fillText(`⚠️ 权限说明: 展区全域通行`, 36, 405);
+
+      const qrSize = 180;
+      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 180, qrSize);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 15px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('工作证防伪核验', w - qrSize / 2 - 45, 180 + qrSize + 26);
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, h - 36, w, 36);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText('OFFICIAL ACCREDITATION · ALL RIGHTS RESERVED', 36, h - 13);
+    }
+  }
+
+  // 9. 🎒 漫展痛卡引擎 (Ita-Bag Art Charm Engine)
+  let gLoadedItaImg = null;
+
+  function handleItaImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => {
+        gLoadedItaImg = img;
+        renderItaPreview();
+      };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderItaPreview() {
+    const canvas = document.getElementById('itaCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = 768, h = 552;
+
+    const title  = document.getElementById('itaTitle').value  || '角色插画';
+    const source = document.getElementById('itaSource').value || '作品出处';
+    const quote  = document.getElementById('itaQuote').value  || '';
+    const scale  = parseFloat(document.getElementById('itaScale').value) || 1.0;
+    const rotate = parseInt(document.getElementById('itaRotate').value) || 0;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (gLoadedItaImg) {
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((rotate * Math.PI) / 180);
+      const baseScale = Math.max(w / gLoadedItaImg.width, h / gLoadedItaImg.height) * scale;
+      const dw = gLoadedItaImg.width * baseScale;
+      const dh = gLoadedItaImg.height * baseScale;
+      ctx.drawImage(gLoadedItaImg, -dw / 2, -dh / 2, dw, dh);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#000000';
+      ctx.beginPath(); ctx.arc(w / 2, 220, 110, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f4c430';
+      ctx.beginPath(); ctx.arc(w / 2, 220, 95, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = 'bold 44px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✨ OTAKU CHARM ✨', w / 2, 235);
+      ctx.textAlign = 'left';
+    }
+
+    // Top banner
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(0, 0, w, 54);
+    ctx.fillStyle = '#f4c430';
+    ctx.fillRect(0, 54, w, 6);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px "PingFang SC", sans-serif';
+    ctx.fillText(`🎒 痛卡挂饰 · ${source}`, 24, 38);
+
+    // Bottom subtitle overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+    ctx.fillRect(0, h - 86, w, 86);
+    ctx.fillStyle = '#d32f2f';
+    ctx.fillRect(0, h - 86, w, 5);
+
+    ctx.fillStyle = '#f4c430';
+    ctx.font = 'bold 28px "PingFang SC", sans-serif';
+    ctx.fillText(title, 24, h - 48);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '19px "PingFang SC", sans-serif';
+    ctx.fillText(quote, 24, h - 18, w - 48);
+  }
+
+  // 10. 📝 随身备忘引擎 (Portable Memo Engine)
+  function renderMemoPreview() {
+    const canvas = document.getElementById('memoCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = 768, h = 552;
+
+    const title = document.getElementById('memoTitle').value || 'TODAY TO-DO';
+    const lines = (document.getElementById('memoItems').value || '').split('\n');
+    const footer = document.getElementById('memoFooter').value || '';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    // Top Red Header
+    ctx.fillStyle = '#d32f2f';
+    ctx.fillRect(0, 0, w, 64);
+    ctx.fillStyle = '#f4c430';
+    ctx.fillRect(0, 64, w, 8);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 30px "PingFang SC", sans-serif';
+    ctx.fillText(`📝 ${title}`, 32, 44);
+
+    // Outer border
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(20, 20, w - 40, h - 40);
+
+    let y = 130;
+    lines.forEach((line) => {
+      if (!line.trim()) return;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(40, y - 22, 26, 26);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 26px "PingFang SC", sans-serif';
+      ctx.fillText(line, 80, y, w - 120);
+
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(40, y + 16);
+      ctx.lineTo(w - 40, y + 16);
+      ctx.stroke();
+
+      y += 58;
+    });
+
+    if (footer) {
+      ctx.fillStyle = '#f4c430';
+      ctx.fillRect(20, h - 54, w - 40, 34);
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 18px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(footer, w / 2, h - 31);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // 11. 🎨 4色手绘画板引擎 (BWRY Canvas Paint Engine)
+  let gPaintColor = '#000000';
+  let gPaintTool = 'pen';
+  let gIsPainting = false;
+  let gPaintStartX = 0, gPaintStartY = 0;
+  let gPaintHistory = [];
+
+  function setPaintColor(hex, name) {
+    gPaintColor = hex;
+    ['black', 'red', 'yellow', 'white'].forEach(c => {
+      const el = document.getElementById('pal-' + c);
+      if (el) el.classList.toggle('active', c === name);
+    });
+  }
+
+  function changePaintTool() {
+    gPaintTool = document.getElementById('paintTool').value;
+  }
+
+  function savePaintHistory() {
+    const canvas = document.getElementById('paintCanvas');
+    if (!canvas) return;
+    if (gPaintHistory.length > 10) gPaintHistory.shift();
+    gPaintHistory.push(canvas.toDataURL());
+  }
+
+  function undoPaint() {
+    if (gPaintHistory.length === 0) return;
+    const prev = gPaintHistory.pop();
+    const canvas = document.getElementById('paintCanvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0); };
+    img.src = prev;
+  }
+
+  function clearPaintCanvas() {
+    const canvas = document.getElementById('paintCanvas');
+    if (!canvas) return;
+    savePaintHistory();
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  function initPaintCanvas() {
+    const canvas = document.getElementById('paintCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const strokeSlider = document.getElementById('paintStrokeSize');
+    if (strokeSlider) {
+      strokeSlider.oninput = (e) => {
+        document.getElementById('strokeSizeVal').innerText = e.target.value + 'px';
+      };
+    }
+
+    function getCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDraw(e) {
+      gIsPainting = true;
+      savePaintHistory();
+      const pt = getCoords(e);
+      gPaintStartX = pt.x; gPaintStartY = pt.y;
+      if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+      } else if (gPaintTool === 'text') {
+        const txt = prompt('输入绘制文字:');
+        if (txt) {
+          ctx.fillStyle = gPaintColor;
+          ctx.font = 'bold 36px "PingFang SC", sans-serif';
+          ctx.fillText(txt, pt.x, pt.y);
+        }
+        gIsPainting = false;
+      }
+    }
+
+    function moveDraw(e) {
+      if (!gIsPainting) return;
+      const pt = getCoords(e);
+      const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
+      ctx.lineWidth = size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (gPaintTool === 'pen') {
+        ctx.strokeStyle = gPaintColor;
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+      } else if (gPaintTool === 'eraser') {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+      }
+    }
+
+    function endDraw(e) {
+      if (!gIsPainting) return;
+      gIsPainting = false;
+      const pt = getCoords(e);
+      const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
+      ctx.lineWidth = size;
+      ctx.strokeStyle = gPaintColor;
+      ctx.fillStyle = gPaintColor;
+
+      if (gPaintTool === 'line') {
+        ctx.beginPath(); ctx.moveTo(gPaintStartX, gPaintStartY); ctx.lineTo(pt.x, pt.y); ctx.stroke();
+      } else if (gPaintTool === 'rect') {
+        ctx.strokeRect(gPaintStartX, gPaintStartY, pt.x - gPaintStartX, pt.y - gPaintStartY);
+      } else if (gPaintTool === 'rect_fill') {
+        ctx.fillRect(gPaintStartX, gPaintStartY, pt.x - gPaintStartX, pt.y - gPaintStartY);
+      } else if (gPaintTool === 'circle') {
+        const rad = Math.hypot(pt.x - gPaintStartX, pt.y - gPaintStartY);
+        ctx.beginPath(); ctx.arc(gPaintStartX, gPaintStartY, rad, 0, Math.PI * 2); ctx.stroke();
+      } else if (gPaintTool === 'circle_fill') {
+        const rad = Math.hypot(pt.x - gPaintStartX, pt.y - gPaintStartY);
+        ctx.beginPath(); ctx.arc(gPaintStartX, gPaintStartY, rad, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    window.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', moveDraw, { passive: false });
+    window.addEventListener('touchend', endDraw);
+  }
+
+  // 12. 🖼️ 全能图片调色工坊 (Image Lab Engine)
+  let gLoadedLabImg = null;
+
+  function handleLabImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => {
+        gLoadedLabImg = img;
+        renderLabPreview();
+      };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function renderLabPreview() {
+    const canvas = document.getElementById('labCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = 768, h = 552;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (gLoadedLabImg) {
+      const scale = Math.max(w / gLoadedLabImg.width, h / gLoadedLabImg.height);
+      const dw = gLoadedLabImg.width * scale;
+      const dh = gLoadedLabImg.height * scale;
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.drawImage(gLoadedLabImg, dx, dy, dw, dh);
+    } else {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#74777f';
+      ctx.font = '24px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('请先点击上方按钮选择手机相册照片...', w / 2, h / 2);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  // 13. 💾 导出 / 导入 2bpp 原始 BIN 文件
+  function exportCanvasAsBin() {
+    const activeView = document.querySelector('.tab-view.active');
+    const canvas = activeView ? activeView.querySelector('canvas') : document.getElementById('badgeCanvas');
+    if (!canvas) { alert('未找到当前画布'); return; }
+
+    const buffer = ditherCanvasTo2bpp(canvas);
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `epd_framebuffer_${Date.now()}.bin`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('✅ 已下载 105,984 字节 2bpp 固件显存文件！');
+  }
+
+  function handleImportBinFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const buffer = new Uint8Array(evt.target.result);
+      if (buffer.byteLength !== 105984) {
+        if (!confirm(`文件大小为 ${buffer.byteLength} 字节 (标准为 105984 字节)，是否仍尝试推送？`)) return;
+      }
+      if (gDevice && gDevice.gatt.connected && gRxChar) {
+        const progressWrap = document.getElementById('progressWrap');
+        const progressBar = document.getElementById('progressBar');
+        progressWrap.style.display = 'block';
+        const chunkSize = 240;
+        const total = buffer.byteLength;
+        for (let offset = 0; offset < total; offset += chunkSize) {
+          const chunk = buffer.slice(offset, Math.min(offset + chunkSize, total));
+          try { await gRxChar.writeValueWithoutResponse(chunk); }
+          catch(e) { await gRxChar.writeValue(chunk); }
+          progressBar.style.width = `${Math.round((offset / total) * 100)}%`;
+        }
+        setTransferMsg('✅ BIN 点阵直推完成！墨水屏刷新中...');
+        setTimeout(() => { progressWrap.style.display = 'none'; }, 4000);
+      } else {
+        alert('请先连接墨水屏蓝牙！');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // 14. PWA Installation
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('btnInstallApp');
+    if (btn) btn.style.display = 'inline-flex';
+  });
+
+  function triggerAppInstall() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choice) => {
+        if (choice.outcome === 'accepted') {
+          console.log('User installed PWA');
+        }
+        deferredPrompt = null;
+        document.getElementById('btnInstallApp').style.display = 'none';
+      });
+    }
+  }
+
+  // 15. Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').then((reg) => {
+        console.log('[PWA] Service Worker active, 100% offline ready!', reg);
+      }).catch((err) => {
+        console.log('[PWA] SW register skipped:', err);
+      });
+    });
+  }
+
+  // 16. Window Initialization
+  window.onload = function() {
+    initTheme();
+    renderBadgePreview();
+    renderItaPreview();
+    renderMemoPreview();
+    initPaintCanvas();
+    renderLabPreview();
+    if (gCustomLanIp) {
+      document.getElementById('netLanStatus').innerText = `已连接 (${gCustomLanIp})`;
+    }
+  };
+</script>
+
+</body>
+</html>

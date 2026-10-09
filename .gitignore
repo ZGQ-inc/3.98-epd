@@ -1,0 +1,41 @@
+# Rust & Cargo build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# ESP-IDF build outputs & temporary configurations
+build/
+.esp-idf/
+sdkconfig.old
+sdkconfig.ci
+managed_components/
+dependencies.lock
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Temporary and generated preview files
+out.html
+part_table.bin
+*.tmp
+*.log
+*.bak
+
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~

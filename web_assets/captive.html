@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-color="blue">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>3.98" 4色墨水屏 — 配网设置</title>
+  <style>
+    :root {
+      --primary: #9ECAFF;
+      --on-primary: #003258;
+      --primary-container: #00497D;
+      --bg: #111315;
+      --surface: rgba(28, 30, 33, 0.7);
+      --surface-border: rgba(255, 255, 255, 0.12);
+      --text: #E2E2E6;
+      --text-dim: #8D9199;
+      --radius: 18px;
+    }
+    @media (prefers-color-scheme: light) {
+      :root[data-theme="auto"] {
+        --primary: #0061A4;
+        --on-primary: #FFFFFF;
+        --primary-container: #D1E4FF;
+        --bg: #F8F9FD;
+        --surface: rgba(255, 255, 255, 0.75);
+        --surface-border: rgba(0, 0, 0, 0.08);
+        --text: #1A1C1E;
+        --text-dim: #73777F;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
+    }
+    /* Ambient Glow Blobs */
+    body::before {
+      content: '';
+      position: fixed;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(0, 97, 164, 0.25) 0%, transparent 70%);
+      top: -60px;
+      left: -60px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, rgba(158, 202, 255, 0.15) 0%, transparent 70%);
+      bottom: -40px;
+      right: -40px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      position: relative;
+      z-index: 10;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      background: var(--primary-container);
+      color: var(--primary);
+      border-radius: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 16px rgba(0, 97, 164, 0.3);
+    }
+    .logo-badge svg { width: 28px; height: 28px; fill: currentColor; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.2px; }
+    p.sub { font-size: 13px; color: var(--text-dim); }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text); }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      padding: 0 14px;
+      transition: all 0.2s ease;
+    }
+    .input-wrap:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(158, 202, 255, 0.25);
+    }
+    input, select {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 14px;
+      padding: 12px 0;
+      outline: none;
+    }
+    select option { background: #202224; color: #E2E2E6; }
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0, 97, 164, 0.25);
+    }
+    .btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--surface-border);
+      margin-top: 10px;
+      box-shadow: none;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.05); }
+    .status-msg {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
+    .status-msg.success { background: rgba(76, 175, 80, 0.15); color: #81C784; border: 1px solid rgba(76, 175, 80, 0.3); display: block; }
+    .status-msg.error { background: rgba(244, 67, 54, 0.15); color: #E57373; border: 1px solid rgba(244, 67, 54, 0.3); display: block; }
+    .ip-tag {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: rgba(158, 202, 255, 0.12);
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .toggle-pwd {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+    }
+    .toggle-pwd svg { width: 20px; height: 20px; fill: currentColor; }
+    .wifi-list {
+      margin-top: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      max-height: 160px;
+      overflow-y: auto;
+      display: none;
+    }
+    .wifi-item {
+      padding: 10px 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+    }
+    .wifi-item:last-child { border-bottom: none; }
+    .wifi-item:hover, .wifi-item:active { background: rgba(158, 202, 255, 0.12); }
+    .tips-box {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--surface-border);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-dim);
+    }
+    .tips-box b { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo-badge">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      </div>
+      <h1>3.98" 4色墨水屏</h1>
+      <p class="sub">Wi-Fi 无线网络配置 (768×552 BWRY)</p>
+
+      <span class="ip-tag">热点配置模式 • 192.168.4.1</span>
+    </div>
+
+    <form id="wifiForm" onsubmit="saveWifi(event)">
+      <div class="form-group">
+        <label for="ssid">Wi-Fi 网络名称 (SSID)</label>
+        <div class="input-wrap">
+          <input type="text" id="ssid" placeholder="选择或输入 SSID" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div id="wifiList" class="wifi-list"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">密码</label>
+        <div class="input-wrap">
+          <input type="password" id="password" placeholder="留空为开放网络" autocomplete="current-password">
+          <button type="button" class="toggle-pwd" onclick="togglePassword()" title="显示/隐藏密码">
+            <svg id="eyeIcon" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <details style="margin-top: 14px; font-size: 13px; color: var(--text-dim);">
+        <summary style="cursor: pointer; padding: 4px 0; user-select: none;">⚙️ 高级选项：配置固定静态 IP (可选)</summary>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <label style="font-size: 12px; margin-bottom: 4px;">静态 IP 地址 (如 192.168.31.200)</label>
+            <div class="input-wrap"><input type="text" id="staticIp" placeholder="留空则使用自动 DHCP"></div>
+          </div>
+          <div>
+            <label style="font-size: 12px; margin-bottom: 4px;">网关地址 (如 192.168.31.1)</label>
+            <div class="input-wrap"><input type="text" id="gateway" placeholder="留空则使用默认网关"></div>
+          </div>
+          <div>
+            <label style="font-size: 12px; margin-bottom: 4px;">子网掩码 (默认 255.255.255.0)</label>
+            <div class="input-wrap"><input type="text" id="subnet" placeholder="255.255.255.0"></div>
+          </div>
+        </div>
+      </details>
+
+      <button type="submit" class="btn" id="btnSave" style="margin-top: 16px;">
+        <span>连接并保存</span>
+      </button>
+
+      <button type="button" class="btn btn-secondary" id="btnScan" onclick="scanWifi()">
+        <span>扫描周边 Wi-Fi</span>
+      </button>
+    </form>
+
+    <div class="tips-box">
+      <b>💡 配网提示：</b><br>
+      • 请优先连接 <b>2.4GHz</b> Wi-Fi（如双频合一请直接填写名称与密码）。<br>
+      • 保存后设备自动连网，手机连回同一 Wi-Fi 后访问 <b>http://epd-display.local</b>。
+    </div>
+
+    <div id="status" class="status-msg"></div>
+  </div>
+
+  <script>
+    function togglePassword() {
+      const pwd = document.getElementById('password');
+      const isPwd = pwd.type === 'password';
+      pwd.type = isPwd ? 'text' : 'password';
+      const eye = document.getElementById('eyeIcon');
+      if (isPwd) {
+        eye.innerHTML = '<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>';
+      } else {
+        eye.innerHTML = '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>';
+      }
+    }
+
+    async function scanWifi() {
+      const btn = document.getElementById('btnScan');
+      const listDiv = document.getElementById('wifiList');
+      const statusDiv = document.getElementById('status');
+      const oldHtml = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span> 正在扫描...';
+      btn.disabled = true;
+      listDiv.style.display = 'none';
+      listDiv.innerHTML = '';
+      try {
+        const res = await fetch('/api/wifi/scan', { method: 'POST' });
+        const list = await res.json();
+        if (Array.isArray(list) && list.length > 0) {
+          list.forEach(item => {
+            const name = item.ssid || item;
+            if (!name) return;
+            const row = document.createElement('div');
+            row.className = 'wifi-item';
+            row.innerHTML = `<span class="wifi-name">${name}</span><span class="wifi-rssi">${item.rssi ? item.rssi + ' dBm' : ''}</span>`;
+            row.onclick = () => {
+              document.getElementById('ssid').value = name;
+              listDiv.style.display = 'none';
+              document.getElementById('password').focus();
+            };
+            listDiv.appendChild(row);
+          });
+          listDiv.style.display = 'block';
+        } else {
+          statusDiv.className = 'status-msg';
+          statusDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+          statusDiv.style.color = 'var(--text-dim)';
+          statusDiv.style.border = '1px solid var(--surface-border)';
+          statusDiv.innerText = '💡 未扫描到周边网络，请直接在上方手动输入 Wi-Fi 名称与密码。';
+          statusDiv.style.display = 'block';
+        }
+      } catch (err) {
+        statusDiv.className = 'status-msg';
+        statusDiv.style.background = 'rgba(255, 255, 255, 0.05)';
+        statusDiv.style.color = 'var(--text-dim)';
+        statusDiv.style.border = '1px solid var(--surface-border)';
+        statusDiv.innerText = '💡 请直接在上方手动输入 Wi-Fi 名称与密码进行连接。';
+        statusDiv.style.display = 'block';
+      } finally {
+        btn.innerHTML = oldHtml;
+        btn.disabled = false;
+      }
+    }
+
+    async function saveWifi(e) {
+      e.preventDefault();
+      const ssid = document.getElementById('ssid').value.trim();
+      const password = document.getElementById('password').value;
+      const staticIp = document.getElementById('staticIp').value.trim();
+      const gateway = document.getElementById('gateway').value.trim();
+      const subnet = document.getElementById('subnet').value.trim();
+      const statusDiv = document.getElementById('status');
+      const btn = document.getElementById('btnSave');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> 保存中...';
+      statusDiv.className = 'status-msg';
+      statusDiv.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/wifi/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ssid,
+            password: password || null,
+            static_ip: staticIp || null,
+            gateway: gateway || null,
+            subnet: subnet || null
+          })
+        });
+        if (!res.ok) throw new Error('网关响应错误: ' + res.status);
+        statusDiv.className = 'status-msg success';
+        statusDiv.innerHTML = `
+          <div style="text-align: left; font-size: 13px; line-height: 1.7;">
+            <p style="font-size: 15px; font-weight: 700; color: #81C784; margin-bottom: 6px;">🎉 Wi-Fi 配置已保存！</p>
+            <p>设备正在重启并连接您的路由器。请将手机/电脑<b>切回家庭 Wi-Fi</b>，通过以下任意方式进入控制台：</p>
+            <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+              <p><b>① 推荐方式（免记 IP，局域网直连）</b>：<br>直接在浏览器打开：<br><a href="http://epd-display.local" target="_blank" style="color:var(--primary);font-weight:700;font-size:14px;text-decoration:underline;">http://epd-display.local</a><br><small style="color:var(--text-dim)">（支持 Windows 10/11、macOS、安卓等设备自动解析）</small></p>
+              <p style="margin-top: 8px;"><b>② 路由器后台查看分配的 IP</b>：<br>打开路由器管理后台，在已连设备列表中查找设备名为 <b>epd-display</b> 的设备。</p>
+              <p style="margin-top: 8px;"><b>③ 电脑终端 Ping 探测</b>：<br>在电脑 CMD / PowerShell 运行：<br><code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">ping epd-display.local</code><br>终端会立即返回 DHCP 分配的具体 IP 地址。</p>
+            </div>
+          </div>
+        `;
+        statusDiv.style.display = 'block';
+        document.getElementById('wifiForm').style.display = 'none';
+      } catch (err) {
+        statusDiv.className = 'status-msg error';
+        statusDiv.innerText = '保存失败: ' + err.message;
+        statusDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<span>连接并保存</span>';
+      }
+    }
+  </script>
+</body>
+</html>

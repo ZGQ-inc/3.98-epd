@@ -1,0 +1,26 @@
+{
+  "name": "3.98\" 墨水屏随身助手",
+  "short_name": "墨水屏随身版",
+  "description": "3.98英寸4色彩色墨水屏移动端随身助手：低功耗蓝牙直连、电子名片/工牌、漫展痛卡与随身备忘",
+  "start_url": "/pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#005ac1",
+  "categories": ["utilities", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

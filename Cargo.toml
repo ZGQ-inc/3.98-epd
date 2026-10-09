@@ -1,0 +1,51 @@
+[package]
+name = "epd-firmware"
+version = "0.1.0"
+edition = "2021"
+authors = ["ZGQ Inc."]
+description = "ESP32-C3 3.98-inch 4-Color E-Ink Display Smart Controller"
+
+[[bin]]
+name = "epd-firmware"
+path = "src/main.rs"
+
+[dependencies]
+esp-idf-svc = { version = "0.53", features = ["alloc", "experimental", "binstart", "std"] }
+esp-idf-hal = { version = "0.47" }
+esp-idf-sys = { version = "0.38", features = ["binstart"] }
+
+# Graphics pipeline
+embedded-graphics = "0.8"
+embedded-graphics-core = "0.4"
+
+# BLE (NimBLE wrapper)
+esp32-nimble = "0.13"
+
+# Networking & Service interfaces
+embedded-svc = "0.29"
+
+# Serialization
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+
+# Utilities & Error handling
+log = "0.4"
+anyhow = { version = "1", default-features = false }
+heapless = "0.9"
+
+[build-dependencies]
+embuild = "0.33"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = false
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = 2
+strip = false
+
+[profile.dev]
+debug = true
+opt-level = 0
+
