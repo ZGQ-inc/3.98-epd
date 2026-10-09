@@ -107,6 +107,16 @@ module case_middle() {
         // 挂绳内侧穿绳导向引线槽 (长 9mm, 高 3mm, 深 3mm)
         translate([-47.5, 0, 3.6])
             cube([3.0, 9.0, 3.0], center = true);
+        // 开关对面(下外壁 -Y)居中双挂绳孔 (直径 1.5mm, 间距 6mm, Z=3.6, 下外壁向内通孔)
+        translate([-3.0, -34.5, 3.6])
+            rotate([90, 0, 0])
+                cylinder(h = 7.0, r = 0.75, center = true);
+        translate([ 3.0, -34.5, 3.6])
+            rotate([90, 0, 0])
+                cylinder(h = 7.0, r = 0.75, center = true);
+        // 下侧挂绳内侧穿绳导向引线槽 (长 9mm, 高 3mm, 深 3mm)
+        translate([0, -33.0, 3.6])
+            cube([9.0, 3.0, 3.0], center = true);
     }
 }
 

@@ -747,6 +747,78 @@ def make_lanyard_wall(x1=-51.5, x2=-46.5, y1=-8.0, y2=8.0, z1=0.8, z2=7.2, n_seg
         
     return tris
 
+def make_lanyard_wall_y(x1=-8.0, x2=8.0, y1=-37.0, y2=-32.0, z1=0.8, z2=7.2, n_segs=12):
+    # 开关对面底壁 (-Y) 居中双挂绳孔
+    # 外侧侧壁 y in [y1, ym] 带有2个直径 1.5mm 的挂绳穿线孔 (x=-3.0 与 x=+3.0, z=3.6)
+    # 内侧侧壁 y in [ym, y2] 带有贯通的挂绳掉头回路凹槽 (x in [-4.5, 4.5], z in [2.1, 5.1])
+    tris = []
+    ym = -34.0
+    
+    # 双挂绳孔: 直径 1.5mm (r=0.75), 间距 6.0mm
+    h1 = make_circle_2d(-3.0, 3.6, 0.75, n_segs)
+    h2 = make_circle_2d( 3.0, 3.6, 0.75, n_segs)
+    
+    outer_box_xz = [(x1, z1), (x2, z1), (x2, z2), (x1, z2)]
+    all_pts_xz, face_tris = triangulate_2d_with_holes(outer_box_xz, [h1, h2])
+    
+    # 外侧部分 (y in [y1, ym])
+    for i1, i2, i3 in face_tris:
+        p1 = (all_pts_xz[i1, 0], y1, all_pts_xz[i1, 1])
+        p2 = (all_pts_xz[i2, 0], y1, all_pts_xz[i2, 1])
+        p3 = (all_pts_xz[i3, 0], y1, all_pts_xz[i3, 1])
+        tris.append(((0, -1, 0), p1, p3, p2))
+    for i1, i2, i3 in face_tris:
+        p1 = (all_pts_xz[i1, 0], ym, all_pts_xz[i1, 1])
+        p2 = (all_pts_xz[i2, 0], ym, all_pts_xz[i2, 1])
+        p3 = (all_pts_xz[i3, 0], ym, all_pts_xz[i3, 1])
+        tris.append(((0, 1, 0), p1, p2, p3))
+        
+    add_quad(tris, (x1, y1, z1), (x2, y1, z1), (x2, ym, z1), (x1, ym, z1))
+    add_quad(tris, (x1, y1, z2), (x1, ym, z2), (x2, ym, z2), (x2, y1, z2))
+    add_quad(tris, (x1, y1, z1), (x1, ym, z1), (x1, ym, z2), (x1, y1, z2))
+    add_quad(tris, (x2, y1, z1), (x2, y1, z2), (x2, ym, z2), (x2, ym, z1))
+    
+    # 2个穿线通道内部圆柱曲面
+    for hole in [h1, h2]:
+        nc = len(hole)
+        for i in range(nc):
+            nxt = (i + 1) % nc
+            p1 = (hole[i][0], y1, hole[i][1])
+            p2 = (hole[nxt][0], y1, hole[nxt][1])
+            p1_far = (hole[i][0], ym, hole[i][1])
+            p2_far = (hole[nxt][0], ym, hole[nxt][1])
+            add_quad(tris, p1, p1_far, p2_far, p2)
+            
+    # 内侧掉头槽部分 (y in [ym, y2]): x in [-4.5, 4.5], z in [2.1, 5.1]
+    pocket_xz = [(-4.5, 2.1), (4.5, 2.1), (4.5, 5.1), (-4.5, 5.1)]
+    all_pts_in, face_tris_in = triangulate_2d_with_holes(outer_box_xz, [pocket_xz])
+    
+    for i1, i2, i3 in face_tris_in:
+        p1 = (all_pts_in[i1, 0], ym, all_pts_in[i1, 1])
+        p2 = (all_pts_in[i2, 0], ym, all_pts_in[i2, 1])
+        p3 = (all_pts_in[i3, 0], ym, all_pts_in[i3, 1])
+        tris.append(((0, -1, 0), p1, p3, p2))
+    for i1, i2, i3 in face_tris_in:
+        p1 = (all_pts_in[i1, 0], y2, all_pts_in[i1, 1])
+        p2 = (all_pts_in[i2, 0], y2, all_pts_in[i2, 1])
+        p3 = (all_pts_in[i3, 0], y2, all_pts_in[i3, 1])
+        tris.append(((0, 1, 0), p1, p2, p3))
+        
+    add_quad(tris, (x1, ym, z1), (x2, ym, z1), (x2, y2, z1), (x1, y2, z1))
+    add_quad(tris, (x1, ym, z2), (x1, y2, z2), (x2, y2, z2), (x2, ym, z2))
+    add_quad(tris, (x1, ym, z1), (x1, y2, z1), (x1, y2, z2), (x1, ym, z2))
+    add_quad(tris, (x2, ym, z1), (x2, ym, z2), (x2, y2, z2), (x2, y2, z1))
+    
+    for i in range(4):
+        nxt = (i + 1) % 4
+        p1 = (pocket_xz[i][0], ym, pocket_xz[i][1])
+        p2 = (pocket_xz[nxt][0], ym, pocket_xz[nxt][1])
+        p1_far = (pocket_xz[i][0], y2, pocket_xz[i][1])
+        p2_far = (pocket_xz[nxt][0], y2, pocket_xz[nxt][1])
+        add_quad(tris, p1, p1_far, p2_far, p2)
+        
+    return tris
+
 def gen_case_middle():
     tris = []
     
@@ -804,9 +876,11 @@ def gen_case_middle():
     # -------------------------------------------------------------------------
     # (B) 四周 5.0mm 坚固外壁 (Z: 0.8 ~ 7.2mm)
     # -------------------------------------------------------------------------
-    # 1. 底壁 (-Y 侧, Y in [-37.0, -32.0]):
+    # 1. 底壁 (-Y 侧, Y in [-37.0, -32.0]): 开关对面正中心双挂绳孔
     tris.extend(make_box(-41.5, -37.5, -37.0, -32.5, 0.8, 7.2))
-    tris.extend(make_box(-37.5, 41.5, -37.0, -32.0, 0.8, 7.2))
+    tris.extend(make_box(-37.5, -8.0, -37.0, -32.0, 0.8, 7.2))
+    tris.extend(make_lanyard_wall_y(-8.0, 8.0, -37.0, -32.0, 0.8, 7.2, n_segs=12))
+    tris.extend(make_box(8.0, 41.5, -37.0, -32.0, 0.8, 7.2))
     
     # 2. 左壁 (-X 侧, X in [-51.5, -46.5]): 排线侧正中心双挂绳孔 (直径 1.5mm, 间距 6mm, 内设回路掉头槽)
     tris.extend(make_box(-51.5, -46.5, -27.0, -8.0, 0.8, 7.2))
@@ -1155,6 +1229,16 @@ module case_middle() {
         // 挂绳内侧穿绳导向引线槽 (长 9mm, 高 3mm, 深 3mm)
         translate([-47.5, 0, 3.6])
             cube([3.0, 9.0, 3.0], center = true);
+        // 开关对面(下外壁 -Y)居中双挂绳孔 (直径 1.5mm, 间距 6mm, Z=3.6, 下外壁向内通孔)
+        translate([-3.0, -34.5, 3.6])
+            rotate([90, 0, 0])
+                cylinder(h = 7.0, r = 0.75, center = true);
+        translate([ 3.0, -34.5, 3.6])
+            rotate([90, 0, 0])
+                cylinder(h = 7.0, r = 0.75, center = true);
+        // 下侧挂绳内侧穿绳导向引线槽 (长 9mm, 高 3mm, 深 3mm)
+        translate([0, -33.0, 3.6])
+            cube([9.0, 3.0, 3.0], center = true);
     }
 }
 

@@ -12,7 +12,7 @@ hardware/
 ├── enclosure_vector_mockup.svg -> 外壳 1:1 矢量结构展示图
 ├── 3d_models/              -> 3D 打印即用型 STL 文件与 OpenSCAD 源码
 │   ├── case_front.stl      -> 前框 (正面 6.9mm 窄边框，M2 铜螺母预埋孔)
-│   ├── case_middle.stl     -> 中框主体 (居中双挂绳孔 1.5mm，正面 25mm NFC 槽，双 Type-C 开孔，开关滑轨与 'O'/`|` 标识)
+│   ├── case_middle.stl     -> 中框主体 (FPC侧与开关对面底壁双向双挂绳孔 1.5mm，支持横屏/竖屏挂绳，正面 25mm NFC 槽，双 Type-C 开孔，开关滑轨与 'O'/`|` 标识)
 │   ├── case_back.stl       -> 标准后盖 (FPC 侧居中 25mm NFC 槽，4 个磁铁沉孔，电池防挤压 R7 圆角)
 │   ├── case_back_logo.stl  -> 定制后盖 (带 "Made by ZGQ Inc." 激光/成型凹刻文字)
 │   ├── switch_cap.stl      -> 防脱落滑动按键推钮 (外露 1.5mm，防脱咬合卡爪，4 道防滑齿)

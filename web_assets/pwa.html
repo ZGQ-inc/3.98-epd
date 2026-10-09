@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="墨水屏伴侣">
-  <meta name="description" content="专为 3.98 英寸四色墨水屏打造的随身工牌、电子名片与漫展痛卡 WebBLE 蓝牙直推控制端，支持 Cloudflare Pages 静态部署与 100% 离线运行">
+  <meta name="description" content="专为 3.98 英寸四色墨水屏打造的蓝牙直推控制端。">
 
   <style>
     :root {
@@ -149,8 +149,20 @@
       width: 100%; overflow: hidden; border-radius: 12px;
       background: #ffffff; border: 2px solid #202124; box-shadow: var(--shadow-2);
       display: flex; justify-content: center; align-items: center; margin: 12px 0;
+      min-height: 200px;
     }
-    .preview-box canvas { width: 100%; height: auto; display: block; aspect-ratio: 768 / 552; }
+    .preview-box canvas {
+      max-width: 100%; height: auto; display: block; object-fit: contain; max-height: 480px;
+    }
+
+    /* 4-Way Orientation Selector Bar */
+    .orientation-bar {
+      padding: 6px 16px 10px 16px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+      background: var(--md-sys-color-surface);
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      margin-bottom: 8px;
+    }
 
     /* Bottom Navigation Bar */
     .bottom-nav {
@@ -213,7 +225,7 @@
 <header>
   <div class="brand">
     <span>📺 3.98" 墨水屏随身伴侣</span>
-    <span class="brand-badge">CF Pages 离线版</span>
+    <span class="brand-badge">移动 PWA 版</span>
   </div>
   <div class="header-right">
     <button class="btn btn-outlined btn-sm" id="btnInstallApp" style="display:none;" onclick="triggerAppInstall()">📲 安装</button>
@@ -245,7 +257,7 @@
 <!-- Secondary Connection / Air Provisioning Bar -->
 <div class="network-sub-bar">
   <div>
-    <span>局域网直连 (备用): </span>
+    <span>局域网直连: </span>
     <span id="netLanStatus" style="font-weight:600; color:var(--md-sys-color-primary);">未设定 IP</span>
   </div>
   <div style="display:flex; gap:6px;">
@@ -266,17 +278,29 @@
   <div id="transferMsg" style="font-size:11px; color:var(--md-sys-color-primary); margin-top:4px; min-height:16px;"></div>
 </div>
 
-<!-- ========================================================================= -->
+<!-- 4-Way Display Orientation Bar -->
+<div class="orientation-bar">
+  <div style="font-size:12px; font-weight:700; color:var(--md-sys-color-on-surface); display:flex; align-items:center; gap:6px;">
+    <span>🔄 朝向:</span>
+    <span id="orientationBadge" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container);">0° 横屏 (768×552)</span>
+  </div>
+  <div class="chip-group" style="margin-bottom:0; justify-content:flex-end;">
+    <div class="chip active" id="rot-chip-0" onclick="setOrientation(0)">0° 横屏</div>
+    <div class="chip" id="rot-chip-90" onclick="setOrientation(90)">90° 竖屏</div>
+    <div class="chip" id="rot-chip-180" onclick="setOrientation(180)">180° 倒横</div>
+    <div class="chip" id="rot-chip-270" onclick="setOrientation(270)">270° 倒竖</div>
+  </div>
+</div>
+
 <!-- TAB 1: 📇 电子名片 / 随身工牌 -->
-<!-- ========================================================================= -->
 <div id="view-badge" class="tab-view active">
   <div class="pwa-card">
     <div class="card-title">
       <span>📇 随身工牌 / 电子名片定制</span>
-      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">768 × 552</span>
+      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);" class="dim-text">768 × 552</span>
     </div>
     <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
-      适合漫展交流、商务社交、工牌随身佩戴，支持大字名牌与微信/个人二维码扫码
+      支持横竖屏自适应、双向挂绳佩戴、极客/商务/同人/展会风格与二维码扫码
     </div>
 
     <div class="chip-group">
@@ -286,57 +310,55 @@
       <div class="chip" id="chip-staff" onclick="selectBadgeTpl('staff')">🎫 展会工作证</div>
     </div>
 
-    <label>姓名 / 昵称 (44px 显眼大字):</label>
-    <input type="text" id="badgeName" placeholder="例如: 张三 / Alex" oninput="renderBadgePreview()">
+    <label>姓名 / 昵称:</label>
+    <input type="text" id="badgeName" placeholder="ZGQ" oninput="renderBadgePreview()">
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>身份 / 职位:</label>
-        <input type="text" id="badgeRole" placeholder="例如: 全栈工程师 / 嵌入式架构" oninput="renderBadgePreview()">
+        <input type="text" id="badgeRole" placeholder="全栈工程师 / 嵌入式架构" oninput="renderBadgePreview()">
       </div>
       <div>
         <label>所属组织 / 公司:</label>
-        <input type="text" id="badgeOrg" placeholder="例如: Open Hardware Lab" oninput="renderBadgePreview()">
+        <input type="text" id="badgeOrg" placeholder="ZGQ Inc." oninput="renderBadgePreview()">
       </div>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>联系方式 / 电话:</label>
-        <input type="text" id="badgeContact" placeholder="例如: +86 138-0000-0000" oninput="renderBadgePreview()">
+        <input type="text" id="badgeContact" placeholder="1145141919810" oninput="renderBadgePreview()">
       </div>
       <div>
-        <label>电子邮箱 / 微信:</label>
-        <input type="text" id="badgeEmail" placeholder="例如: alex@example.com" oninput="renderBadgePreview()">
+        <label>电子邮箱 / 即时通讯:</label>
+        <input type="text" id="badgeEmail" placeholder="zgqinc@gmail.com" oninput="renderBadgePreview()">
       </div>
     </div>
 
     <label>座右铭 / 签名 / 业务介绍:</label>
-    <input type="text" id="badgeMotto" placeholder="例如: 用代码连接物理世界，专注低功耗嵌入式！" oninput="renderBadgePreview()">
+    <input type="text" id="badgeMotto" placeholder="用代码连接物理世界，专注低功耗嵌入式！" oninput="renderBadgePreview()">
 
-    <label>右下角二维码扫描内容 (网址 / 微信名片 / 个人主页):</label>
-    <input type="text" id="badgeQr" placeholder="例如: https://github.com/your-name" oninput="renderBadgePreview()">
+    <label>右下角二维码扫描内容 (网址 / 即时通讯用户名 / 个人主页):</label>
+    <input type="text" id="badgeQr" placeholder="https://github.com/ZGQ-inc" oninput="renderBadgePreview()">
 
     <!-- 1:1 Preview -->
-    <label>768 × 552 物理点阵效果预览 (1:1 像素清晰对齐):</label>
+    <label>效果预览 (768 × 552):</label>
     <div class="preview-box">
       <canvas id="badgeCanvas" width="768" height="552"></canvas>
     </div>
 
     <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('badgeCanvas', '电子名片')">
-      🚀 蓝牙直推至胸牌屏幕 (16s)
+      🚀 蓝牙直推至屏幕 (16s)
     </button>
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 2: 🎒 漫展痛卡 / 角色立绘挂饰 -->
-<!-- ========================================================================= -->
 <div id="view-itabag" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">
       <span>🎒 漫展痛卡 / 角色插画挂件</span>
-      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">外壳双挂孔适用</span>
+      <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">外壳挂孔适用</span>
     </div>
     <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
       专为痛包、钥匙扣与挂绳随身携带设计！支持相册选图、4色微粒物理抖动还原与题字
@@ -364,16 +386,16 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>角色名 / 标题 (大字):</label>
-        <input type="text" id="itaTitle" placeholder="例如: 初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
+        <input type="text" id="itaTitle" placeholder="初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
       </div>
       <div>
         <label>作品 / 出处:</label>
-        <input type="text" id="itaSource" placeholder="例如: VOCALOID 01" oninput="renderItaPreview()">
+        <input type="text" id="itaSource" placeholder="VOCALOID 01" oninput="renderItaPreview()">
       </div>
     </div>
 
     <label>专属台词 / 签名题字 (底部叠加):</label>
-    <input type="text" id="itaQuote" placeholder="例如: 世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
+    <input type="text" id="itaQuote" placeholder="世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
 
     <!-- 1:1 Preview -->
     <label>4 色微粒扩散抖动渲染效果:</label>
@@ -398,13 +420,13 @@
     </div>
 
     <label>便签标题:</label>
-    <input type="text" id="memoTitle" placeholder="例如: TODAY TO-DO LIST" oninput="renderMemoPreview()">
+    <input type="text" id="memoTitle" placeholder="TODAY TO-DO LIST" oninput="renderMemoPreview()">
 
     <label>待办项目 (每行一项):</label>
     <textarea id="memoItems" rows="5" placeholder="例如:&#10;1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 整理展会电子名片参数&#10;4. 傍晚跑步 5 公里锻炼身体" oninput="renderMemoPreview()"></textarea>
 
     <label>底部便签提示语:</label>
-    <input type="text" id="memoFooter" placeholder="例如: 保持专注，逐项击破！" oninput="renderMemoPreview()">
+    <input type="text" id="memoFooter" placeholder="保持专注，逐项击破！" oninput="renderMemoPreview()">
 
     <div class="preview-box">
       <canvas id="memoCanvas" width="768" height="552"></canvas>
@@ -610,7 +632,7 @@
       无需手机切换 Wi-Fi 热点！直接通过蓝牙将家中或公司路由器账号密码发给墨水屏
     </div>
     <label>路由器 Wi-Fi 名称 (SSID):</label>
-    <input type="text" id="provSsid" placeholder="例如: MyHome-WiFi">
+    <input type="text" id="provSsid" placeholder="MyHome-WiFi">
     <label>Wi-Fi 密码:</label>
     <input type="text" id="provPassword" placeholder="8位及以上密码">
     <button class="btn btn-primary btn-full" onclick="executeBleAirProvision()">
@@ -632,7 +654,7 @@
       若墨水屏已连上 Wi-Fi，且运行在双模或 Wi-Fi 模式下，可输入局域网 IP 直接通过 HTTP 通信
     </div>
     <label>墨水屏局域网 IP 地址:</label>
-    <input type="text" id="customLanIp" placeholder="例如: 192.168.1.100" value="">
+    <input type="text" id="customLanIp" placeholder="192.168.1.100" value="">
     <button class="btn btn-primary btn-full" onclick="saveCustomLanIp()">
       💾 保存并测试连接
     </button>
@@ -982,6 +1004,11 @@ var QRCodeLib = (function () {
     const target = document.getElementById('view-' + viewId);
     if (target) target.classList.add('active');
     if (el) el.classList.add('active');
+
+    if (viewId === 'badge') renderBadgePreview();
+    else if (viewId === 'itabag') renderItaPreview();
+    else if (viewId === 'memo') renderMemoPreview();
+    else if (viewId === 'imagelab') renderLabPreview();
   }
 
   function toggleTheme() {
@@ -1244,7 +1271,16 @@ var QRCodeLib = (function () {
     if (gDevice && gDevice.gatt.connected && gRxChar) {
       setTransferMsg('📡 正在通过蓝牙写入路由器配置...');
       const enc = new TextEncoder();
-      await gRxChar.writeValue(enc.encode(payload + '\n'));
+      const payloadBytes = enc.encode(payload + '\n');
+      if (gRxChar.writeValueWithoutResponse) {
+        try {
+          await gRxChar.writeValueWithoutResponse(payloadBytes);
+        } catch(e) {
+          await gRxChar.writeValue(payloadBytes);
+        }
+      } else {
+        await gRxChar.writeValue(payloadBytes);
+      }
       closeModal('airProvModal');
       alert('✅ Wi-Fi 账号密码已发送至墨水屏！墨水屏正在连接路由器...');
     } else if (gCustomLanIp) {
@@ -1269,7 +1305,16 @@ var QRCodeLib = (function () {
       try {
         setTransferMsg('📡 发送指令: ' + cmd + '...');
         const enc = new TextEncoder();
-        await gRxChar.writeValue(enc.encode(cmd + '\n'));
+        const payload = enc.encode(cmd + '\n');
+        if (gRxChar.writeValueWithoutResponse) {
+          try {
+            await gRxChar.writeValueWithoutResponse(payload);
+          } catch(e) {
+            await gRxChar.writeValue(payload);
+          }
+        } else {
+          await gRxChar.writeValue(payload);
+        }
         setTransferMsg('✅ 指令送达: ' + cmd);
         alert('✅ 指令已通过蓝牙发送: ' + cmd);
       } catch(e) {
@@ -1388,7 +1433,89 @@ var QRCodeLib = (function () {
     return buffer;
   }
 
-  // 7. Streaming Direct Transmission
+  // 7. 4-Way Display Orientation & Hardware Buffer Rotation
+  let gOrientation = 0; // 0, 90, 180, 270
+
+  function setOrientation(deg) {
+    gOrientation = parseInt(deg) || 0;
+    [0, 90, 180, 270].forEach(d => {
+      const chip = document.getElementById('rot-chip-' + d);
+      if (chip) {
+        if (d === gOrientation) chip.classList.add('active');
+        else chip.classList.remove('active');
+      }
+    });
+
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+
+    const badgeEl = document.getElementById('orientationBadge');
+    if (badgeEl) {
+      if (gOrientation === 0) badgeEl.innerText = '0° 横屏正向 (768×552)';
+      else if (gOrientation === 90) badgeEl.innerText = '90° 顺时针竖屏 (552×768)';
+      else if (gOrientation === 180) badgeEl.innerText = '180° 倒置横屏 (768×552)';
+      else if (gOrientation === 270) badgeEl.innerText = '270° 逆时针竖屏 (552×768)';
+    }
+
+    document.querySelectorAll('.dim-text').forEach(el => {
+      el.innerText = `${w} × ${h}`;
+    });
+
+    ['badgeCanvas', 'itaCanvas', 'memoCanvas', 'paintCanvas', 'labCanvas'].forEach(id => {
+      const c = document.getElementById(id);
+      if (c) {
+        c.width = w;
+        c.height = h;
+      }
+    });
+
+    renderBadgePreview();
+    renderItaPreview();
+    renderMemoPreview();
+    renderLabPreview();
+    if (typeof initPaintCanvas === 'function') {
+      initPaintCanvas();
+    }
+  }
+
+  function renderRotatedHardwareCanvas(srcCanvas) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 768;
+    offscreen.height = 552;
+    const octx = offscreen.getContext('2d');
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, 768, 552);
+
+    if (gOrientation === 90) {
+      // Portrait (552 x 768) rotated 90° clockwise to fit into 768 x 552
+      octx.save();
+      octx.translate(768, 0);
+      octx.rotate(Math.PI / 2);
+      octx.drawImage(srcCanvas, 0, 0);
+      octx.restore();
+    } else if (gOrientation === 180) {
+      // Landscape (768 x 552) inverted 180°
+      octx.save();
+      octx.translate(768, 552);
+      octx.rotate(Math.PI);
+      octx.drawImage(srcCanvas, 0, 0);
+      octx.restore();
+    } else if (gOrientation === 270) {
+      // Portrait (552 x 768) rotated 270° (or -90°) to fit into 768 x 552
+      octx.save();
+      octx.translate(0, 552);
+      octx.rotate(-Math.PI / 2);
+      octx.drawImage(srcCanvas, 0, 0);
+      octx.restore();
+    } else {
+      // 0° Landscape (768 x 552) direct blit
+      octx.drawImage(srcCanvas, 0, 0);
+    }
+    return offscreen;
+  }
+
+  // Streaming Direct Transmission
   async function pushCurrentCanvas(canvasId, label) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -1397,9 +1524,10 @@ var QRCodeLib = (function () {
     const progressBar = document.getElementById('progressBar');
     progressWrap.style.display = 'block';
     progressBar.style.width = '0%';
-    setTransferMsg(`📦 正在生成 ${label} 105,984 字节 4色物理点阵...`);
+    setTransferMsg(`📦 正在生成 ${label} (${gOrientation}° 自适应旋转) 105,984 字节 4色物理点阵...`);
 
-    const buffer = ditherCanvasTo2bpp(canvas);
+    const rotatedCanvas = renderRotatedHardwareCanvas(canvas);
+    const buffer = ditherCanvasTo2bpp(rotatedCanvas);
 
     // If BLE connected, stream chunks over BLE
     if (gDevice && gDevice.gatt.connected && gRxChar) {
@@ -1444,7 +1572,7 @@ var QRCodeLib = (function () {
     progressWrap.style.display = 'none';
   }
 
-  // 8. 📇 智能名片引擎 (Smart E-Badge Engine)
+  // 8. 📇 智能名片引擎 (Smart E-Badge Engine - 支持 4 向旋转与自适应竖屏)
   let gCurrentBadgeTpl = 'geek';
 
   function selectBadgeTpl(tpl) {
@@ -1459,221 +1587,448 @@ var QRCodeLib = (function () {
   function renderBadgePreview() {
     const canvas = document.getElementById('badgeCanvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = 768, h = 552;
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
 
-    const name = (document.getElementById('badgeName').value || '').trim() || '张三 (Alex)';
+    const ctx = canvas.getContext('2d');
+    const name = (document.getElementById('badgeName').value || '').trim() || 'ZGQ';
     const role = (document.getElementById('badgeRole').value || '').trim() || '全栈工程师 / 嵌入式架构';
-    const org  = (document.getElementById('badgeOrg').value || '').trim()  || 'Open Hardware Lab';
-    const contact = (document.getElementById('badgeContact').value || '').trim() || '+86 138-0000-0000';
-    const email   = (document.getElementById('badgeEmail').value || '').trim()   || 'alex@example.com';
+    const org  = (document.getElementById('badgeOrg').value || '').trim()  || 'ZGQ Inc.';
+    const contact = (document.getElementById('badgeContact').value || '').trim() || '1145141919810';
+    const email   = (document.getElementById('badgeEmail').value || '').trim()   || 'zgqinc@gmail.com';
     const motto   = (document.getElementById('badgeMotto').value || '').trim()   || '用代码连接物理世界，专注低功耗嵌入式！';
-    const qrText  = (document.getElementById('badgeQr').value || '').trim()      || 'https://github.com';
+    const qrText  = (document.getElementById('badgeQr').value || '').trim()      || 'https://github.com/ZGQ-inc';
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
-    if (gCurrentBadgeTpl === 'geek') {
-      // 🧑‍💻 GEEK DEVELOPER TEMPLATE
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, w, 70);
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(0, 70, w, 6);
+    if (isPortrait) {
+      // -----------------------------------------------------------------------
+      // 竖屏自适应工牌模式 (552 × 768 Portrait Lanyard Badge Layout)
+      // -----------------------------------------------------------------------
+      if (gCurrentBadgeTpl === 'geek') {
+        // 🧑‍💻 GEEK DEVELOPER PORTRAIT
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, 72);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 72, w, 6);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 26px monospace';
-      ctx.fillText(`$ cat /dev/badge · ${org}`, 28, 45);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(`$ cat /dev/badge · ${org}`, 24, 46);
 
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(18, 18, w - 36, h - 36);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(16, 16, w - 32, h - 32);
 
-      ctx.fillStyle = '#d32f2f';
-      ctx.font = 'bold 22px monospace';
-      ctx.fillText(`ROLE: ${role}`, 32, 115);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText(`ROLE: ${role}`, 26, 116);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 44px "PingFang SC", sans-serif';
-      ctx.fillText(name, 32, 172);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 44px "PingFang SC", sans-serif';
+        ctx.fillText(name, 26, 168);
 
-      // Monospace bio card
-      ctx.fillStyle = '#f1f4f9';
-      ctx.fillRect(32, 196, 470, 110);
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(32, 196, 470, 110);
+        // Monospace bio card
+        ctx.fillStyle = '#f1f4f9';
+        ctx.fillRect(26, 192, w - 52, 112);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(26, 192, w - 52, 112);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = '19px monospace';
-      ctx.fillText(`> CONTACT: ${contact}`, 44, 232);
-      ctx.fillText(`> EMAIL:   ${email}`, 44, 264);
-      ctx.fillText(`> STACK:   RUST / ESP32 / E-INK`, 44, 296);
+        ctx.fillStyle = '#000000';
+        ctx.font = '18px monospace';
+        ctx.fillText(`> CONTACT: ${contact}`, 38, 226);
+        ctx.fillText(`> EMAIL:   ${email}`, 38, 258);
+        ctx.fillText(`> STACK:   RUST / ESP32 / E-INK`, 38, 290);
 
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(32, 325, 470, 75);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'italic bold 18px "PingFang SC", sans-serif';
-      ctx.fillText(`“${motto}”`, 46, 368, 440);
+        // Motto block
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(26, 320, w - 52, 75);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'italic bold 17px "PingFang SC", sans-serif';
+        ctx.fillText(`“${motto}”`, 38, 362, w - 76);
 
-      // QR Code
-      const qrSize = 180;
-      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 40, 180, qrSize);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 15px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('SCAN GITHUB / VCARD', w - qrSize / 2 - 40, 180 + qrSize + 26);
-      ctx.textAlign = 'left';
+        // Centered QR Code
+        const qrSize = 190;
+        const qrX = Math.round((w - qrSize) / 2);
+        QRCodeLib.drawQRCode(ctx, qrText, qrX, 420, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SCAN GITHUB / VCARD', w / 2, 420 + qrSize + 26);
+        ctx.textAlign = 'left';
 
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(18, h - 42, w - 36, 24);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 13px monospace';
-      ctx.fillText('3.98" BWRY E-INK DISPLAY | OPEN BADGE HARDWARE', 32, h - 25);
-    } else if (gCurrentBadgeTpl === 'business') {
-      // 💼 BUSINESS ELEGANCE
-      ctx.fillStyle = '#d32f2f';
-      ctx.fillRect(0, 0, w, 76);
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(0, 76, w, 8);
+        // Bottom footer
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(16, h - 42, w - 32, 26);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText('3.98" BWRY E-INK DISPLAY | OPEN BADGE', 26, h - 25);
+      } else if (gCurrentBadgeTpl === 'business') {
+        // 💼 BUSINESS ELEGANCE PORTRAIT
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 0, w, 76);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 76, w, 8);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 28px "PingFang SC", sans-serif';
-      ctx.fillText(org, 32, 50);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px "PingFang SC", sans-serif';
+        ctx.fillText(org, 26, 50);
 
-      ctx.strokeStyle = '#202124';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(20, 20, w - 40, h - 40);
+        ctx.strokeStyle = '#202124';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(16, 16, w - 32, h - 32);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 46px "PingFang SC", sans-serif';
-      ctx.fillText(name, 36, 155);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 46px "PingFang SC", sans-serif';
+        ctx.fillText(name, 26, 146);
 
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(36, 175, 400, 36);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 20px "PingFang SC", sans-serif';
-      ctx.fillText(role, 46, 200);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(26, 166, w - 52, 36);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(role, 36, 191);
 
-      let y = 255;
-      ctx.font = '22px "PingFang SC", sans-serif';
-      if (contact) { ctx.fillText(`📱 电话: ${contact}`, 36, y); y += 38; }
-      if (email)   { ctx.fillText(`✉️ 邮箱: ${email}`,   36, y); y += 38; }
+        let y = 236;
+        ctx.font = '20px "PingFang SC", sans-serif';
+        if (contact) { ctx.fillText(`📱 电话: ${contact}`, 26, y); y += 34; }
+        if (email)   { ctx.fillText(`✉️ 邮箱: ${email}`,   26, y); y += 34; }
 
-      ctx.fillStyle = '#f5f5f5';
-      ctx.fillRect(36, y + 10, 460, 85);
-      ctx.fillStyle = '#d32f2f';
-      ctx.fillRect(36, y + 10, 6, 85);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'italic 18px "PingFang SC", sans-serif';
-      ctx.fillText(`“${motto}”`, 56, y + 55, 430);
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(26, y + 6, w - 52, 78);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(26, y + 6, 6, 78);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'italic 17px "PingFang SC", sans-serif';
+        ctx.fillText(`“${motto}”`, 44, y + 50, w - 80);
 
-      const qrSize = 180;
-      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 15px "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('扫码直接交流', w - qrSize / 2 - 45, 175 + qrSize + 26);
-      ctx.textAlign = 'left';
+        const qrSize = 190;
+        const qrX = Math.round((w - qrSize) / 2);
+        QRCodeLib.drawQRCode(ctx, qrText, qrX, 420, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('扫码直接交流', w / 2, 420 + qrSize + 26);
+        ctx.textAlign = 'left';
 
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(20, h - 42, w - 40, 22);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px monospace';
-      ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 36, h - 26);
-    } else if (gCurrentBadgeTpl === 'anime') {
-      // 🎨 OTAKU / COMIC-CON TEMPLATE
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(0, 0, w, 70);
-      ctx.fillStyle = '#d32f2f';
-      ctx.fillRect(0, 70, w, 6);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(16, h - 42, w - 32, 24);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 26, h - 26);
+      } else if (gCurrentBadgeTpl === 'anime') {
+        // 🎨 OTAKU / COMIC-CON PORTRAIT
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 0, w, 70);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 70, w, 6);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 28px "PingFang SC", sans-serif';
-      ctx.fillText(`✨ 漫展同行证 · ${org}`, 32, 46);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 24px "PingFang SC", sans-serif';
+        ctx.fillText(`✨ 漫展同行证 · ${org}`, 24, 46);
 
-      ctx.strokeStyle = '#d32f2f';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(20, 20, w - 40, h - 40);
+        ctx.strokeStyle = '#d32f2f';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(16, 16, w - 32, h - 32);
 
-      ctx.fillStyle = '#d32f2f';
-      ctx.font = 'bold 44px "PingFang SC", sans-serif';
-      ctx.fillText(name, 36, 155);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 44px "PingFang SC", sans-serif';
+        ctx.fillText(name, 26, 146);
 
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(36, 175, 380, 36);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px "PingFang SC", sans-serif';
-      ctx.fillText(`TAG: ${role}`, 46, 200);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(26, 166, w - 52, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(`TAG: ${role}`, 36, 191);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = '22px "PingFang SC", sans-serif';
-      ctx.fillText(`⭐ 摊位/展会: ${contact}`, 36, 260);
-      ctx.fillText(`🎀 社交账号:   ${email}`,   36, 300);
+        ctx.fillStyle = '#000000';
+        ctx.font = '20px "PingFang SC", sans-serif';
+        ctx.fillText(`⭐ 摊位/展会: ${contact}`, 26, 236);
+        ctx.fillText(`🎀 社交账号:   ${email}`,   26, 270);
 
-      ctx.fillStyle = '#fdf3d8';
-      ctx.fillRect(36, 335, 460, 95);
-      ctx.strokeStyle = '#f4c430';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(36, 335, 460, 95);
-      ctx.fillStyle = '#d32f2f';
-      ctx.font = 'bold 20px "PingFang SC", sans-serif';
-      ctx.fillText(`台词: “${motto}”`, 52, 385, 430);
+        ctx.fillStyle = '#fdf3d8';
+        ctx.fillRect(26, 292, w - 52, 85);
+        ctx.strokeStyle = '#f4c430';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(26, 292, w - 52, 85);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 18px "PingFang SC", sans-serif';
+        ctx.fillText(`台词: “${motto}”`, 38, 342, w - 76);
 
-      const qrSize = 180;
-      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
-      ctx.fillStyle = '#d32f2f';
-      ctx.font = 'bold 15px "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('扫码关注推特/B站', w - qrSize / 2 - 45, 175 + qrSize + 26);
-      ctx.textAlign = 'left';
+        const qrSize = 190;
+        const qrX = Math.round((w - qrSize) / 2);
+        QRCodeLib.drawQRCode(ctx, qrText, qrX, 415, qrSize);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('扫码关注推特/B站', w / 2, 415 + qrSize + 26);
+        ctx.textAlign = 'left';
 
-      ctx.fillStyle = '#d32f2f';
-      ctx.fillRect(20, h - 42, w - 40, 22);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 13px "PingFang SC", sans-serif';
-      ctx.fillText('🎒 痛卡挂饰 · 随时随地展现同好之魂', 36, h - 26);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(16, h - 42, w - 32, 24);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px "PingFang SC", sans-serif';
+        ctx.fillText('🎒 痛卡挂饰 · 随时随地展现同好之魂', 26, h - 26);
+      } else {
+        // 🎫 STAFF / EXHIBITOR PASS PORTRAIT
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 0, w, 110);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 110, w, 10);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 48px "PingFang SC", sans-serif';
+        ctx.fillText('STAFF 工作证', 26, 70);
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText(`EVENT: ${org.toUpperCase()}`, 26, 98);
+
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(16, 16, w - 32, h - 32);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 48px "PingFang SC", sans-serif';
+        ctx.fillText(name, 26, 185);
+
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(26, 205, w - 52, 42);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText(`职责: ${role}`, 36, 235);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = '20px "PingFang SC", sans-serif';
+        ctx.fillText(`📞 紧急联络: ${contact}`, 26, 280);
+        ctx.fillText(`🆔 编号证号: ${email}`,   26, 314);
+        ctx.fillText(`⚠️ 权限说明: 展区全域通行`, 26, 348);
+
+        const qrSize = 190;
+        const qrX = Math.round((w - qrSize) / 2);
+        QRCodeLib.drawQRCode(ctx, qrText, qrX, 415, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('工作证防伪核验', w / 2, 415 + qrSize + 26);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, h - 36, w, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('OFFICIAL ACCREDITATION · ALL RIGHTS RESERVED', 26, h - 13);
+      }
     } else {
-      // 🎫 STAFF / EXHIBITOR PASS
-      ctx.fillStyle = '#d32f2f';
-      ctx.fillRect(0, 0, w, 110);
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(0, 110, w, 10);
+      // -----------------------------------------------------------------------
+      // 横屏标准模式 (768 × 552 Landscape Layout - 0° / 180°)
+      // -----------------------------------------------------------------------
+      if (gCurrentBadgeTpl === 'geek') {
+        // 🧑‍💻 GEEK DEVELOPER TEMPLATE
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, 70);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 70, w, 6);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 52px "PingFang SC", sans-serif';
-      ctx.fillText('STAFF 工作证', 36, 75);
-      ctx.font = 'bold 20px monospace';
-      ctx.fillText(`EVENT: ${org.toUpperCase()}`, 36, 102);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px monospace';
+        ctx.fillText(`$ cat /dev/badge · ${org}`, 28, 45);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 50px "PingFang SC", sans-serif';
-      ctx.fillText(name, 36, 205);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(18, 18, w - 36, h - 36);
 
-      ctx.fillStyle = '#f4c430';
-      ctx.fillRect(36, 230, 420, 44);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 24px "PingFang SC", sans-serif';
-      ctx.fillText(`职责: ${role}`, 46, 260);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(`ROLE: ${role}`, 32, 115);
 
-      ctx.fillStyle = '#000000';
-      ctx.font = '22px "PingFang SC", sans-serif';
-      ctx.fillText(`📞 紧急联络: ${contact}`, 36, 325);
-      ctx.fillText(`🆔 编号证号: ${email}`,   36, 365);
-      ctx.fillText(`⚠️ 权限说明: 展区全域通行`, 36, 405);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 44px "PingFang SC", sans-serif';
+        ctx.fillText(name, 32, 172);
 
-      const qrSize = 180;
-      QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 180, qrSize);
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 15px "PingFang SC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('工作证防伪核验', w - qrSize / 2 - 45, 180 + qrSize + 26);
-      ctx.textAlign = 'left';
+        // Monospace bio card
+        ctx.fillStyle = '#f1f4f9';
+        ctx.fillRect(32, 196, 470, 110);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(32, 196, 470, 110);
 
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, h - 36, w, 36);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px monospace';
-      ctx.fillText('OFFICIAL ACCREDITATION · ALL RIGHTS RESERVED', 36, h - 13);
+        ctx.fillStyle = '#000000';
+        ctx.font = '19px monospace';
+        ctx.fillText(`> CONTACT: ${contact}`, 44, 232);
+        ctx.fillText(`> EMAIL:   ${email}`, 44, 264);
+        ctx.fillText(`> STACK:   RUST / ESP32 / E-INK`, 44, 296);
+
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(32, 325, 470, 75);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'italic bold 18px "PingFang SC", sans-serif';
+        ctx.fillText(`“${motto}”`, 46, 368, 440);
+
+        // QR Code
+        const qrSize = 180;
+        QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 40, 180, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SCAN GITHUB / VCARD', w - qrSize / 2 - 40, 180 + qrSize + 26);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(18, h - 42, w - 36, 24);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px monospace';
+        ctx.fillText('3.98" BWRY E-INK DISPLAY | OPEN BADGE HARDWARE', 32, h - 25);
+      } else if (gCurrentBadgeTpl === 'business') {
+        // 💼 BUSINESS ELEGANCE
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 0, w, 76);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 76, w, 8);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px "PingFang SC", sans-serif';
+        ctx.fillText(org, 32, 50);
+
+        ctx.strokeStyle = '#202124';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(20, 20, w - 40, h - 40);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 46px "PingFang SC", sans-serif';
+        ctx.fillText(name, 36, 155);
+
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(36, 175, 400, 36);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(role, 46, 200);
+
+        let y = 255;
+        ctx.font = '22px "PingFang SC", sans-serif';
+        if (contact) { ctx.fillText(`📱 电话: ${contact}`, 36, y); y += 38; }
+        if (email)   { ctx.fillText(`✉️ 邮箱: ${email}`,   36, y); y += 38; }
+
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(36, y + 10, 460, 85);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(36, y + 10, 6, 85);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'italic 18px "PingFang SC", sans-serif';
+        ctx.fillText(`“${motto}”`, 56, y + 55, 430);
+
+        const qrSize = 180;
+        QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('扫码直接交流', w - qrSize / 2 - 45, 175 + qrSize + 26);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(20, h - 42, w - 40, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 36, h - 26);
+      } else if (gCurrentBadgeTpl === 'anime') {
+        // 🎨 OTAKU / COMIC-CON TEMPLATE
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 0, w, 70);
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 70, w, 6);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 28px "PingFang SC", sans-serif';
+        ctx.fillText(`✨ 漫展同行证 · ${org}`, 32, 46);
+
+        ctx.strokeStyle = '#d32f2f';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(20, 20, w - 40, h - 40);
+
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 44px "PingFang SC", sans-serif';
+        ctx.fillText(name, 36, 155);
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(36, 175, 380, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(`TAG: ${role}`, 46, 200);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = '22px "PingFang SC", sans-serif';
+        ctx.fillText(`⭐ 摊位/展会: ${contact}`, 36, 260);
+        ctx.fillText(`🎀 社交账号:   ${email}`,   36, 300);
+
+        ctx.fillStyle = '#fdf3d8';
+        ctx.fillRect(36, 335, 460, 95);
+        ctx.strokeStyle = '#f4c430';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(36, 335, 460, 95);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(`台词: “${motto}”`, 52, 385, 430);
+
+        const qrSize = 180;
+        QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 175, qrSize);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('扫码关注推特/B站', w - qrSize / 2 - 45, 175 + qrSize + 26);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(20, h - 42, w - 40, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px "PingFang SC", sans-serif';
+        ctx.fillText('🎒 痛卡挂饰 · 随时随地展现同好之魂', 36, h - 26);
+      } else {
+        // 🎫 STAFF / EXHIBITOR PASS
+        ctx.fillStyle = '#d32f2f';
+        ctx.fillRect(0, 0, w, 110);
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(0, 110, w, 10);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 52px "PingFang SC", sans-serif';
+        ctx.fillText('STAFF 工作证', 36, 75);
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText(`EVENT: ${org.toUpperCase()}`, 36, 102);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 50px "PingFang SC", sans-serif';
+        ctx.fillText(name, 36, 205);
+
+        ctx.fillStyle = '#f4c430';
+        ctx.fillRect(36, 230, 420, 44);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 24px "PingFang SC", sans-serif';
+        ctx.fillText(`职责: ${role}`, 46, 260);
+
+        ctx.fillStyle = '#000000';
+        ctx.font = '22px "PingFang SC", sans-serif';
+        ctx.fillText(`📞 紧急联络: ${contact}`, 36, 325);
+        ctx.fillText(`🆔 编号证号: ${email}`,   36, 365);
+        ctx.fillText(`⚠️ 权限说明: 展区全域通行`, 36, 405);
+
+        const qrSize = 180;
+        QRCodeLib.drawQRCode(ctx, qrText, w - qrSize - 45, 180, qrSize);
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('工作证防伪核验', w - qrSize / 2 - 45, 180 + qrSize + 26);
+        ctx.textAlign = 'left';
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, h - 36, w, 36);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('OFFICIAL ACCREDITATION · ALL RIGHTS RESERVED', 36, h - 13);
+      }
     }
   }
 
@@ -1698,9 +2053,15 @@ var QRCodeLib = (function () {
   function renderItaPreview() {
     const canvas = document.getElementById('itaCanvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = 768, h = 552;
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
 
+    const ctx = canvas.getContext('2d');
     const title  = (document.getElementById('itaTitle').value || '').trim()  || '初音未来 (Hatsune Miku)';
     const source = (document.getElementById('itaSource').value || '').trim() || 'VOCALOID 01';
     const quote  = (document.getElementById('itaQuote').value || '').trim()  || '世界第一的公主殿下！今天也要全力以赴！';
@@ -1722,49 +2083,58 @@ var QRCodeLib = (function () {
     } else {
       ctx.fillStyle = '#f5f5f5';
       ctx.fillRect(0, 0, w, h);
+      const cy = isPortrait ? 310 : 220;
       ctx.fillStyle = '#000000';
-      ctx.beginPath(); ctx.arc(w / 2, 220, 110, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w / 2, cy, 110, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#f4c430';
-      ctx.beginPath(); ctx.arc(w / 2, 220, 95, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(w / 2, cy, 95, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#d32f2f';
       ctx.font = 'bold 44px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('✨ OTAKU CHARM ✨', w / 2, 235);
+      ctx.fillText('✨ OTAKU CHARM ✨', w / 2, cy + 15);
       ctx.textAlign = 'left';
     }
 
     // Top banner
+    const topH = isPortrait ? 60 : 54;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-    ctx.fillRect(0, 0, w, 54);
+    ctx.fillRect(0, 0, w, topH);
     ctx.fillStyle = '#f4c430';
-    ctx.fillRect(0, 54, w, 6);
+    ctx.fillRect(0, topH, w, 6);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px "PingFang SC", sans-serif';
-    ctx.fillText(`🎒 痛卡挂饰 · ${source}`, 24, 38);
+    ctx.fillText(`🎒 痛卡挂饰 · ${source}`, 24, topH - 16);
 
     // Bottom subtitle overlay
+    const botH = isPortrait ? 100 : 86;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
-    ctx.fillRect(0, h - 86, w, 86);
+    ctx.fillRect(0, h - botH, w, botH);
     ctx.fillStyle = '#d32f2f';
-    ctx.fillRect(0, h - 86, w, 5);
+    ctx.fillRect(0, h - botH, w, 5);
 
     ctx.fillStyle = '#f4c430';
     ctx.font = 'bold 28px "PingFang SC", sans-serif';
-    ctx.fillText(title, 24, h - 48);
+    ctx.fillText(title, 24, h - botH + 38);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '19px "PingFang SC", sans-serif';
     ctx.fillText(quote, 24, h - 18, w - 48);
   }
 
-  // 10. 📝 随身备忘引擎 (Portable Memo Engine)
+  // 10. 📝 随身备忘引擎 (Portable Memo Engine - 自适应横竖屏)
   function renderMemoPreview() {
     const canvas = document.getElementById('memoCanvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = 768, h = 552;
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
 
+    const ctx = canvas.getContext('2d');
     const title = (document.getElementById('memoTitle').value || '').trim() || 'TODAY TO-DO LIST';
     let rawItems = (document.getElementById('memoItems').value || '').trim();
     if (!rawItems) {
@@ -1777,48 +2147,51 @@ var QRCodeLib = (function () {
     ctx.fillRect(0, 0, w, h);
 
     // Top Red Header
+    const headH = isPortrait ? 68 : 64;
     ctx.fillStyle = '#d32f2f';
-    ctx.fillRect(0, 0, w, 64);
+    ctx.fillRect(0, 0, w, headH);
     ctx.fillStyle = '#f4c430';
-    ctx.fillRect(0, 64, w, 8);
+    ctx.fillRect(0, headH, w, 8);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 30px "PingFang SC", sans-serif';
-    ctx.fillText(`📝 ${title}`, 32, 44);
+    ctx.fillText(`📝 ${title}`, 28, 44);
 
     // Outer border
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3;
-    ctx.strokeRect(20, 20, w - 40, h - 40);
+    ctx.strokeRect(18, 18, w - 36, h - 36);
 
     let y = 130;
+    const lineStep = isPortrait ? 56 : 58;
     lines.forEach((line) => {
       if (!line.trim()) return;
+      if (y > h - 70) return;
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 3;
-      ctx.strokeRect(40, y - 22, 26, 26);
+      ctx.strokeRect(32, y - 22, 26, 26);
 
       ctx.fillStyle = '#000000';
-      ctx.font = 'bold 26px "PingFang SC", sans-serif';
-      ctx.fillText(line, 80, y, w - 120);
+      ctx.font = 'bold 24px "PingFang SC", sans-serif';
+      ctx.fillText(line, 72, y, w - 104);
 
       ctx.strokeStyle = '#e0e0e0';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(40, y + 16);
-      ctx.lineTo(w - 40, y + 16);
+      ctx.moveTo(32, y + 16);
+      ctx.lineTo(w - 32, y + 16);
       ctx.stroke();
 
-      y += 58;
+      y += lineStep;
     });
 
     if (footer) {
       ctx.fillStyle = '#f4c430';
-      ctx.fillRect(20, h - 54, w - 40, 34);
+      ctx.fillRect(18, h - 52, w - 36, 34);
       ctx.fillStyle = '#000000';
       ctx.font = 'bold 18px "PingFang SC", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(footer, w / 2, h - 31);
+      ctx.fillText(footer, w / 2, h - 29);
       ctx.textAlign = 'left';
     }
   }
@@ -1871,6 +2244,13 @@ var QRCodeLib = (function () {
   function initPaintCanvas() {
     const canvas = document.getElementById('paintCanvas');
     if (!canvas) return;
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1964,7 +2344,7 @@ var QRCodeLib = (function () {
     window.addEventListener('touchend', endDraw);
   }
 
-  // 12. 🖼️ 全能图片调色工坊 (Image Lab Engine)
+  // 12. 🖼️ 全能图片调色工坊 (Image Lab Engine - 自适应横竖屏)
   let gLoadedLabImg = null;
 
   function handleLabImageUpload(e) {
@@ -1985,9 +2365,14 @@ var QRCodeLib = (function () {
   function renderLabPreview() {
     const canvas = document.getElementById('labCanvas');
     if (!canvas) return;
+    const isPortrait = (gOrientation === 90 || gOrientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
     const ctx = canvas.getContext('2d');
-    const w = 768, h = 552;
-
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
@@ -2002,28 +2387,29 @@ var QRCodeLib = (function () {
       ctx.fillStyle = '#f0f0f0';
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#74777f';
-      ctx.font = '24px "PingFang SC", sans-serif';
+      ctx.font = '22px "PingFang SC", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('请先点击上方按钮选择手机相册照片...', w / 2, h / 2);
       ctx.textAlign = 'left';
     }
   }
 
-  // 13. 💾 导出 / 导入 2bpp 原始 BIN 文件
+  // 13. 💾 导出 / 导入 2bpp 原始 BIN 文件 (支持旋转自适应)
   function exportCanvasAsBin() {
     const activeView = document.querySelector('.tab-view.active');
     const canvas = activeView ? activeView.querySelector('canvas') : document.getElementById('badgeCanvas');
     if (!canvas) { alert('未找到当前画布'); return; }
 
-    const buffer = ditherCanvasTo2bpp(canvas);
+    const rotatedCanvas = renderRotatedHardwareCanvas(canvas);
+    const buffer = ditherCanvasTo2bpp(rotatedCanvas);
     const blob = new Blob([buffer], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `epd_framebuffer_${Date.now()}.bin`;
+    a.download = `epd_framebuffer_rot${gOrientation}_${Date.now()}.bin`;
     a.click();
     URL.revokeObjectURL(url);
-    alert('✅ 已下载 105,984 字节 2bpp 固件显存文件！');
+    alert(`✅ 已下载 105,984 字节 2bpp 固件显存文件 (朝向: ${gOrientation}°)！`);
   }
 
   function handleImportBinFile(e) {
@@ -2092,11 +2478,7 @@ var QRCodeLib = (function () {
   // 16. Window Initialization
   window.onload = function() {
     initTheme();
-    renderBadgePreview();
-    renderItaPreview();
-    renderMemoPreview();
-    initPaintCanvas();
-    renderLabPreview();
+    setOrientation(0);
     if (gCustomLanIp) {
       document.getElementById('netLanStatus').innerText = `已连接 (${gCustomLanIp})`;
     }
