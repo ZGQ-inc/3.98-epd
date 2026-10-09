@@ -1728,7 +1728,7 @@ var QRCodeLib = (function () {
       el.innerText = `${w} × ${h}`;
     });
 
-    ['badgeCanvas', 'itaCanvas', 'memoCanvas', 'paintCanvas', 'labCanvas'].forEach(id => {
+    ['badgeCanvas', 'itaCanvas', 'memoCanvas', 'labCanvas'].forEach(id => {
       const c = document.getElementById(id);
       if (c) {
         c.width = w;
@@ -2474,6 +2474,9 @@ var QRCodeLib = (function () {
   let gIsPainting = false;
   let gPaintStartX = 0, gPaintStartY = 0;
   let gPaintHistory = [];
+  let gPaintSnapshot = null;
+  let gIsPromptingText = false;
+  let gLastTouchTime = 0;
 
   function setPaintColor(hex, name) {
     gPaintColor = hex;
@@ -2484,13 +2487,14 @@ var QRCodeLib = (function () {
   }
 
   function changePaintTool() {
-    gPaintTool = document.getElementById('paintTool').value;
+    const el = document.getElementById('paintTool');
+    if (el) gPaintTool = el.value;
   }
 
   function savePaintHistory() {
     const canvas = document.getElementById('paintCanvas');
     if (!canvas) return;
-    if (gPaintHistory.length > 10) gPaintHistory.shift();
+    if (gPaintHistory.length > 20) gPaintHistory.shift();
     gPaintHistory.push(canvas.toDataURL());
   }
 
@@ -2498,9 +2502,14 @@ var QRCodeLib = (function () {
     if (gPaintHistory.length === 0) return;
     const prev = gPaintHistory.pop();
     const canvas = document.getElementById('paintCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const img = new Image();
-    img.onload = () => { ctx.drawImage(img, 0, 0); };
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
     img.src = prev;
   }
 
@@ -2519,49 +2528,100 @@ var QRCodeLib = (function () {
     const isPortrait = (gOrientation === 90 || gOrientation === 270);
     const w = isPortrait ? 552 : 768;
     const h = isPortrait ? 768 : 552;
+
+    const ctx = canvas.getContext('2d');
     if (canvas.width !== w || canvas.height !== h) {
+      const temp = document.createElement('canvas');
+      temp.width = canvas.width;
+      temp.height = canvas.height;
+      temp.getContext('2d').drawImage(canvas, 0, 0);
+
       canvas.width = w;
       canvas.height = h;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(temp, 0, 0);
+    } else if (!canvas._paintInitialized) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      canvas._paintInitialized = true;
     }
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const strokeSlider = document.getElementById('paintStrokeSize');
-    if (strokeSlider) {
+    if (strokeSlider && !strokeSlider._bound) {
+      strokeSlider._bound = true;
       strokeSlider.oninput = (e) => {
         document.getElementById('strokeSizeVal').innerText = e.target.value + 'px';
       };
     }
 
+    if (canvas._paintEventsAttached) return;
+    canvas._paintEventsAttached = true;
+
     function getCoords(e) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
       return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
+        x: Math.max(0, Math.min(canvas.width, (clientX - rect.left) * scaleX)),
+        y: Math.max(0, Math.min(canvas.height, (clientY - rect.top) * scaleY))
       };
     }
 
     function startDraw(e) {
-      gIsPainting = true;
-      savePaintHistory();
       const pt = getCoords(e);
-      gPaintStartX = pt.x; gPaintStartY = pt.y;
+      const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
+      ctx.lineWidth = size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+      ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+
+      if (gPaintTool === 'text') {
+        if (gIsPromptingText) return;
+        gIsPromptingText = true;
+        gIsPainting = false;
+        setTimeout(() => {
+          try {
+            const txt = prompt('输入题字内容:');
+            if (txt && txt.trim()) {
+              savePaintHistory();
+              const fontSize = Math.max(18, size * 4);
+              ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+              ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+              ctx.textBaseline = 'middle';
+              ctx.fillText(txt.trim(), pt.x, pt.y);
+            }
+          } finally {
+            gIsPromptingText = false;
+          }
+        }, 30);
+        return;
+      }
+
+      gIsPainting = true;
+      gPaintStartX = pt.x;
+      gPaintStartY = pt.y;
+
       if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
+        savePaintHistory();
         ctx.beginPath();
         ctx.moveTo(pt.x, pt.y);
-      } else if (gPaintTool === 'text') {
-        const txt = prompt('输入绘制文字:');
-        if (txt) {
-          ctx.fillStyle = gPaintColor;
-          ctx.font = 'bold 36px "PingFang SC", sans-serif';
-          ctx.fillText(txt, pt.x, pt.y);
-        }
-        gIsPainting = false;
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+      } else {
+        // Shape tools: cache snapshot for rubberband preview
+        gPaintSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
       }
     }
 
@@ -2572,15 +2632,37 @@ var QRCodeLib = (function () {
       ctx.lineWidth = size;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+      ctx.strokeStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+      ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
 
-      if (gPaintTool === 'pen') {
-        ctx.strokeStyle = gPaintColor;
+      if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
         ctx.lineTo(pt.x, pt.y);
         ctx.stroke();
-      } else if (gPaintTool === 'eraser') {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineTo(pt.x, pt.y);
-        ctx.stroke();
+      } else if (gPaintSnapshot) {
+        ctx.putImageData(gPaintSnapshot, 0, 0);
+        const sx = gPaintStartX, sy = gPaintStartY;
+        const ex = pt.x, ey = pt.y;
+
+        if (gPaintTool === 'line') {
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+        } else if (gPaintTool === 'rect') {
+          ctx.strokeRect(sx, sy, ex - sx, ey - sy);
+        } else if (gPaintTool === 'rect_fill') {
+          ctx.fillRect(sx, sy, ex - sx, ey - sy);
+        } else if (gPaintTool === 'circle') {
+          const rad = Math.hypot(ex - sx, ey - sy);
+          ctx.beginPath();
+          ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (gPaintTool === 'circle_fill') {
+          const rad = Math.hypot(ex - sx, ey - sy);
+          ctx.beginPath();
+          ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
@@ -2590,30 +2672,102 @@ var QRCodeLib = (function () {
       const pt = getCoords(e);
       const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
       ctx.lineWidth = size;
-      ctx.strokeStyle = gPaintColor;
-      ctx.fillStyle = gPaintColor;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+      ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
 
-      if (gPaintTool === 'line') {
-        ctx.beginPath(); ctx.moveTo(gPaintStartX, gPaintStartY); ctx.lineTo(pt.x, pt.y); ctx.stroke();
-      } else if (gPaintTool === 'rect') {
-        ctx.strokeRect(gPaintStartX, gPaintStartY, pt.x - gPaintStartX, pt.y - gPaintStartY);
-      } else if (gPaintTool === 'rect_fill') {
-        ctx.fillRect(gPaintStartX, gPaintStartY, pt.x - gPaintStartX, pt.y - gPaintStartY);
-      } else if (gPaintTool === 'circle') {
-        const rad = Math.hypot(pt.x - gPaintStartX, pt.y - gPaintStartY);
-        ctx.beginPath(); ctx.arc(gPaintStartX, gPaintStartY, rad, 0, Math.PI * 2); ctx.stroke();
-      } else if (gPaintTool === 'circle_fill') {
-        const rad = Math.hypot(pt.x - gPaintStartX, pt.y - gPaintStartY);
-        ctx.beginPath(); ctx.arc(gPaintStartX, gPaintStartY, rad, 0, Math.PI * 2); ctx.fill();
+      if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
+        return;
+      }
+
+      if (gPaintSnapshot) {
+        ctx.putImageData(gPaintSnapshot, 0, 0);
+        savePaintHistory();
+
+        const sx = gPaintStartX, sy = gPaintStartY;
+        const ex = pt.x, ey = pt.y;
+        const dist = Math.hypot(ex - sx, ey - sy);
+
+        if (dist < 6) {
+          // Click/tap without drag: create default shape centered at click
+          if (gPaintTool === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(pt.x - 70, pt.y);
+            ctx.lineTo(pt.x + 70, pt.y);
+            ctx.stroke();
+          } else if (gPaintTool === 'rect') {
+            ctx.strokeRect(pt.x - 70, pt.y - 45, 140, 90);
+          } else if (gPaintTool === 'rect_fill') {
+            ctx.fillRect(pt.x - 70, pt.y - 45, 140, 90);
+          } else if (gPaintTool === 'circle') {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 50, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (gPaintTool === 'circle_fill') {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 50, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          // Dragged: draw final shape
+          if (gPaintTool === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+          } else if (gPaintTool === 'rect') {
+            ctx.strokeRect(sx, sy, ex - sx, ey - sy);
+          } else if (gPaintTool === 'rect_fill') {
+            ctx.fillRect(sx, sy, ex - sx, ey - sy);
+          } else if (gPaintTool === 'circle') {
+            const rad = Math.hypot(ex - sx, ey - sy);
+            ctx.beginPath();
+            ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (gPaintTool === 'circle_fill') {
+            const rad = Math.hypot(ex - sx, ey - sy);
+            ctx.beginPath();
+            ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        gPaintSnapshot = null;
       }
     }
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', moveDraw);
-    window.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', moveDraw, { passive: false });
-    window.addEventListener('touchend', endDraw);
+    function onTouchStart(e) {
+      e.preventDefault();
+      gLastTouchTime = Date.now();
+      startDraw(e);
+    }
+    function onTouchMove(e) {
+      e.preventDefault();
+      moveDraw(e);
+    }
+    function onTouchEnd(e) {
+      e.preventDefault();
+      endDraw(e);
+    }
+    function onMouseDown(e) {
+      if (Date.now() - gLastTouchTime < 600) return;
+      startDraw(e);
+    }
+    function onMouseMove(e) {
+      if (Date.now() - gLastTouchTime < 600) return;
+      moveDraw(e);
+    }
+    function onMouseUp(e) {
+      if (Date.now() - gLastTouchTime < 600) return;
+      endDraw(e);
+    }
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
   }
 
   // 12. 🖼️ 全能图片调色工坊 (Image Lab Engine - 自适应横竖屏)

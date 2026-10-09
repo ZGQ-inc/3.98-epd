@@ -20,8 +20,11 @@ hardware/
 │   └── epd_case.scad       -> 完整的 OpenSCAD 参数化建模源码
 ├── scripts/
 │   └── build_epd_case.py   -> Python 3D 网格生成脚本 (纯数学算法 + Delaunay 三角剖分)
-└── fpc_adapter/            -> 24-Pin 0.5mm 墨水屏 45° 转接板 KiCad 硬件工程（作废）
+└── fpc_adapter/            -> 24-Pin 0.8mm 转 0.5mm 45° 转接板工程（已作废归档，现采用 OSHWHub flamj0 高压驱动板）
 ```
+
+> ⚠️ **关于转接板作废归档说明**：  
+> 原自制 45° FPC 转接排线工程仅完成物理引脚间距转换（0.8mm 转 0.5mm），而 3.98" 四色屏（`SE0398NZ07`）需要高达 +22V / -20V / +15V 物理驱动偏压，普通驱动板无法正常工作。因此自制转接板已作废归档，硬件推荐采用立创开源硬件平台 [@flamj0 的墨水屏 FPC 转接板](https://oshwhub.com/flamj0/mo-shui-ping-fpc-zhuan-jie-ban)。
 
 ---
 

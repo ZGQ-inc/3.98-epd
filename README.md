@@ -65,7 +65,7 @@
 │   │   └── epd_case.scad   # 完整的 OpenSCAD 参数化建模源码
 │   ├── scripts/
 │   │   └── build_epd_case.py # Python 3D 网格生成脚本 (纯数学算法 + Delaunay 三角剖分)
-│   └── fpc_adapter/        # 24-Pin 0.5mm 墨水屏 45° 转接板 KiCad 硬件工程
+│   └── fpc_adapter/        # 24-Pin 0.8mm 转 0.5mm 45° 转接板工程（已作废归档，现采用 OSHWHub flamj0 转接驱动板）
 │
 ├── cf_pages/               # 部署至 Cloudflare Pages 的 100% 离线独立 PWA 控制端
 │   ├── README.md           # Cloudflare Pages 部署说明
