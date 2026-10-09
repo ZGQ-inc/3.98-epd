@@ -130,8 +130,17 @@ fn main() -> anyhow::Result<()> {
 
     // 5b. Initialize Bluetooth BLE 5.0 NimBLE subsystem & RF Coexistence (after Wi-Fi to preserve PHY coexistence)
     {
-        let cfg = app_config.lock().unwrap();
-        crate::ble::BleManager::global().init(&cfg.wireless_mode, &cfg.ble_device_name, cfg.ble_enabled);
+        let (w_mode, b_name, b_enabled) = {
+            let cfg = app_config.lock().unwrap();
+            (cfg.wireless_mode.clone(), cfg.ble_device_name.clone(), cfg.ble_enabled)
+        };
+        crate::ble::BleManager::global().init(
+            &w_mode,
+            &b_name,
+            b_enabled,
+            Some(config_mgr.clone()),
+            Some(app_config.clone()),
+        );
     }
 
     // 6. Start MQTT client (in Station mode only, and not in ble_only mode)

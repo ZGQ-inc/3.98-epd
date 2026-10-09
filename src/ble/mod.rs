@@ -44,6 +44,8 @@ pub struct BleManager {
     wireless_mode: Mutex<String>,
     initialized: AtomicBool,
     tx_char: Mutex<Option<Arc<NimbleMutex<BLECharacteristic>>>>,
+    config_mgr: Mutex<Option<Arc<Mutex<crate::config::ConfigManager>>>>,
+    app_config: Mutex<Option<Arc<Mutex<crate::config::AppConfig>>>>,
 }
 
 static GLOBAL_BLE: Mutex<Option<Arc<BleManager>>> = Mutex::new(None);
@@ -62,6 +64,8 @@ impl BleManager {
                 wireless_mode: Mutex::new("dual".to_string()),
                 initialized: AtomicBool::new(false),
                 tx_char: Mutex::new(None),
+                config_mgr: Mutex::new(None),
+                app_config: Mutex::new(None),
             });
             *guard = Some(mgr.clone());
             mgr
@@ -69,7 +73,20 @@ impl BleManager {
     }
 
     /// Initialize native ESP32-C3 NimBLE 5.0 hardware controller, GATT server and advertising
-    pub fn init(&self, mode: &str, device_name: &str, ble_enabled: bool) {
+    pub fn init(
+        &self,
+        mode: &str,
+        device_name: &str,
+        ble_enabled: bool,
+        config_mgr: Option<Arc<Mutex<crate::config::ConfigManager>>>,
+        app_config: Option<Arc<Mutex<crate::config::AppConfig>>>,
+    ) {
+        if let Some(cm) = config_mgr {
+            *self.config_mgr.lock().unwrap() = Some(cm);
+        }
+        if let Some(ac) = app_config {
+            *self.app_config.lock().unwrap() = Some(ac);
+        }
         let mode_str = if mode.is_empty() { "auto" } else { mode };
         *self.wireless_mode.lock().unwrap() = mode_str.to_string();
         *self.device_name.lock().unwrap() = device_name.to_string();
@@ -166,9 +183,35 @@ impl BleManager {
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
                             if val.get("cmd").and_then(|v| v.as_str()) == Some("wifi_setup") {
                                 if let Some(ssid) = val.get("ssid").and_then(|v| v.as_str()) {
-                                    let _pass = val.get("pass").and_then(|v| v.as_str()).unwrap_or("");
+                                    let pass = val.get("pass").and_then(|v| v.as_str()).unwrap_or("");
                                     println!("  [ble-rx] Air Provisioning Wi-Fi SSID: '{}'", ssid);
-                                    // Save Wi-Fi credentials to NVS
+                                    let ble_self = BleManager::global();
+                                    let mut saved = false;
+                                    if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                        let mut cfg = ac.lock().unwrap();
+                                        cfg.wifi_ssid = ssid.to_string();
+                                        cfg.wifi_pass = pass.to_string();
+                                        if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                            let mut mgr = cm.lock().unwrap();
+                                            if let Err(e) = mgr.save(&cfg) {
+                                                eprintln!("  [ble-rx] Failed to save Wi-Fi config: {:?}", e);
+                                            } else {
+                                                println!("  [ble-rx] Wi-Fi config saved to NVS!");
+                                                saved = true;
+                                            }
+                                        }
+                                    }
+                                    if saved {
+                                        if let Some(ref tx) = *ble_self.tx_char.lock().unwrap() {
+                                            tx.lock().set_value(b"WIFI_CONFIGURED");
+                                            tx.lock().notify();
+                                        }
+                                        std::thread::spawn(|| {
+                                            std::thread::sleep(std::time::Duration::from_millis(1200));
+                                            println!("  [ble-rx] Restarting device to apply new Wi-Fi credentials...");
+                                            unsafe { esp_idf_sys::esp_restart() };
+                                        });
+                                    }
                                 }
                             }
                         }

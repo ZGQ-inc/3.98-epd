@@ -27,6 +27,10 @@ rustflags = ["--cfg", "espidf_time64"]
 [env]
 ESP_IDF_VERSION = "v5.4"
 ESP_IDF_SDKCONFIG_DEFAULTS = { value = "sdkconfig.defaults", relative = true }
+# 若编译到当前项目 ./build 目录遇到 Windows 路径长度检测警告，可启用：
+ESP_IDF_PATH_ISSUES = "warn"
+# 若希望复用已有的 ESP-IDF 工具链和 Python 虚拟环境，可按需指定已有工具路径：
+# ESP_IDF_TOOLS_INSTALL_DIR = "custom:C:\\esp_b\\.embuild\\espressif"
 
 # ------------------------------------------------------------------------------
 # [Windows 免 Visual Studio 构建环境配置（可选）]
