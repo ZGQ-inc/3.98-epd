@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Google Material 3 Adaptive Squircle Container -->
+  <rect width="512" height="512" rx="112" fill="#005ac1"/>
+  
+  <!-- Google Material Symbol: EPD (Electronic Paper Display) -->
+  <!-- Standard 24dp grid scaled 16x (stroke-width: 2dp -> 32px, rounded caps & joins) -->
+  <g transform="translate(64, 64) scale(16)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Landscape E-Paper Display Screen Frame -->
+    <rect x="2" y="4" width="20" height="16" rx="3.5"/>
+    <!-- E-Ink Bistable Microcapsule Contrast Glyph -->
+    <circle cx="12" cy="12" r="4.5"/>
+    <path d="M 12 7.5 A 4.5 4.5 0 0 1 12 16.5 Z" fill="#ffffff" stroke="none"/>
+  </g>
+</svg>

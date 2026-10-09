@@ -1,0 +1,15 @@
+/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, OPTIONS
+  Access-Control-Allow-Headers: Content-Type
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/sw.js
+  Service-Worker-Allowed: /
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/manifest.json
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: max-age=86400
