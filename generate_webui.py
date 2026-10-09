@@ -1,5 +1,7 @@
-# generate_webui.py — Generates the complete modern Material 3 WebUI for EPD Smart Display
+# -*- coding: utf-8 -*-
+# Auto-generated script to build and gzip index.html for ESP32 embedded web server
 import os
+import gzip
 
 html_content = '''<!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
@@ -11,13 +13,13 @@ html_content = '''<!DOCTYPE html>
   <script src="https://registry.npmmirror.com/fabric/5.3.0/files/dist/fabric.min.js"></script>
   <script>
     if (typeof fabric === 'undefined') {
-      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/fabric.js/5.3.0/fabric.min.js"><\\/script>');
+      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/fabric.js/5.3.0/fabric.min.js"><\/script>');
     }
   </script>
   <script src="https://registry.npmmirror.com/qrcodejs/1.0.0/files/qrcode.min.js"></script>
   <script>
     if (typeof QRCode === 'undefined') {
-      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\\/script>');
+      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
     }
   </script>
 
@@ -271,7 +273,7 @@ html_content = '''<!DOCTYPE html>
 <header>
   <div class="brand">
     <span>📺 3.98" 4色墨水屏 · 智能控制台</span>
-    <span class="badge" id="netStatusBadge">已就绪 (192.168.10.203)</span>
+    <span class="badge" id="netStatusBadge">设备在线</span>
   </div>
   <nav>
     <button class="active" data-tab="dashboard" onclick="switchTab('dashboard', this)">🏠 仪表盘</button>
@@ -546,9 +548,10 @@ html_content = '''<!DOCTYPE html>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
           <button class="m3-btn small" id="btnToggleBle" onclick="toggleBleBroadcast()">关闭蓝牙广播</button>
-          <a href="/pwa" target="_blank" class="m3-btn small outlined" style="text-decoration:none; display:flex; align-items:center; gap:4px;">
+          <a href="/pwa" id="linkPwaStudio" target="_blank" class="m3-btn small outlined" style="text-decoration:none; display:flex; align-items:center; gap:4px;" title="点击打开离线蓝牙 PWA 控制端 (可点击右侧设置按钮自定义为您自己的独立域名)">
             📱 离线蓝牙 PWA 专页
           </a>
+          <button class="m3-btn small outlined" onclick="promptCustomPwaUrl()" title="自定义修改离线 PWA / Cloudflare Pages 地址" style="padding:6px 10px; cursor:pointer;">⚙️ 自定义地址</button>
         </div>
       </div>
 
@@ -593,9 +596,9 @@ html_content = '''<!DOCTYPE html>
     <div class="m3-card">
       <h2>📶 Wi-Fi 局域网接入配置</h2>
       <label>Wi-Fi 名称 (SSID):</label>
-      <input type="text" id="wifiSsid" value="TR3000_2.4G">
+      <input type="text" id="wifiSsid" placeholder="输入 Wi-Fi 名称 (SSID)" value="">
       <label>Wi-Fi 密码 (Password):</label>
-      <input type="password" id="wifiPass" value="qaz040928">
+      <input type="password" id="wifiPass" placeholder="输入 Wi-Fi 密码" value="">
 
       <h2>🏠 Home Assistant & MQTT 自动发现集成</h2>
       <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px;">
@@ -650,9 +653,9 @@ html_content = '''<!DOCTYPE html>
       <table class="diag-table">
         <tbody>
           <tr><td>主控芯片架构 (SoC)</td><td id="diagChip">ESP32-C3 (Single-Core RISC-V 160MHz, Rev v0.4)</td></tr>
-          <tr><td>物理网卡 MAC 地址</td><td id="diagMac" style="font-family:monospace;">14:63:93:6e:a0:0c</td></tr>
-          <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="diagRssi">-42 dBm (极强信号 📶)</td></tr>
-          <tr><td>当前局域网 IP / 域名</td><td id="diagIp">http://192.168.10.203 / http://epd-display.local</td></tr>
+          <tr><td>物理网卡 MAC 地址</td><td id="diagMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
+          <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="diagRssi">-- dBm</td></tr>
+          <tr><td>当前局域网 IP / 域名</td><td id="diagIp">http://&lt;DEVICE_IP&gt; / http://epd-display.local</td></tr>
           <tr><td>系统连续运行时间 (Uptime)</td><td id="diagUptime">0天 0小时 25分 12秒</td></tr>
           <tr><td>实时可用堆内存 (SRAM)</td><td id="diagHeap">69,820 字节 (最低剩余 58,410 字节，运行极佳)</td></tr>
           <tr><td>SPI Flash 闪存规格</td><td id="diagFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
@@ -693,6 +696,50 @@ html_content = '''<!DOCTYPE html>
 </div>
 
 <script>
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 0. 用户自定义离线蓝牙 PWA / Cloudflare Pages 专页地址配置
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 【说明】您可在此处直接修改为您部署的 Cloudflare Pages 地址，例如: 'https://my-badge.pages.dev'
+  // 修改后，页面所有“离线蓝牙 PWA 专页”入口将直达您的独立域名；若留空则优先读取本地保存的配置或默认使用 '/pwa'。
+  const DEFAULT_CUSTOM_PWA_URL = '';
+
+  function getPwaUrl() {
+    return localStorage.getItem('user_custom_pwa_url') || DEFAULT_CUSTOM_PWA_URL || '/pwa';
+  }
+
+  function updatePwaLinks() {
+    const url = getPwaUrl();
+    const link = document.getElementById('linkPwaStudio');
+    if (link) link.href = url;
+    document.querySelectorAll('.pwa-link-ref').forEach(el => {
+      el.href = url;
+      if (url.startsWith('http')) {
+        el.innerText = url;
+      }
+    });
+  }
+
+  function promptCustomPwaUrl() {
+    const current = getPwaUrl();
+    const input = prompt(
+      '【自定义离线蓝牙 PWA 专页地址】\n' +
+      '请输入您部署在 Cloudflare Pages 的专属网址（例如: https://my-badge.pages.dev）：\n' +
+      '(若输入为空则恢复默认设备内置 /pwa 地址)',
+      current === '/pwa' ? '' : current
+    );
+    if (input !== null) {
+      const trimmed = input.trim();
+      if (trimmed) {
+        localStorage.setItem('user_custom_pwa_url', trimmed);
+        alert('✅ 已成功设置自定义离线 PWA 地址为:\n' + trimmed + '\n\n点击“离线蓝牙 PWA 专页”按钮即可直接跳转访问！');
+      } else {
+        localStorage.removeItem('user_custom_pwa_url');
+        alert('ℹ️ 已恢复为默认设备内置 PWA 地址 (/pwa)');
+      }
+      updatePwaLinks();
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. Material Design 3 Dark Mode Theme Manager
   // ─────────────────────────────────────────────────────────────────────────────
@@ -770,7 +817,7 @@ html_content = '''<!DOCTYPE html>
 
   let currentSelectedMode = 'demo';
   let modeParamsStore = {
-    demo: { title: '3.98" SMART EPD', panel: 'SE0398NZ07 4-COLOR', status: 'ONLINE & ACTIVE', webui_url: 'http://192.168.10.203', mdns: 'http://epd-display.local', features: 'Material Web 3.0 / 17种场景 / 4色画板' },
+    demo: { title: '3.98" SMART EPD', panel: 'SE0398NZ07 4-COLOR', status: 'ONLINE & ACTIVE', webui_url: 'http://epd-display.local', mdns: 'http://epd-display.local', features: 'Material Web 3.0 / 17种场景 / 4色画板' },
     fridge_board: { title: '家庭核心留言板', note: '冰箱冷藏室温度良好，记得晚上回家买鲜奶和全麦面包！', author: '爸爸', item1: '出门记得关阳台窗户', item2: '晚饭煮番茄牛腩面', item3: '晚上 9 点检查作业' },
     memo: { title: 'TODAY TO-DO LIST', item1: '1. 调试 ESP32-C3 墨水屏固件', item2: '2. 3D打印机加装侧边滑动开关', item3: '3. 完成 Rust 显存流式直推架构', item4: '4. 跑步 5 公里并拉伸放松', footer: '保持专注，逐项击破！' },
     calendar: { year: 2026, month: 10, day: 7, lunar: '丙申年 八月廿七', yiji: '宜：祈福 祭祀 动土 | 忌：出行 词讼', motto: '盛年不重来，一日难再晨。及时当勉励，岁月不待人。' },
@@ -785,7 +832,7 @@ html_content = '''<!DOCTYPE html>
     care_reminders: { morning: '早晨：降压药 1 片 (饭后)', noon: '中午：复合维生素 1 粒', evening: '晚上：钙片 1 片 (睡前温水)', note: '健康是最好的财富，记得按时作息！' },
     daily_routine: { r1: '07:30 起床晨练与梳洗', r2: '08:30 丰盛早餐与今日规划', r3: '09:30 核心研发深度攻坚', r4: '12:00 健康午餐与小憩', r5: '14:00 系统联调与测试', r6: '18:30 晚餐与家庭休闲' },
     moon_phase: { phase: '亏凸月 (Waning Gibbous)', age: '月龄 20.3 天', illum: '亮面 78.4%', tide: '大潮 (高潮 04:20 / 低潮 11:35)' },
-    qrcode: { ssid: 'TR3000_2.4G', pass: 'qaz040928', prompt: '扫码快速连接家庭高速无线网络' },
+    qrcode: { ssid: 'Your_WiFi_SSID', pass: 'Your_WiFi_Password', prompt: '扫码快速连接家庭无线网络' },
     photo: { title: '山川湖海 · 秋日光影', date: '2026 Autumn Collection', author: 'Shot on Custom Rig' },
     rss: { head1: '开源 RISC-V 架构出货量突破数百亿颗大关', head2: '新一代低功耗彩色全反射墨水屏技术量产发布', head3: 'Rust 2024 Edition 核心语言新特性全面定型', head4: '局域网低功耗物联网智能终端规范进一步统一' }
   };
@@ -975,10 +1022,10 @@ html_content = '''<!DOCTYPE html>
 
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 14px -apple-system, monospace';
-      ctx.fillText('WIFI  : TR3000_2.4G', 45, 386);
-      ctx.fillText('IP    : 192.168.10.203', 45, 416);
+      ctx.fillText('WIFI  : ' + (p.wifi_ssid || 'Home_WiFi'), 45, 386);
+      ctx.fillText('IP    : ' + (p.ip || location.hostname || '192.168.1.100'), 45, 416);
       ctx.fillStyle = RED;
-      ctx.fillText('WEBUI : ' + (p.webui_url || 'http://192.168.10.203/'), 45, 446);
+      ctx.fillText('WEBUI : ' + (p.webui_url || 'http://' + (location.host || 'epd-display.local') + '/'), 45, 446);
       ctx.fillStyle = BLACK;
       ctx.fillText('MDNS  : ' + (p.mdns || 'http://epd-display.local/'), 45, 476);
       ctx.fillText('PORT  : 80 (HTTP WEB & REST API)', 45, 506);
@@ -1016,8 +1063,8 @@ html_content = '''<!DOCTYPE html>
       ctx.fillText('浏览器直接访问网址:', 474, 240);
       ctx.fillText('http://', 474, 262);
       ctx.fillStyle = RED;
-      ctx.font = 'bold 22px -apple-system, sans-serif';
-      ctx.fillText('192.168.10.203', 474, 288);
+      ctx.font = 'bold 20px -apple-system, sans-serif';
+      ctx.fillText(location.hostname || 'epd-display.local', 474, 288);
       ctx.fillStyle = BLACK;
       ctx.font = '14px -apple-system, sans-serif';
       ctx.fillText('或 epd-display.local', 474, 312);
@@ -1080,7 +1127,7 @@ html_content = '''<!DOCTYPE html>
         ctx.fillText(it, 68, y);
         y += 56;
       });
-      drawFooter('设备状态：Wi-Fi 在线 (192.168.10.203) | 信号良好 📶');
+      drawFooter('设备状态：Wi-Fi 在线 (' + (p.ip || '192.168.1.100') + ') | 信号良好 📶');
 
     } else if (currentSelectedMode === 'memo') {
       drawHeader('📋 今日待办事项与便签 (TO-DO LIST)', 'PRIORITY MEMO');
@@ -1990,7 +2037,7 @@ html_content = '''<!DOCTYPE html>
       if (devs.length === 0) {
         listEl.innerHTML = `
           <div style="padding:12px; background:var(--md-sys-color-surface-container); border-radius:8px; font-size:12px; color:var(--md-sys-color-on-surface-variant); text-align:center;">
-            暂无已连接的蓝牙主机（可用手机 Chrome 打开 <a href="/pwa" target="_blank" style="color:var(--md-sys-color-primary); font-weight:600;">/pwa</a> 开启蓝牙直连配对）
+            暂无已连接的蓝牙主机（可用手机 Chrome 打开 <a href="${getPwaUrl()}" class="pwa-link-ref" target="_blank" style="color:var(--md-sys-color-primary); font-weight:600;">${getPwaUrl()}</a> 开启蓝牙直连配对）
           </div>
         `;
       } else {
@@ -2323,6 +2370,7 @@ html_content = '''<!DOCTYPE html>
 
   window.onload = async function() {
     initTheme();
+    updatePwaLinks();
     initModesUI();
     await pollStatus();
     await loadConfig();
@@ -2333,14 +2381,15 @@ html_content = '''<!DOCTYPE html>
 </html>
 '''
 
-import gzip
-
-target_path = r'C:\Users\ZGQ\Documents\antigravity\epd\web_assets\index.html'
-with open(target_path, 'w', encoding='utf-8') as f:
-    f.write(html_content)
-
-gz_path = r'C:\Users\ZGQ\Documents\antigravity\epd\web_assets\index.html.gz'
-with open(gz_path, 'wb') as f:
-    f.write(gzip.compress(html_content.encode('utf-8'), compresslevel=9))
-
-print(f"Generated index.html successfully, length: {len(html_content)} bytes (gzip: {len(open(gz_path, 'rb').read())} bytes)")
+if __name__ == "__main__":
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    target_path = os.path.join(script_dir, "web_assets", "index.html")
+    gz_path = os.path.join(script_dir, "web_assets", "index.html.gz")
+    
+    with open(target_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    
+    with open(gz_path, "wb") as f:
+        f.write(gzip.compress(html_content.encode("utf-8"), compresslevel=9))
+    
+    print(f"Generated index.html successfully, length: {len(html_content)} bytes (gzip: {len(open(gz_path, 'rb').read())} bytes)")

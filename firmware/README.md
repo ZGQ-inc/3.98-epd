@@ -35,19 +35,19 @@ cargo +esp build --release
 ## ⚡ 一键烧录到设备 (Flash)
 
 ### 方式一：使用 `espflash` 自动烧录 (推荐)
-将 ESP32-C3 SuperMini 通过 Type-C 数据线连接至电脑（假设串口为 `COM17` 或 `/dev/ttyUSB0`）：
+将 ESP32-C3 SuperMini 通过 Type-C 数据线连接至电脑（设备管理器中查看端口号，例如 Windows 上的 `COMx` 或 Linux 上的 `/dev/ttyUSB0`）：
 ```bash
 # 自动检测串口并烧录
 espflash flash --release
 
-# 或指定具体串口与监控日志
-espflash flash --port COM17 --release --monitor
+# 或指定具体串口与监控日志（请将 <PORT> 替换为你的实际串口号，如 COM17 或 /dev/ttyUSB0）
+espflash flash --port <PORT> --release --monitor
 ```
 
 ### 方式二：使用 `esptool.py` 烧录
 如果您拥有编译打包后的二进制分卷：
 ```bash
-esptool.py --chip esp32c3 -p COM17 -b 460800 --before default_reset --after hard_reset write_flash \
+esptool.py --chip esp32c3 -p <PORT> -b 460800 --before default_reset --after hard_reset write_flash \
   0x0      bootloader.bin \
   0x8000   partitions.bin \
   0x20000  epd-firmware.bin

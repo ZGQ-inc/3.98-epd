@@ -1,0 +1,39 @@
+# ==============================================================================
+# Cargo Configuration Template for 3.98" BWRY E-Paper Display Firmware
+# ==============================================================================
+# 使用说明：
+# 1. 复制本文件为 `.cargo/config.toml`（此文件已被 .gitignore 忽略，不会泄露个人路径）。
+# 2. 根据你的操作系统环境按需调整以下配置。
+# ==============================================================================
+
+[build]
+target = "riscv32imc-esp-espidf"
+
+# ------------------------------------------------------------------------------
+# [Windows 用户构建路径建议 / Windows Path Length Notice]
+# esp-idf-sys 底层 C 构建工具链（CMake / Ninja / kconfig）在 Windows 平台对路径长度
+# 存在硬性上限校验。若当前工程根路径较深，构建时可能抛出 "Too long output directory"。
+# 解决方法：取消下行注释，将 target-dir 指向磁盘根目录极短路径：
+# target-dir = "C:\\esp_b\\epd"
+# ------------------------------------------------------------------------------
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+[target.riscv32imc-esp-espidf]
+linker = "ldproxy"
+rustflags = ["--cfg", "espidf_time64"]
+
+[env]
+ESP_IDF_VERSION = "v5.4"
+ESP_IDF_SDKCONFIG_DEFAULTS = { value = "sdkconfig.defaults", relative = true }
+
+# ------------------------------------------------------------------------------
+# [Windows 免 Visual Studio 构建环境配置（可选）]
+# 若 Windows 主机采用 LLVM rust-lld 与 xwin SDK 编译 host build-script，可按需配置：
+# [target.x86_64-pc-windows-msvc]
+# linker = "C:\\Users\\<YourUsername>\\.rustup\\toolchains\\esp\\lib\\rustlib\\x86_64-pc-windows-msvc\\bin\\rust-lld.exe"
+#
+# [env]
+# LIB = "C:\\Users\\<YourUsername>\\.xwin\\crt\\lib\\x64;C:\\Users\\<YourUsername>\\.xwin\\sdk\\lib\\ucrt\\x64;C:\\Users\\<YourUsername>\\.xwin\\sdk\\lib\\um\\x64"
+# ------------------------------------------------------------------------------

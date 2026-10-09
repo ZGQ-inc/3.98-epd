@@ -3,6 +3,10 @@
 **/*.rs.bk
 *.pdb
 
+# Local environment & personal toolchain paths (use .cargo/config.toml.example instead)
+.cargo/config.toml
+!.cargo/config.toml.example
+
 # ESP-IDF build outputs & temporary configurations
 build/
 .esp-idf/

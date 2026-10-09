@@ -1,0 +1,2 @@
+[idf]
+partition_table = "partitions.csv"

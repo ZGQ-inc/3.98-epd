@@ -63,8 +63,8 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            wifi_ssid: "TR3000_2.4G".to_string(),
-            wifi_pass: "qaz040928".to_string(),
+            wifi_ssid: String::new(),
+            wifi_pass: String::new(),
             device_name: "EPD-Smart-Display".to_string(),
             mqtt_broker: String::new(),
             mqtt_port: 1883,
@@ -108,10 +108,6 @@ impl ConfigManager {
             Ok(Some(slice)) => match serde_json::from_slice::<AppConfig>(slice) {
                 Ok(mut c) => {
                     info!("[CONFIG] Configuration loaded successfully from NVS.");
-                    if c.wifi_ssid.is_empty() {
-                        c.wifi_ssid = "TR3000_2.4G".to_string();
-                        c.wifi_pass = "qaz040928".to_string();
-                    }
                     if c.wireless_mode.is_empty() {
                         c.wireless_mode = "auto".to_string();
                     }
