@@ -1048,38 +1048,80 @@ var QRCodeLib = (function () {
       statusText.innerText = '正在搜寻墨水屏...';
       btn.disabled = true;
 
-      gDevice = await navigator.bluetooth.requestDevice({
+      const device = await navigator.bluetooth.requestDevice({
         filters: [
           { services: [0x00FF] },
+          { services: [BLE_SERVICE_UUID] },
           { namePrefix: 'EPD' },
           { namePrefix: 'SmartEPD' },
           { namePrefix: 'InkBadge' }
         ],
-        optionalServices: [BLE_SERVICE_UUID]
+        optionalServices: [0x00FF, BLE_SERVICE_UUID, 0x180A]
       });
 
-      gDevice.addEventListener('gattserverdisconnected', onBleDisconnected);
+      if (!device) {
+        throw new Error('未选择任何蓝牙设备');
+      }
+
+      gDevice = device;
+      const devName = device.name || 'EPD-Smart-Display';
+
+      device.removeEventListener('gattserverdisconnected', onBleDisconnected);
+      device.addEventListener('gattserverdisconnected', onBleDisconnected);
 
       statusText.innerText = '正在握手 GATT 服务...';
-      gServer = await gDevice.gatt.connect();
+      subText.innerText = `正在连接 ${devName}...`;
 
+      const server = await device.gatt.connect();
+      gServer = server;
+
+      if (!server || !server.connected) {
+        throw new Error('GATT 服务连接未建立或已断开');
+      }
+
+      // 获取 0x00FF 主服务 (兼容 128-bit 与 16-bit)
+      let service = null;
       try {
-        const service = await gServer.getPrimaryService(BLE_SERVICE_UUID);
+        service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      } catch (e1) {
+        try {
+          service = await server.getPrimaryService(0x00FF);
+        } catch (e2) {
+          throw new Error('无法获取 0x00FF GATT 服务: ' + (e1.message || e2.message));
+        }
+      }
+
+      // 获取 RX 特征值 (0xFF01)
+      try {
         gRxChar = await service.getCharacteristic(BLE_CHAR_RX_UUID);
+      } catch {
+        gRxChar = await service.getCharacteristic(0xFF01);
+      }
+
+      // 获取 TX 特征值 (0xFF02)
+      try {
         gTxChar = await service.getCharacteristic(BLE_CHAR_TX_UUID);
-      } catch(e) {
-        console.log('GATT custom service setup standby:', e);
+      } catch {
+        try {
+          gTxChar = await service.getCharacteristic(0xFF02);
+        } catch(e) {
+          console.log('TX characteristic standby:', e);
+        }
+      }
+
+      if (!device.gatt.connected) {
+        throw new Error('蓝牙在握手服务后意外断开');
       }
 
       dot.className = 'ble-status-dot connected';
-      statusText.innerText = `● 已连接 (${gDevice.name})`;
+      statusText.innerText = `● 已连接 (${devName})`;
       subText.innerText = `设备就绪 · 支持 2bpp 硬件点阵分包直推`;
       btn.innerText = '断开';
       btn.className = 'btn btn-outlined btn-sm';
-      setTransferMsg(`✅ 蓝牙已连接到 ${gDevice.name}`);
+      setTransferMsg(`✅ 蓝牙已连接到 ${devName}`);
 
       // Save to known devices
-      rememberDevice(gDevice.id, gDevice.name);
+      rememberDevice(device.id, devName);
     } catch(err) {
       console.warn('BLE Connect Cancelled/Failed:', err);
       dot.className = 'ble-status-dot';
@@ -1087,8 +1129,8 @@ var QRCodeLib = (function () {
       subText.innerText = '支持 Chrome/Edge 离线直推';
       btn.innerText = '🔍 扫描连接';
       btn.className = 'btn btn-primary btn-sm';
-      if (err.name !== 'NotFoundError') {
-        alert('连接失败: ' + err.message);
+      if (err && err.name !== 'NotFoundError') {
+        alert('连接失败: ' + (err.message || err));
       }
     } finally {
       btn.disabled = false;
@@ -1106,7 +1148,7 @@ var QRCodeLib = (function () {
     subText.innerText = '点击重新搜寻连接墨水屏';
     btn.innerText = '🔍 扫描连接';
     btn.className = 'btn btn-primary btn-sm';
-    gDevice = null;
+    btn.disabled = false;
     gServer = null;
     gRxChar = null;
     gTxChar = null;
