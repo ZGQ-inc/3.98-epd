@@ -501,8 +501,13 @@
       <div>
         <label>抖动算法:</label>
         <select id="labDitherAlgo" onchange="renderLabPreview()">
-          <option value="floyd">Floyd-Steinberg 误差扩散 (推荐)</option>
-          <option value="atkinson">Atkinson (复古 Mac 风格清晰度高)</option>
+          <option value="floyd">Floyd-Steinberg 误差扩散 (平滑过渡)</option>
+          <option value="atkinson">Atkinson (复古 Mac 高对比度)</option>
+          <option value="microsoft">Microsoft 8x8 GDI (经典 Win95 复古像素)</option>
+          <option value="stucki">Stucki 误差扩散 (细节细腻锐利)</option>
+          <option value="burkes">Burkes 误差扩散 (快速高保真)</option>
+          <option value="sierra">Sierra 误差扩散 (三行平衡扩散)</option>
+          <option value="ostromoukhov">Ostromoukhov (动态变系数抗蠕虫)</option>
           <option value="bayer">Bayer 4x4 有序半色调</option>
           <option value="threshold">Threshold (纯阈值硬边缘)</option>
         </select>
@@ -1469,9 +1474,83 @@ var QRCodeLib = (function () {
     }
   }
 
-  // 6. 4-Color BWRY Floyd-Steinberg Dithering Engine (1:1 768x552 Buffer)
+  // 6. 4-Color BWRY Multi-Algorithm Dithering Engine (1:1 768x552 / Arbitrary Canvas Buffer)
+  const BAYER_8X8 = [
+     0, 32,  8, 40,  2, 34, 10, 42,
+    48, 16, 56, 24, 50, 18, 58, 26,
+    12, 44,  4, 36, 14, 46,  6, 38,
+    60, 28, 52, 20, 62, 30, 54, 22,
+     3, 35, 11, 43,  1, 33,  9, 41,
+    51, 19, 59, 27, 49, 17, 57, 25,
+    15, 47,  7, 39, 13, 45,  5, 37,
+    63, 31, 55, 23, 61, 29, 53, 21
+  ];
+
+  const BAYER_4X4 = [
+     0,  8,  2, 10,
+    12,  4, 14,  6,
+     3, 11,  1,  9,
+    15,  7, 13,  5
+  ];
+
+  const SPREAD_ATKINSON = [
+    [1, 0, 1/8], [2, 0, 1/8],
+    [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8],
+    [0, 2, 1/8]
+  ];
+
+  const SPREAD_STUCKI = [
+    [1, 0, 8/42], [2, 0, 4/42],
+    [-2, 1, 2/42], [-1, 1, 4/42], [0, 1, 8/42], [1, 1, 4/42], [2, 1, 2/42],
+    [-2, 2, 1/42], [-1, 2, 2/42], [0, 2, 4/42], [1, 2, 2/42], [2, 2, 1/42]
+  ];
+
+  const SPREAD_BURKES = [
+    [1, 0, 8/32], [2, 0, 4/32],
+    [-2, 1, 2/32], [-1, 1, 4/32], [0, 1, 8/32], [1, 1, 4/32], [2, 1, 2/32]
+  ];
+
+  const SPREAD_SIERRA = [
+    [1, 0, 5/32], [2, 0, 3/32],
+    [-2, 1, 2/32], [-1, 1, 4/32], [0, 1, 5/32], [1, 1, 4/32], [2, 1, 2/32],
+    [-1, 2, 2/32], [0, 2, 3/32], [1, 2, 2/32]
+  ];
+
+  const OSTRO_RAW = [
+    [0, 13, 5, 10], [4, 71, 13, 60], [8, 41, 7, 36], [12, 59, 13, 48],
+    [17, 37, 7, 32], [21, 15, 4, 13], [25, 43, 11, 38], [29, 21, 5, 18],
+    [34, 31, 7, 26], [38, 27, 7, 22], [42, 37, 9, 30], [46, 45, 11, 36],
+    [51, 29, 7, 24], [55, 31, 7, 26], [59, 33, 7, 28], [63, 31, 7, 26],
+    [68, 31, 7, 26], [72, 33, 7, 28], [76, 33, 7, 28], [80, 27, 7, 22],
+    [85, 23, 7, 18], [89, 27, 7, 22], [93, 27, 7, 22], [97, 27, 7, 22],
+    [102, 27, 7, 22], [106, 23, 7, 18], [110, 23, 7, 18], [114, 23, 7, 18],
+    [119, 23, 7, 18], [123, 23, 7, 18], [127, 23, 7, 18]
+  ];
+
+  const OSTRO_LUT = new Float32Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const v = i <= 127 ? i : 255 - i;
+    let idx = 0;
+    for (let k = 0; k < OSTRO_RAW.length - 1; k++) {
+      if (OSTRO_RAW[k][0] <= v && v <= OSTRO_RAW[k+1][0]) {
+        idx = k; break;
+      }
+    }
+    const [x0, d1_0, d2_0, d3_0] = OSTRO_RAW[idx];
+    const [x1, d1_1, d2_1, d3_1] = OSTRO_RAW[Math.min(idx+1, OSTRO_RAW.length-1)];
+    const t = x1 > x0 ? (v - x0) / (x1 - x0) : 0;
+    const d1 = d1_0 + t * (d1_1 - d1_0);
+    const d2 = d2_0 + t * (d2_1 - d2_0);
+    const d3 = d3_0 + t * (d3_1 - d3_0);
+    const s = d1 + d2 + d3;
+    OSTRO_LUT[i * 3] = d1 / s;
+    OSTRO_LUT[i * 3 + 1] = d2 / s;
+    OSTRO_LUT[i * 3 + 2] = d3 / s;
+  }
+
   function ditherCanvasTo2bpp(sourceCanvas, algo = 'floyd') {
-    const w = 768, h = 552;
+    const w = sourceCanvas.width || 768;
+    const h = sourceCanvas.height || 552;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = w; tempCanvas.height = h;
     const tCtx = tempCanvas.getContext('2d');
@@ -1487,9 +1566,10 @@ var QRCodeLib = (function () {
     const bArr = new Float32Array(w * h);
 
     for (let i = 0; i < w * h; i++) {
-      rArr[i] = d[i * 4];
-      gArr[i] = d[i * 4 + 1];
-      bArr[i] = d[i * 4 + 2];
+      const a = d[i * 4 + 3] / 255.0;
+      rArr[i] = d[i * 4] * a + 255.0 * (1.0 - a);
+      gArr[i] = d[i * 4 + 1] * a + 255.0 * (1.0 - a);
+      bArr[i] = d[i * 4 + 2] * a + 255.0 * (1.0 - a);
     }
 
     const PALETTE = [
@@ -1500,22 +1580,54 @@ var QRCodeLib = (function () {
     ];
 
     const buffer = new Uint8Array((w * h) / 4);
+    const previewImg = tCtx.createImageData(w, h);
+    const pData = previewImg.data;
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = y * w + x;
-        const curR = rArr[idx], curG = gArr[idx], curB = bArr[idx];
+        let curR = Math.max(0, Math.min(255, rArr[idx]));
+        let curG = Math.max(0, Math.min(255, gArr[idx]));
+        let curB = Math.max(0, Math.min(255, bArr[idx]));
+
+        if (algo === 'microsoft' || algo === 'bayer') {
+          const mat = (algo === 'microsoft') ? BAYER_8X8 : BAYER_4X4;
+          const dim = (algo === 'microsoft') ? 8 : 4;
+          const mVal = mat[(y % dim) * dim + (x % dim)];
+          const spread = (algo === 'microsoft') ? 63 : 15;
+          const offset = (mVal / spread - 0.5) * 64.0;
+          curR = Math.max(0, Math.min(255, curR + offset));
+          curG = Math.max(0, Math.min(255, curG + offset));
+          curB = Math.max(0, Math.min(255, curB + offset));
+        }
 
         let bestDist = Infinity;
         let bestColor = PALETTE[0];
 
         for (let p = 0; p < 4; p++) {
           const pal = PALETTE[p];
-          const dist = (curR - pal.r) ** 2 + (curG - pal.g) ** 2 + (curB - pal.b) ** 2;
+          const dr = curR - pal.r;
+          const dg = curG - pal.g;
+          const db = curB - pal.b;
+          const dist = 0.299 * dr * dr + 0.587 * dg * dg + 0.114 * db * db;
           if (dist < bestDist) {
             bestDist = dist;
             bestColor = pal;
           }
+        }
+
+        const byteIdx = (idx / 4) | 0;
+        const shift = (3 - (idx % 4)) * 2;
+        buffer[byteIdx] |= (bestColor.code << shift);
+
+        const pIdx = idx * 4;
+        pData[pIdx] = bestColor.r;
+        pData[pIdx + 1] = bestColor.g;
+        pData[pIdx + 2] = bestColor.b;
+        pData[pIdx + 3] = 255;
+
+        if (algo === 'microsoft' || algo === 'bayer' || algo === 'threshold') {
+          continue;
         }
 
         const errR = curR - bestColor.r;
@@ -1540,21 +1652,62 @@ var QRCodeLib = (function () {
             }
           }
         } else if (algo === 'atkinson') {
-          const spread = [ [1, 0, 1/8], [2, 0, 1/8], [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8], [0, 2, 1/8] ];
-          spread.forEach(([dx, dy, factor]) => {
-            const nx = x + dx, ny = y + dy;
+          for (let s = 0; s < SPREAD_ATKINSON.length; s++) {
+            const nx = x + SPREAD_ATKINSON[s][0], ny = y + SPREAD_ATKINSON[s][1];
             if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
               const ni = ny * w + nx;
-              rArr[ni] += errR * factor; gArr[ni] += errG * factor; bArr[ni] += errB * factor;
+              const f = SPREAD_ATKINSON[s][2];
+              rArr[ni] += errR * f; gArr[ni] += errG * f; bArr[ni] += errB * f;
             }
-          });
+          }
+        } else if (algo === 'stucki') {
+          for (let s = 0; s < SPREAD_STUCKI.length; s++) {
+            const nx = x + SPREAD_STUCKI[s][0], ny = y + SPREAD_STUCKI[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_STUCKI[s][2];
+              rArr[ni] += errR * f; gArr[ni] += errG * f; bArr[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'burkes') {
+          for (let s = 0; s < SPREAD_BURKES.length; s++) {
+            const nx = x + SPREAD_BURKES[s][0], ny = y + SPREAD_BURKES[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_BURKES[s][2];
+              rArr[ni] += errR * f; gArr[ni] += errG * f; bArr[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'sierra') {
+          for (let s = 0; s < SPREAD_SIERRA.length; s++) {
+            const nx = x + SPREAD_SIERRA[s][0], ny = y + SPREAD_SIERRA[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_SIERRA[s][2];
+              rArr[ni] += errR * f; gArr[ni] += errG * f; bArr[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'ostromoukhov') {
+          const lum = Math.max(0, Math.min(255, Math.round(0.299 * curR + 0.587 * curG + 0.114 * curB)));
+          const w1 = OSTRO_LUT[lum * 3];
+          const w2 = OSTRO_LUT[lum * 3 + 1];
+          const w3 = OSTRO_LUT[lum * 3 + 2];
+          if (x + 1 < w) {
+            const ni = idx + 1;
+            rArr[ni] += errR * w1; gArr[ni] += errG * w1; bArr[ni] += errB * w1;
+          }
+          if (y + 1 < h) {
+            if (x - 1 >= 0) {
+              const ni = idx + w - 1;
+              rArr[ni] += errR * w2; gArr[ni] += errG * w2; bArr[ni] += errB * w2;
+            }
+            const ni = idx + w;
+            rArr[ni] += errR * w3; gArr[ni] += errG * w3; bArr[ni] += errB * w3;
+          }
         }
-
-        const byteIdx = (idx / 4) | 0;
-        const shift = (3 - (idx % 4)) * 2;
-        buffer[byteIdx] |= (bestColor.code << shift);
       }
     }
+    buffer.previewImageData = previewImg;
     return buffer;
   }
 
@@ -1609,6 +1762,7 @@ var QRCodeLib = (function () {
     offscreen.width = 768;
     offscreen.height = 552;
     const octx = offscreen.getContext('2d');
+    octx.imageSmoothingEnabled = false;
     octx.fillStyle = '#ffffff';
     octx.fillRect(0, 0, 768, 552);
 
@@ -1651,8 +1805,17 @@ var QRCodeLib = (function () {
     progressBar.style.width = '0%';
     setTransferMsg(`📦 正在生成 ${label} (${gOrientation}° 自适应旋转) 105,984 字节 4色物理点阵...`);
 
-    const rotatedCanvas = renderRotatedHardwareCanvas(canvas);
-    const buffer = ditherCanvasTo2bpp(rotatedCanvas);
+    const isLab = (canvasId === 'labCanvas');
+    const algo = (isLab && document.getElementById('labDitherAlgo')) ? document.getElementById('labDitherAlgo').value : 'floyd';
+    let rotatedCanvas;
+    if (isLab && gLoadedLabImg) {
+      rotatedCanvas = document.createElement('canvas');
+      rotatedCanvas.width = 768; rotatedCanvas.height = 552;
+      renderLabSourceToCanvas(rotatedCanvas, gOrientation);
+    } else {
+      rotatedCanvas = renderRotatedHardwareCanvas(canvas);
+    }
+    const buffer = ditherCanvasTo2bpp(rotatedCanvas, algo);
 
     // If BLE connected, stream chunks over BLE
     if (gDevice && gDevice.gatt.connected && gRxChar) {
@@ -2487,6 +2650,77 @@ var QRCodeLib = (function () {
     reader.readAsDataURL(file);
   }
 
+  function renderLabSourceToCanvas(targetCanvas, orientation) {
+    if (!gLoadedLabImg) return false;
+    const isPortrait = (orientation === 90 || orientation === 270);
+    const tw = targetCanvas.width;
+    const th = targetCanvas.height;
+    const ctx = targetCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tw, th);
+
+    const sw = isPortrait ? 552 : 768;
+    const sh = isPortrait ? 768 : 552;
+    const sc = document.createElement('canvas');
+    sc.width = sw; sc.height = sh;
+    const sctx = sc.getContext('2d');
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, sw, sh);
+
+    const scale = Math.max(sw / gLoadedLabImg.width, sh / gLoadedLabImg.height);
+    const dw = gLoadedLabImg.width * scale;
+    const dh = gLoadedLabImg.height * scale;
+    const dx = (sw - dw) / 2;
+    const dy = (sh - dh) / 2;
+    sctx.drawImage(gLoadedLabImg, dx, dy, dw, dh);
+
+    const bri = parseFloat(document.getElementById('labBrightness')?.value || 0);
+    const con = parseFloat(document.getElementById('labContrast')?.value || 0);
+    const rb  = parseFloat(document.getElementById('labRedBoost')?.value || 0);
+
+    const imgData = sctx.getImageData(0, 0, sw, sh);
+    const d = imgData.data;
+    const factor = (259 * (con + 255)) / (255 * (259 - con));
+
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i], g = d[i+1], b = d[i+2];
+      r = factor * (r - 128) + 128 + bri;
+      g = factor * (g - 128) + 128 + bri;
+      b = factor * (b - 128) + 128 + bri;
+      if (r > g && r > b) {
+        r += rb;
+      }
+      d[i]   = Math.max(0, Math.min(255, r));
+      d[i+1] = Math.max(0, Math.min(255, g));
+      d[i+2] = Math.max(0, Math.min(255, b));
+    }
+    sctx.putImageData(imgData, 0, 0);
+
+    if (orientation === 90) {
+      ctx.save();
+      ctx.translate(tw, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(sc, 0, 0);
+      ctx.restore();
+    } else if (orientation === 180) {
+      ctx.save();
+      ctx.translate(tw, th);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(sc, 0, 0);
+      ctx.restore();
+    } else if (orientation === 270) {
+      ctx.save();
+      ctx.translate(0, th);
+      ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(sc, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sc, 0, 0);
+    }
+    return true;
+  }
+
   function renderLabPreview() {
     const canvas = document.getElementById('labCanvas');
     if (!canvas) return;
@@ -2502,12 +2736,14 @@ var QRCodeLib = (function () {
     ctx.fillRect(0, 0, w, h);
 
     if (gLoadedLabImg) {
-      const scale = Math.max(w / gLoadedLabImg.width, h / gLoadedLabImg.height);
-      const dw = gLoadedLabImg.width * scale;
-      const dh = gLoadedLabImg.height * scale;
-      const dx = (w - dw) / 2;
-      const dy = (h - dh) / 2;
-      ctx.drawImage(gLoadedLabImg, dx, dy, dw, dh);
+      const ok = renderLabSourceToCanvas(canvas, 0);
+      if (ok) {
+        const algo = document.getElementById('labDitherAlgo')?.value || 'floyd';
+        const sim = ditherCanvasTo2bpp(canvas, algo);
+        if (sim && sim.previewImageData) {
+          ctx.putImageData(sim.previewImageData, 0, 0);
+        }
+      }
     } else {
       ctx.fillStyle = '#f0f0f0';
       ctx.fillRect(0, 0, w, h);
@@ -2525,8 +2761,17 @@ var QRCodeLib = (function () {
     const canvas = activeView ? activeView.querySelector('canvas') : document.getElementById('badgeCanvas');
     if (!canvas) { alert('未找到当前画布'); return; }
 
-    const rotatedCanvas = renderRotatedHardwareCanvas(canvas);
-    const buffer = ditherCanvasTo2bpp(rotatedCanvas);
+    const isLab = (canvas.id === 'labCanvas');
+    const algo = (isLab && document.getElementById('labDitherAlgo')) ? document.getElementById('labDitherAlgo').value : 'floyd';
+    let rotatedCanvas;
+    if (isLab && gLoadedLabImg) {
+      rotatedCanvas = document.createElement('canvas');
+      rotatedCanvas.width = 768; rotatedCanvas.height = 552;
+      renderLabSourceToCanvas(rotatedCanvas, gOrientation);
+    } else {
+      rotatedCanvas = renderRotatedHardwareCanvas(canvas);
+    }
+    const buffer = ditherCanvasTo2bpp(rotatedCanvas, algo);
     const blob = new Blob([buffer], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

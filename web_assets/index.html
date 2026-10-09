@@ -678,10 +678,24 @@
 <!-- 4色微粒物理效果预览弹窗 (Modal) -->
 <div class="modal-overlay" id="ditherModal" onclick="if(event.target===this) closeDitherModal()">
   <div class="modal-card">
-    <h3 style="margin-top:0;">👁️ 墨水屏 4色微粒物理点阵实时模拟 (Floyd-Steinberg)</h3>
+    <h3 style="margin-top:0;">👁️ 墨水屏 4色微粒物理点阵实时模拟</h3>
     <p style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-top:-6px;">
       以下为经过 4-Color BWRY（黑/白/黄/红）误差扩散物理量化后的真实微粒呈现效果：
     </p>
+    <div style="margin-bottom:12px; display:flex; align-items:center; gap:10px;">
+      <label style="font-weight:bold; font-size:13px;">抖动算法:</label>
+      <select id="modalDitherAlgo" class="m3-input" style="padding:6px 10px; border-radius:8px; width:auto;" onchange="refreshDitherModalPreview()">
+        <option value="floyd">Floyd-Steinberg 误差扩散 (平滑过渡)</option>
+        <option value="atkinson">Atkinson (复古 Mac 高对比度)</option>
+        <option value="microsoft">Microsoft 8x8 GDI (经典 Win95 复古像素)</option>
+        <option value="stucki">Stucki 误差扩散 (细节细腻锐利)</option>
+        <option value="burkes">Burkes 误差扩散 (快速高保真)</option>
+        <option value="sierra">Sierra 误差扩散 (三行平衡扩散)</option>
+        <option value="ostromoukhov">Ostromoukhov (动态变系数抗蠕虫)</option>
+        <option value="bayer">Bayer 4x4 有序半色调</option>
+        <option value="threshold">Threshold (纯阈值硬边缘)</option>
+      </select>
+    </div>
     <canvas id="ditherPreviewCanvas" width="768" height="552" style="max-width:100%; height:auto; border:2px solid #333; background:white;"></canvas>
     <div style="margin-top:14px; display:flex; justify-content:center; gap:12px;">
       <button class="m3-btn" style="background:#2e7d32;" id="modalPushBtn" onclick="closeDitherModal(); executePushFromModal();">🚀 效果满意，推送到墨水屏</button>
@@ -1522,21 +1536,28 @@
   // ─────────────────────────────────────────────────────────────────────────────
   let activePreviewTargetCanvas = null;
 
-  function showModeDitherPreviewModal() {
-    const canvas = document.getElementById('modePreviewCanvas');
-    activePreviewTargetCanvas = canvas;
-    const { previewImageData } = ditherHtml5CanvasTo2bpp(canvas);
+  function refreshDitherModalPreview() {
+    if (!activePreviewTargetCanvas) return;
+    const algo = document.getElementById('modalDitherAlgo')?.value || 'floyd';
+    const { previewImageData } = ditherHtml5CanvasTo2bpp(activePreviewTargetCanvas, algo);
     const pCanvas = document.getElementById('ditherPreviewCanvas');
     pCanvas.width = 768;
     pCanvas.height = 552;
     const pCtx = pCanvas.getContext('2d');
     pCtx.putImageData(previewImageData, 0, 0);
+  }
+
+  function showModeDitherPreviewModal() {
+    const canvas = document.getElementById('modePreviewCanvas');
+    activePreviewTargetCanvas = canvas;
+    refreshDitherModalPreview();
     document.getElementById('ditherModal').classList.add('active');
   }
 
   async function executePushFromModal() {
     if (activePreviewTargetCanvas) {
-      await pushCanvasBitmap(activePreviewTargetCanvas);
+      const algo = document.getElementById('modalDitherAlgo')?.value || 'floyd';
+      await pushCanvasBitmap(activePreviewTargetCanvas, algo);
     }
   }
 
@@ -1561,7 +1582,8 @@
 
       // 2. Push exact 1:1 dithered bitmap to hardware!
       const canvas = document.getElementById('modePreviewCanvas');
-      await pushCanvasBitmap(canvas);
+      const algo = document.getElementById('modalDitherAlgo')?.value || 'floyd';
+      await pushCanvasBitmap(canvas, algo);
       alert(`🎉 模式【${currentSelectedMode}】配置已成功保存到 ESP32，并已完成向墨水屏推送！`);
     } catch(e) {
       alert('❌ 保存或推送失败: ' + e.message);
@@ -1571,8 +1593,8 @@
     }
   }
 
-  async function pushCanvasBitmap(canvas) {
-    const { rawBytes } = ditherHtml5CanvasTo2bpp(canvas);
+  async function pushCanvasBitmap(canvas, algo = (document.getElementById('modalDitherAlgo')?.value || 'floyd')) {
+    const { rawBytes } = ditherHtml5CanvasTo2bpp(canvas, algo);
     const resp = await fetch('/api/display/bitmap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream' },
@@ -1583,9 +1605,82 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 6. 4-Color BWRY Floyd-Steinberg High-Fidelity Dithering (Bit-for-Bit aligned)
+  // 6. 4-Color BWRY Multi-Algorithm High-Fidelity Dithering (Bit-for-Bit aligned)
   // ─────────────────────────────────────────────────────────────────────────────
-  function ditherHtml5CanvasTo2bpp(srcCanvas) {
+  const BAYER_8X8 = [
+     0, 32,  8, 40,  2, 34, 10, 42,
+    48, 16, 56, 24, 50, 18, 58, 26,
+    12, 44,  4, 36, 14, 46,  6, 38,
+    60, 28, 52, 20, 62, 30, 54, 22,
+     3, 35, 11, 43,  1, 33,  9, 41,
+    51, 19, 59, 27, 49, 17, 57, 25,
+    15, 47,  7, 39, 13, 45,  5, 37,
+    63, 31, 55, 23, 61, 29, 53, 21
+  ];
+
+  const BAYER_4X4 = [
+     0,  8,  2, 10,
+    12,  4, 14,  6,
+     3, 11,  1,  9,
+    15,  7, 13,  5
+  ];
+
+  const SPREAD_ATKINSON = [
+    [1, 0, 1/8], [2, 0, 1/8],
+    [-1, 1, 1/8], [0, 1, 1/8], [1, 1, 1/8],
+    [0, 2, 1/8]
+  ];
+
+  const SPREAD_STUCKI = [
+    [1, 0, 8/42], [2, 0, 4/42],
+    [-2, 1, 2/42], [-1, 1, 4/42], [0, 1, 8/42], [1, 1, 4/42], [2, 1, 2/42],
+    [-2, 2, 1/42], [-1, 2, 2/42], [0, 2, 4/42], [1, 2, 2/42], [2, 2, 1/42]
+  ];
+
+  const SPREAD_BURKES = [
+    [1, 0, 8/32], [2, 0, 4/32],
+    [-2, 1, 2/32], [-1, 1, 4/32], [0, 1, 8/32], [1, 1, 4/32], [2, 1, 2/32]
+  ];
+
+  const SPREAD_SIERRA = [
+    [1, 0, 5/32], [2, 0, 3/32],
+    [-2, 1, 2/32], [-1, 1, 4/32], [0, 1, 5/32], [1, 1, 4/32], [2, 1, 2/32],
+    [-1, 2, 2/32], [0, 2, 3/32], [1, 2, 2/32]
+  ];
+
+  const OSTRO_RAW = [
+    [0, 13, 5, 10], [4, 71, 13, 60], [8, 41, 7, 36], [12, 59, 13, 48],
+    [17, 37, 7, 32], [21, 15, 4, 13], [25, 43, 11, 38], [29, 21, 5, 18],
+    [34, 31, 7, 26], [38, 27, 7, 22], [42, 37, 9, 30], [46, 45, 11, 36],
+    [51, 29, 7, 24], [55, 31, 7, 26], [59, 33, 7, 28], [63, 31, 7, 26],
+    [68, 31, 7, 26], [72, 33, 7, 28], [76, 33, 7, 28], [80, 27, 7, 22],
+    [85, 23, 7, 18], [89, 27, 7, 22], [93, 27, 7, 22], [97, 27, 7, 22],
+    [102, 27, 7, 22], [106, 23, 7, 18], [110, 23, 7, 18], [114, 23, 7, 18],
+    [119, 23, 7, 18], [123, 23, 7, 18], [127, 23, 7, 18]
+  ];
+
+  const OSTRO_LUT = new Float32Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const v = i <= 127 ? i : 255 - i;
+    let idx = 0;
+    for (let k = 0; k < OSTRO_RAW.length - 1; k++) {
+      if (OSTRO_RAW[k][0] <= v && v <= OSTRO_RAW[k+1][0]) {
+        idx = k; break;
+      }
+    }
+    const [x0, d1_0, d2_0, d3_0] = OSTRO_RAW[idx];
+    const [x1, d1_1, d2_1, d3_1] = OSTRO_RAW[Math.min(idx+1, OSTRO_RAW.length-1)];
+    const t = x1 > x0 ? (v - x0) / (x1 - x0) : 0;
+    const d1 = d1_0 + t * (d1_1 - d1_0);
+    const d2 = d2_0 + t * (d2_1 - d2_0);
+    const d3 = d3_0 + t * (d3_1 - d3_0);
+    const s = d1 + d2 + d3;
+    OSTRO_LUT[i * 3] = d1 / s;
+    OSTRO_LUT[i * 3 + 1] = d2 / s;
+    OSTRO_LUT[i * 3 + 2] = d3 / s;
+  }
+
+  function ditherHtml5CanvasTo2bpp(srcCanvas, algo = 'floyd') {
     const w = 768;
     const h = 552;
 
@@ -1631,9 +1726,20 @@
 
       for (let x = 0; x < w; x++) {
         const idx = y * w + x;
-        const curR = Math.max(0, Math.min(255, rBuf[idx]));
-        const curG = Math.max(0, Math.min(255, gBuf[idx]));
-        const curB = Math.max(0, Math.min(255, bBuf[idx]));
+        let curR = Math.max(0, Math.min(255, rBuf[idx]));
+        let curG = Math.max(0, Math.min(255, gBuf[idx]));
+        let curB = Math.max(0, Math.min(255, bBuf[idx]));
+
+        if (algo === 'microsoft' || algo === 'bayer') {
+          const mat = (algo === 'microsoft') ? BAYER_8X8 : BAYER_4X4;
+          const dim = (algo === 'microsoft') ? 8 : 4;
+          const mVal = mat[(y % dim) * dim + (x % dim)];
+          const spread = (algo === 'microsoft') ? 63 : 15;
+          const offset = (mVal / spread - 0.5) * 64.0;
+          curR = Math.max(0, Math.min(255, curR + offset));
+          curG = Math.max(0, Math.min(255, curG + offset));
+          curB = Math.max(0, Math.min(255, curB + offset));
+        }
 
         let bestDist = Infinity;
         let bestPal = 0;
@@ -1666,34 +1772,93 @@
         pData[pIdx + 2] = chosen.b;
         pData[pIdx + 3] = 255;
 
+        if (algo === 'microsoft' || algo === 'bayer' || algo === 'threshold') {
+          continue;
+        }
+
         // Error diffusion
         const errR = curR - chosen.r;
         const errG = curG - chosen.g;
         const errB = curB - chosen.b;
 
-        if (x + 1 < w) {
-          const ni = idx + 1;
-          rBuf[ni] += errR * 0.4375;
-          gBuf[ni] += errG * 0.4375;
-          bBuf[ni] += errB * 0.4375;
-        }
-        if (y + 1 < h && x > 0) {
-          const ni = idx + w - 1;
-          rBuf[ni] += errR * 0.1875;
-          gBuf[ni] += errG * 0.1875;
-          bBuf[ni] += errB * 0.1875;
-        }
-        if (y + 1 < h) {
-          const ni = idx + w;
-          rBuf[ni] += errR * 0.3125;
-          gBuf[ni] += errG * 0.3125;
-          bBuf[ni] += errB * 0.3125;
-        }
-        if (y + 1 < h && x + 1 < w) {
-          const ni = idx + w + 1;
-          rBuf[ni] += errR * 0.0625;
-          gBuf[ni] += errG * 0.0625;
-          bBuf[ni] += errB * 0.0625;
+        if (algo === 'floyd') {
+          if (x + 1 < w) {
+            const ni = idx + 1;
+            rBuf[ni] += errR * 0.4375;
+            gBuf[ni] += errG * 0.4375;
+            bBuf[ni] += errB * 0.4375;
+          }
+          if (y + 1 < h && x > 0) {
+            const ni = idx + w - 1;
+            rBuf[ni] += errR * 0.1875;
+            gBuf[ni] += errG * 0.1875;
+            bBuf[ni] += errB * 0.1875;
+          }
+          if (y + 1 < h) {
+            const ni = idx + w;
+            rBuf[ni] += errR * 0.3125;
+            gBuf[ni] += errG * 0.3125;
+            bBuf[ni] += errB * 0.3125;
+          }
+          if (y + 1 < h && x + 1 < w) {
+            const ni = idx + w + 1;
+            rBuf[ni] += errR * 0.0625;
+            gBuf[ni] += errG * 0.0625;
+            bBuf[ni] += errB * 0.0625;
+          }
+        } else if (algo === 'atkinson') {
+          for (let s = 0; s < SPREAD_ATKINSON.length; s++) {
+            const nx = x + SPREAD_ATKINSON[s][0], ny = y + SPREAD_ATKINSON[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_ATKINSON[s][2];
+              rBuf[ni] += errR * f; gBuf[ni] += errG * f; bBuf[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'stucki') {
+          for (let s = 0; s < SPREAD_STUCKI.length; s++) {
+            const nx = x + SPREAD_STUCKI[s][0], ny = y + SPREAD_STUCKI[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_STUCKI[s][2];
+              rBuf[ni] += errR * f; gBuf[ni] += errG * f; bBuf[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'burkes') {
+          for (let s = 0; s < SPREAD_BURKES.length; s++) {
+            const nx = x + SPREAD_BURKES[s][0], ny = y + SPREAD_BURKES[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_BURKES[s][2];
+              rBuf[ni] += errR * f; gBuf[ni] += errG * f; bBuf[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'sierra') {
+          for (let s = 0; s < SPREAD_SIERRA.length; s++) {
+            const nx = x + SPREAD_SIERRA[s][0], ny = y + SPREAD_SIERRA[s][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const ni = ny * w + nx;
+              const f = SPREAD_SIERRA[s][2];
+              rBuf[ni] += errR * f; gBuf[ni] += errG * f; bBuf[ni] += errB * f;
+            }
+          }
+        } else if (algo === 'ostromoukhov') {
+          const lum = Math.max(0, Math.min(255, Math.round(0.299 * curR + 0.587 * curG + 0.114 * curB)));
+          const w1 = OSTRO_LUT[lum * 3];
+          const w2 = OSTRO_LUT[lum * 3 + 1];
+          const w3 = OSTRO_LUT[lum * 3 + 2];
+          if (x + 1 < w) {
+            const ni = idx + 1;
+            rBuf[ni] += errR * w1; gBuf[ni] += errG * w1; bBuf[ni] += errB * w1;
+          }
+          if (y + 1 < h) {
+            if (x - 1 >= 0) {
+              const ni = idx + w - 1;
+              rBuf[ni] += errR * w2; gBuf[ni] += errG * w2; bBuf[ni] += errB * w2;
+            }
+            const ni = idx + w;
+            rBuf[ni] += errR * w3; gBuf[ni] += errG * w3; bBuf[ni] += errB * w3;
+          }
         }
       }
     }
@@ -1948,12 +2113,7 @@
     fCanvas.discardActiveObject();
     fCanvas.renderAll();
     activePreviewTargetCanvas = fCanvas.lowerCanvasEl;
-    const { previewImageData } = ditherHtml5CanvasTo2bpp(fCanvas.lowerCanvasEl);
-    const pCanvas = document.getElementById('ditherPreviewCanvas');
-    pCanvas.width = 768;
-    pCanvas.height = 552;
-    const pCtx = pCanvas.getContext('2d');
-    pCtx.putImageData(previewImageData, 0, 0);
+    refreshDitherModalPreview();
     document.getElementById('ditherModal').classList.add('active');
   }
 
@@ -1971,7 +2131,8 @@
     try {
       fCanvas.discardActiveObject();
       fCanvas.renderAll();
-      const res = await pushCanvasBitmap(fCanvas.lowerCanvasEl);
+      const algo = document.getElementById('modalDitherAlgo')?.value || 'floyd';
+      const res = await pushCanvasBitmap(fCanvas.lowerCanvasEl, algo);
       alert('🎉 ' + res.message);
     } catch(e) {
       alert('❌ 点阵推送失败: ' + e.message);
