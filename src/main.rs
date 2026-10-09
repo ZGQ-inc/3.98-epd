@@ -125,6 +125,13 @@ fn main() -> anyhow::Result<()> {
                 None
             }
         };
+        // Start mDNS responder so http://epd-display.local resolves across local network
+        if !ap && ip != "0.0.0.0" {
+            if let Ok(ipv4) = ip.parse::<std::net::Ipv4Addr>() {
+                crate::wifi::mdns::start_mdns("epd-display", ipv4);
+            }
+        }
+
         (ip, ap, ap_ssid, srv)
     };
 
@@ -141,6 +148,7 @@ fn main() -> anyhow::Result<()> {
             Some(config_mgr.clone()),
             Some(app_config.clone()),
         );
+        crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
     }
 
     // 6. Start MQTT client (in Station mode only, and not in ble_only mode)

@@ -581,12 +581,17 @@ impl WebServer {
                     {
                         let mut cfg = config_wl.lock().unwrap();
                         cfg.wireless_mode = m.to_string();
+                        if m == "wifi_only" {
+                            cfg.ble_enabled = false;
+                        } else if m == "ble_only" {
+                            cfg.ble_enabled = true;
+                        }
                         let _ = config_mgr_wl.lock().unwrap().save(&cfg);
                     }
                     crate::ble::BleManager::global().set_wireless_mode(m);
                     let mode_cn = match m {
-                        "wifi_only" => "仅 Wi-Fi",
-                        "ble_only" => "仅蓝牙 (BLE)",
+                        "wifi_only" => "仅 Wi-Fi (设备即将重启生效并彻底关闭蓝牙)",
+                        "ble_only" => "仅蓝牙 (设备即将重启生效并彻底关闭 Wi-Fi)",
                         "dual" => "双模并发 (Wi-Fi + BLE)",
                         _ => "智能自动 (Auto)",
                     };
@@ -600,6 +605,15 @@ impl WebServer {
                         ("Access-Control-Allow-Origin", "*"),
                     ])?;
                     resp.write_all(&json)?;
+
+                    if m == "wifi_only" || m == "ble_only" {
+                        let m_str = m.to_string();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(1200));
+                            println!("  [sys-api] Restarting device to apply '{}' mode...", m_str);
+                            unsafe { esp_idf_sys::esp_restart() };
+                        });
+                    }
                     return Ok(());
                 }
             }

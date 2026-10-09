@@ -2050,6 +2050,40 @@
   }
 
   async function setWirelessMode(mode) {
+    if (mode === 'wifi_only') {
+      const msg = 
+        '⚠️【高风险操作】确定切换为【仅 Wi-Fi 模式】吗？\n\n' +
+        '📌 运行规则与失联风险防范提示：\n' +
+        '1. 切换后设备将彻底关闭蓝牙硬件，手机将无法再通过蓝牙搜寻或直连墨水屏！\n' +
+        '2. 墨水屏将完全依赖 Wi-Fi 连接路由器与当前局域网 Web 控制台；\n' +
+        '3. ⚠️ 特别注意（户外/无路由器风险）：\n' +
+        '   若未来将设备带到户外或没有该 Wi-Fi 路由器的环境下，设备将无法自动连网；\n' +
+        '   此时若需要重新配置或重新打开蓝牙：\n' +
+        '   👉 您必须使用手机开启同名热点（与已配 Wi-Fi SSID 和密码相同）供墨水屏连入，或者连接墨水屏自动弹出的应急备用热点（192.168.4.1）打开控制台，才能把模式切回蓝牙！\n\n' +
+        '确认保存并重启进入【仅 Wi-Fi 模式】吗？';
+      if (!confirm(msg)) return;
+    } else if (mode === 'ble_only') {
+      const msg = 
+        '⚠️【重要提醒】确定切换为【仅蓝牙模式】吗？\n\n' +
+        '📌 运行规则与访问变更提示：\n' +
+        '1. 切换后设备将彻底关闭 Wi-Fi 射频、内置 Web 服务器、局域网 HTTP 推图与 MQTT 服务；\n' +
+        '2. 当前网页控制台将立即断开，局域网内通过 IP 地址或浏览器网页将无法再访问墨水屏；\n' +
+        '3. 后续所有图片推送、文字设置与参数配置均只能使用近距离 Web 蓝牙（Web BLE）完成；\n' +
+        '4. 若需要恢复 Wi-Fi 网页访问，可在蓝牙连接状态下随时重新切回【双模并发】或【仅 Wi-Fi】。\n\n' +
+        '确认保存并重启进入【仅蓝牙模式】吗？';
+      if (!confirm(msg)) return;
+    } else if (mode === 'dual') {
+      const msg = 
+        '🌐 确定切换为【双模并发模式 (Dual Mode)】？\n\n' +
+        'Wi-Fi 局域网网页控制台与近距离蓝牙将同时保持在线，支持双路同时控制，无失联风险。';
+      if (!confirm(msg)) return;
+    } else if (mode === 'auto') {
+      const msg = 
+        '🔄 确定切换为【智能自动共存模式 (Auto)】？\n\n' +
+        '开机时 Wi-Fi 与蓝牙同时广播，连接其中一种后自动优化另一射频，兼顾低功耗与便利性。';
+      if (!confirm(msg)) return;
+    }
+
     try {
       const resp = await fetch('/api/wireless/mode', {
         method: 'POST',

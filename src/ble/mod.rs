@@ -42,6 +42,8 @@ pub struct BleManager {
     devices: Mutex<Vec<BleDeviceInfo>>,
     device_name: Mutex<String>,
     wireless_mode: Mutex<String>,
+    current_ip: Mutex<String>,
+    is_ap: Mutex<bool>,
     initialized: AtomicBool,
     tx_char: Mutex<Option<Arc<NimbleMutex<BLECharacteristic>>>>,
     config_mgr: Mutex<Option<Arc<Mutex<crate::config::ConfigManager>>>>,
@@ -62,6 +64,8 @@ impl BleManager {
                 devices: Mutex::new(Vec::new()),
                 device_name: Mutex::new("EPD-Smart-Display".to_string()),
                 wireless_mode: Mutex::new("dual".to_string()),
+                current_ip: Mutex::new(String::new()),
+                is_ap: Mutex::new(false),
                 initialized: AtomicBool::new(false),
                 tx_char: Mutex::new(None),
                 config_mgr: Mutex::new(None),
@@ -164,7 +168,7 @@ impl BleManager {
             if data.is_empty() { return; }
 
             // Check if string command or JSON
-            if data[0] == b'{' || data.starts_with(b"refresh") || data.starts_with(b"mode:") || data.starts_with(b"wireless:") || data.starts_with(b"clear:") {
+            if data[0] == b'{' || data.starts_with(b"refresh") || data.starts_with(b"mode:") || data.starts_with(b"wireless:") || data.starts_with(b"clear:") || data.starts_with(b"status") || data.starts_with(b"get_") {
                 STREAM_OFFSET.store(0, Ordering::Relaxed);
                 if let Ok(text) = std::str::from_utf8(data) {
                     let text = text.trim();
@@ -176,7 +180,46 @@ impl BleManager {
                         crate::display::request_mode(m.to_string());
                     } else if text.starts_with("wireless:") {
                         let m = &text[9..];
-                        BleManager::global().set_wireless_mode(m);
+                        println!("  [ble-rx] Wireless mode switch requested: '{}'", m);
+                        let ble_self = BleManager::global();
+                        let mut saved = false;
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            cfg.wireless_mode = m.to_string();
+                            if m == "wifi_only" {
+                                cfg.ble_enabled = false;
+                            } else if m == "ble_only" {
+                                cfg.ble_enabled = true;
+                            }
+                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                let mut mgr = cm.lock().unwrap();
+                                if let Err(e) = mgr.save(&cfg) {
+                                    eprintln!("  [ble-rx] Failed to save wireless_mode: {:?}", e);
+                                } else {
+                                    println!("  [ble-rx] Saved wireless_mode '{}' to NVS!", m);
+                                    saved = true;
+                                }
+                            }
+                        }
+                        if saved {
+                            if let Some(ref tx) = *ble_self.tx_char.lock().unwrap() {
+                                let note = format!("MODE_SWITCHED:{}", m);
+                                tx.lock().set_value(note.as_bytes());
+                                tx.lock().notify();
+                            }
+                            if m == "wifi_only" || m == "ble_only" {
+                                let m_owned = m.to_string();
+                                std::thread::spawn(move || {
+                                    std::thread::sleep(std::time::Duration::from_millis(1200));
+                                    println!("  [ble-rx] Restarting device to apply '{}' mode...", m_owned);
+                                    unsafe { esp_idf_sys::esp_restart() };
+                                });
+                            } else {
+                                ble_self.set_wireless_mode(m);
+                            }
+                        }
+                    } else if text == "status" || text == "get_ip" || text == "get_status" {
+                        BleManager::global().notify_status();
                     } else if text == "clear:white" {
                         crate::display::request_refresh(true);
                     } else if text.starts_with('{') {
@@ -335,6 +378,32 @@ impl BleManager {
         }
     }
 
+    pub fn set_ip_info(&self, ip: &str, is_ap: bool) {
+        *self.current_ip.lock().unwrap() = ip.to_string();
+        *self.is_ap.lock().unwrap() = is_ap;
+        self.notify_status();
+    }
+
+    pub fn get_ip_address(&self) -> String {
+        self.current_ip.lock().unwrap().clone()
+    }
+
+    pub fn is_ap_mode(&self) -> bool {
+        *self.is_ap.lock().unwrap()
+    }
+
+    pub fn notify_status(&self) {
+        if let Some(ref tx) = *self.tx_char.lock().unwrap() {
+            let ip = self.get_ip_address();
+            let is_ap = self.is_ap_mode();
+            let mode = self.get_wireless_mode();
+            let json = format!("STATUS:{{\"ip\":\"{}\",\"is_ap\":{},\"mode\":\"{}\"}}", ip, is_ap, mode);
+            println!("  [ble-tx] Notifying client status: {}", json);
+            tx.lock().set_value(json.as_bytes());
+            tx.lock().notify();
+        }
+    }
+
     pub fn on_ble_client_connected(&self, name: &str, mac: &str, rssi: i8) -> String {
         let mut devs = self.devices.lock().unwrap();
         let id = format!("client-{:02x}", devs.len() + 1);
@@ -347,6 +416,8 @@ impl BleManager {
             connected_duration_secs: 0,
         });
         *self.status.lock().unwrap() = BleStatus::Connected;
+        drop(devs);
+        self.notify_status();
         id
     }
 

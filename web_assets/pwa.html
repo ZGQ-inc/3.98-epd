@@ -578,10 +578,10 @@
   <div class="pwa-card">
     <div class="card-title">📡 射频与固件工作模式</div>
     <div style="display:flex; flex-direction:column; gap:8px;">
-      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:auto')">🔄 智能共存 (Auto - 连上其一关闭另一射频)</button>
-      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:ble_only')">🔵 仅蓝牙 (BLE Only - 关闭 WiFi 极度省电)</button>
-      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:wifi_only')">📶 仅 Wi-Fi (Wi-Fi Only - 高速局域网)</button>
-      <button class="btn btn-outlined" onclick="bleSendCmd('wireless:dual')">🌐 双模并发 (Dual Mode - 全功能)</button>
+      <button class="btn btn-outlined" onclick="promptSwitchWirelessMode('auto')">🔄 智能共存 (Auto - 连上其一关闭另一射频)</button>
+      <button class="btn btn-outlined" onclick="promptSwitchWirelessMode('ble_only')">🔵 仅蓝牙 (BLE Only - 关闭 WiFi 极度省电)</button>
+      <button class="btn btn-outlined" onclick="promptSwitchWirelessMode('wifi_only')">📶 仅 Wi-Fi (Wi-Fi Only - 高速局域网)</button>
+      <button class="btn btn-outlined" onclick="promptSwitchWirelessMode('dual')">🌐 双模并发 (Dual Mode - 全功能)</button>
     </div>
   </div>
 
@@ -1137,6 +1137,25 @@ var QRCodeLib = (function () {
         }
       }
 
+      // 开启 TX 通知监听 (0xFF02)
+      if (gTxChar) {
+        try {
+          await gTxChar.startNotifications();
+          gTxChar.addEventListener('characteristicvaluechanged', (e) => {
+            const val = new TextDecoder().decode(e.target.value);
+            console.log('[BLE Notification]', val);
+            handleBleNotification(val);
+          });
+          try {
+            const curVal = await gTxChar.readValue();
+            const curStr = new TextDecoder().decode(curVal);
+            handleBleNotification(curStr);
+          } catch(e) {}
+        } catch(e) {
+          console.log('TX startNotifications skipped:', e);
+        }
+      }
+
       if (!device.gatt.connected) {
         throw new Error('蓝牙在握手服务后意外断开');
       }
@@ -1342,6 +1361,110 @@ var QRCodeLib = (function () {
       }
     }
     alert('请先点击上方【🔍 扫描连接】连接墨水屏蓝牙，或填入局域网直连 IP！');
+  }
+
+  function handleBleNotification(val) {
+    if (!val) return;
+    if (val.startsWith('STATUS:')) {
+      try {
+        const info = JSON.parse(val.substring(7));
+        if (info.ip && info.ip !== '0.0.0.0') {
+          gCustomLanIp = info.ip;
+          localStorage.setItem('epd_custom_lan_ip', info.ip);
+          const netEl = document.getElementById('netLanStatus');
+          if (netEl) {
+            netEl.innerHTML = `🟢 局域网: <a href="http://${info.ip}/" target="_blank" style="color:var(--md-sys-color-primary);text-decoration:underline;font-weight:700;">${info.ip} [打开控制台]</a>`;
+          }
+          setTransferMsg(`📡 设备 IP: ${info.ip} (${info.is_ap ? 'SoftAP热点' : '局域网STA'}) · 点击顶部链接可直接打开网页控制台`);
+        }
+      } catch(e) {
+        console.error('Parse STATUS notification failed:', e);
+      }
+    } else if (val.startsWith('IP:')) {
+      const ip = val.substring(3).trim();
+      if (ip && ip !== '0.0.0.0') {
+        gCustomLanIp = ip;
+        localStorage.setItem('epd_custom_lan_ip', ip);
+        const netEl = document.getElementById('netLanStatus');
+        if (netEl) {
+          netEl.innerHTML = `🟢 局域网: <a href="http://${ip}/" target="_blank" style="color:var(--md-sys-color-primary);text-decoration:underline;font-weight:700;">${ip} [打开控制台]</a>`;
+        }
+      }
+    } else if (val.startsWith('MODE_SWITCHED:')) {
+      const m = val.substring(14).trim();
+      const names = {
+        wifi_only: '仅 Wi-Fi (蓝牙即将关闭)',
+        ble_only: '仅蓝牙 (Wi-Fi 即将关闭)',
+        dual: '双模并发',
+        auto: '智能自动'
+      };
+      const label = names[m] || m;
+      setTransferMsg(`⚙️ 设备模式已切换为【${label}】！`);
+      if (m === 'wifi_only') {
+        alert('⚠️ 设备已保存为【仅 Wi-Fi 模式】并正在重启！\n\n蓝牙射频将被彻底关闭以节省电量，当前蓝牙连接即将断开。\n后续请使用浏览器访问设备局域网 IP 控制台。');
+      } else if (m === 'ble_only') {
+        alert('ℹ️ 设备已保存为【仅蓝牙模式】并正在重启！\n\nWi-Fi 射频已关闭，局域网网页无法访问，请继续使用当前蓝牙直推。');
+      }
+    } else if (val === 'WIFI_CONFIGURED') {
+      setTransferMsg('🎉 Wi-Fi 账号密码已保存到设备 NVS！设备正在重启联网...');
+      alert('🎉 隔空配网成功！Wi-Fi 凭证已存入墨水屏 NVS，设备正在重启连网。\n稍后可在顶部查看分配的局域网 IP 并直达网页控制台。');
+    }
+  }
+
+  function promptSwitchWirelessMode(mode) {
+    if (!gRxChar && !gCustomLanIp) {
+      alert('请先连接蓝牙或配置局域网直连 IP 后再切换工作模式。');
+      return;
+    }
+
+    if (mode === 'wifi_only') {
+      const msg = 
+        '⚠️【高风险操作】确定切换为【仅 Wi-Fi 模式】吗？\n\n' +
+        '📌 运行规则与失联风险防范提示：\n' +
+        '1. 切换后设备将彻底关闭蓝牙硬件，蓝牙将立即断开且无法再通过蓝牙搜寻/直连！\n' +
+        '2. 设备将完全依赖 Wi-Fi 连接路由器与局域网 Web 控制台；\n' +
+        '3. ⚠️ 特别注意（户外/无路由器风险）：\n' +
+        '   如果您未配置 Wi-Fi，或将设备带到户外/无该 Wi-Fi 信号的环境下，设备将无法自动连网；\n' +
+        '   此时若需要重新配置或重新打开蓝牙：\n' +
+        '   👉 您必须使用手机开启同名热点（与已配 Wi-Fi SSID 和密码相同）供墨水屏连入，或者连接墨水屏自动弹出的应急备用热点（192.168.4.1）打开网页控制台，才能把模式切回蓝牙！\n\n' +
+        '确认保存并重启进入【仅 Wi-Fi 模式】吗？';
+      if (!confirm(msg)) return;
+    } else if (mode === 'ble_only') {
+      const msg = 
+        '⚠️【重要提醒】确定切换为【仅蓝牙模式】吗？\n\n' +
+        '📌 运行规则与访问变更提示：\n' +
+        '1. 切换后设备将彻底关闭 Wi-Fi 射频、内置 Web 服务器、局域网 HTTP 推图与 MQTT 服务；\n' +
+        '2. 局域网内通过 IP 地址或浏览器网页将无法再访问墨水屏；\n' +
+        '3. 后续所有图片推送、文字设置与参数配置均只能使用近距离 Web 蓝牙（Web BLE）完成；\n' +
+        '4. 若需要恢复 Wi-Fi 网页访问，可在蓝牙连接状态下随时重新切回【双模并发】或【仅 Wi-Fi】。\n\n' +
+        '确认保存并重启进入【仅蓝牙模式】吗？';
+      if (!confirm(msg)) return;
+    } else if (mode === 'dual') {
+      const msg = 
+        '🌐 确定切换为【双模并发模式 (Dual Mode)】？\n\n' +
+        'Wi-Fi 局域网网页控制台与近距离蓝牙将同时保持在线，支持双路同时控制，无失联风险。';
+      if (!confirm(msg)) return;
+    } else if (mode === 'auto') {
+      const msg = 
+        '🔄 确定切换为【智能自动共存模式 (Auto)】？\n\n' +
+        '开机时 Wi-Fi 与蓝牙同时广播，连接其中一种后自动优化另一射频，兼顾低功耗与便利性。';
+      if (!confirm(msg)) return;
+    }
+
+    if (gRxChar) {
+      bleSendCmd('wireless:' + mode);
+      setTransferMsg(`📡 已向墨水屏发送切换至【${mode}】指令，设备将保存配置并生效...`);
+    } else if (gCustomLanIp) {
+      fetch(`http://${gCustomLanIp}/api/wireless/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      }).then(r => r.json()).then(d => {
+        alert(d.message || '模式已保存并应用！');
+      }).catch(e => {
+        alert('切换模式失败: ' + e);
+      });
+    }
   }
 
   // 6. 4-Color BWRY Floyd-Steinberg Dithering Engine (1:1 768x552 Buffer)
