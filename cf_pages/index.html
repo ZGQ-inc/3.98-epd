@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="墨水屏伴侣">
-  <meta name="description" content="专为 3.98 英寸四色墨水屏打造的随身工牌、电子名片与漫展痛卡 WebBLE 蓝牙直推控制端，支持 Cloudflare Pages 静态部署与 100% 离线运行">
+  <meta name="description" content="专为 3.98 英寸四色墨水屏打造的蓝牙直推控制端。">
 
   <style>
     :root {
@@ -126,6 +126,10 @@
       font-size: 14px; outline: none; transition: border-color 0.2s;
     }
     input:focus, select:focus, textarea:focus { border-color: var(--md-sys-color-primary); }
+    input::placeholder, textarea::placeholder {
+      color: var(--md-sys-color-outline);
+      opacity: 0.7;
+    }
 
     /* Buttons */
     .btn {
@@ -209,7 +213,7 @@
 <header>
   <div class="brand">
     <span>📺 3.98" 墨水屏随身伴侣</span>
-    <span class="brand-badge">CF Pages 离线版</span>
+    <span class="brand-badge">移动 PWA 版</span>
   </div>
   <div class="header-right">
     <button class="btn btn-outlined btn-sm" id="btnInstallApp" style="display:none;" onclick="triggerAppInstall()">📲 安装</button>
@@ -241,7 +245,7 @@
 <!-- Secondary Connection / Air Provisioning Bar -->
 <div class="network-sub-bar">
   <div>
-    <span>局域网直连 (备用): </span>
+    <span>局域网直连: </span>
     <span id="netLanStatus" style="font-weight:600; color:var(--md-sys-color-primary);">未设定 IP</span>
   </div>
   <div style="display:flex; gap:6px;">
@@ -262,9 +266,7 @@
   <div id="transferMsg" style="font-size:11px; color:var(--md-sys-color-primary); margin-top:4px; min-height:16px;"></div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 1: 📇 电子名片 / 随身工牌 -->
-<!-- ========================================================================= -->
 <div id="view-badge" class="tab-view active">
   <div class="pwa-card">
     <div class="card-title">
@@ -272,7 +274,7 @@
       <span style="font-size:12px; font-weight:normal; color:var(--md-sys-color-primary);">768 × 552</span>
     </div>
     <div style="font-size:12px; color:var(--md-sys-color-outline); margin-top:-6px; margin-bottom:12px;">
-      适合漫展交流、商务社交、工牌随身佩戴，支持大字名牌与微信/个人二维码扫码
+      适合兽聚/漫展交流、商务社交、工牌随身佩戴，支持大字名牌与微信/个人二维码扫码
     </div>
 
     <div class="chip-group">
@@ -282,36 +284,36 @@
       <div class="chip" id="chip-staff" onclick="selectBadgeTpl('staff')">🎫 展会工作证</div>
     </div>
 
-    <label>姓名 / 昵称 (44px 显眼大字):</label>
-    <input type="text" id="badgeName" value="ZGQ" oninput="renderBadgePreview()">
+    <label>姓名 / 昵称:</label>
+    <input type="text" id="badgeName" placeholder="例如: 张三 / Alex" oninput="renderBadgePreview()">
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>身份 / 职位:</label>
-        <input type="text" id="badgeRole" value="全栈工程师 / 嵌入式开发" oninput="renderBadgePreview()">
+        <input type="text" id="badgeRole" placeholder="例如: 全栈工程师 / 嵌入式架构" oninput="renderBadgePreview()">
       </div>
       <div>
         <label>所属组织 / 公司:</label>
-        <input type="text" id="badgeOrg" value="ZGQ Studio & Labs" oninput="renderBadgePreview()">
+        <input type="text" id="badgeOrg" placeholder="例如: Open Hardware Lab" oninput="renderBadgePreview()">
       </div>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>联系方式 / 电话:</label>
-        <input type="text" id="badgeContact" value="+86 138-0000-0000" oninput="renderBadgePreview()">
+        <input type="text" id="badgeContact" placeholder="例如: +86 138-0000-0000" oninput="renderBadgePreview()">
       </div>
       <div>
         <label>电子邮箱 / 微信:</label>
-        <input type="text" id="badgeEmail" value="zgq@embedded-lab.org" oninput="renderBadgePreview()">
+        <input type="text" id="badgeEmail" placeholder="例如: alex@example.com" oninput="renderBadgePreview()">
       </div>
     </div>
 
     <label>座右铭 / 签名 / 业务介绍:</label>
-    <input type="text" id="badgeMotto" value="用代码连接物理世界，专注低功耗嵌入式与墨水屏硬件！" oninput="renderBadgePreview()">
+    <input type="text" id="badgeMotto" placeholder="例如: 用代码连接物理世界，专注低功耗嵌入式！" oninput="renderBadgePreview()">
 
     <label>右下角二维码扫描内容 (网址 / 微信名片 / 个人主页):</label>
-    <input type="text" id="badgeQr" value="https://github.com/ZGQ" oninput="renderBadgePreview()">
+    <input type="text" id="badgeQr" placeholder="例如: https://github.com/your-name" oninput="renderBadgePreview()">
 
     <!-- 1:1 Preview -->
     <label>768 × 552 物理点阵效果预览 (1:1 像素清晰对齐):</label>
@@ -360,16 +362,16 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div>
         <label>角色名 / 标题 (大字):</label>
-        <input type="text" id="itaTitle" value="初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
+        <input type="text" id="itaTitle" placeholder="例如: 初音未来 (Hatsune Miku)" oninput="renderItaPreview()">
       </div>
       <div>
         <label>作品 / 出处:</label>
-        <input type="text" id="itaSource" value="VOCALOID 01" oninput="renderItaPreview()">
+        <input type="text" id="itaSource" placeholder="例如: VOCALOID 01" oninput="renderItaPreview()">
       </div>
     </div>
 
     <label>专属台词 / 签名题字 (底部叠加):</label>
-    <input type="text" id="itaQuote" value="世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
+    <input type="text" id="itaQuote" placeholder="例如: 世界第一的公主殿下！今天也要全力以赴！" oninput="renderItaPreview()">
 
     <!-- 1:1 Preview -->
     <label>4 色微粒扩散抖动渲染效果:</label>
@@ -394,16 +396,13 @@
     </div>
 
     <label>便签标题:</label>
-    <input type="text" id="memoTitle" value="TODAY TO-DO LIST" oninput="renderMemoPreview()">
+    <input type="text" id="memoTitle" placeholder="例如: TODAY TO-DO LIST" oninput="renderMemoPreview()">
 
     <label>待办项目 (每行一项):</label>
-    <textarea id="memoItems" rows="5" oninput="renderMemoPreview()">1. 调试 ESP32-C3 墨水屏蓝牙直推
-2. 3D 打印外壳按键滑槽测试
-3. 整理展会电子名片参数
-4. 傍晚跑步 5 公里锻炼身体</textarea>
+    <textarea id="memoItems" rows="5" placeholder="例如:&#10;1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 整理展会电子名片参数&#10;4. 傍晚跑步 5 公里锻炼身体" oninput="renderMemoPreview()"></textarea>
 
     <label>底部便签提示语:</label>
-    <input type="text" id="memoFooter" value="保持专注，逐项击破！" oninput="renderMemoPreview()">
+    <input type="text" id="memoFooter" placeholder="例如: 保持专注，逐项击破！" oninput="renderMemoPreview()">
 
     <div class="preview-box">
       <canvas id="memoCanvas" width="768" height="552"></canvas>
@@ -1479,13 +1478,13 @@ var QRCodeLib = (function () {
     const ctx = canvas.getContext('2d');
     const w = 768, h = 552;
 
-    const name = document.getElementById('badgeName').value || '张工 (ZGQ)';
-    const role = document.getElementById('badgeRole').value || '全栈工程师 / 嵌入式开发';
-    const org  = document.getElementById('badgeOrg').value  || 'ZGQ Studio';
-    const contact = document.getElementById('badgeContact').value || '';
-    const email   = document.getElementById('badgeEmail').value   || '';
-    const motto   = document.getElementById('badgeMotto').value   || '用代码连接物理世界！';
-    const qrText  = document.getElementById('badgeQr').value      || 'https://github.com';
+    const name = (document.getElementById('badgeName').value || '').trim() || '张三 (Alex)';
+    const role = (document.getElementById('badgeRole').value || '').trim() || '全栈工程师 / 嵌入式架构';
+    const org  = (document.getElementById('badgeOrg').value || '').trim()  || 'Open Hardware Lab';
+    const contact = (document.getElementById('badgeContact').value || '').trim() || '+86 138-0000-0000';
+    const email   = (document.getElementById('badgeEmail').value || '').trim()   || 'alex@example.com';
+    const motto   = (document.getElementById('badgeMotto').value || '').trim()   || '用代码连接物理世界，专注低功耗嵌入式！';
+    const qrText  = (document.getElementById('badgeQr').value || '').trim()      || 'https://github.com';
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
@@ -1718,9 +1717,9 @@ var QRCodeLib = (function () {
     const ctx = canvas.getContext('2d');
     const w = 768, h = 552;
 
-    const title  = document.getElementById('itaTitle').value  || '角色插画';
-    const source = document.getElementById('itaSource').value || '作品出处';
-    const quote  = document.getElementById('itaQuote').value  || '';
+    const title  = (document.getElementById('itaTitle').value || '').trim()  || '初音未来 (Hatsune Miku)';
+    const source = (document.getElementById('itaSource').value || '').trim() || 'VOCALOID 01';
+    const quote  = (document.getElementById('itaQuote').value || '').trim()  || '世界第一的公主殿下！今天也要全力以赴！';
     const scale  = parseFloat(document.getElementById('itaScale').value) || 1.0;
     const rotate = parseInt(document.getElementById('itaRotate').value) || 0;
 
@@ -1782,9 +1781,13 @@ var QRCodeLib = (function () {
     const ctx = canvas.getContext('2d');
     const w = 768, h = 552;
 
-    const title = document.getElementById('memoTitle').value || 'TODAY TO-DO';
-    const lines = (document.getElementById('memoItems').value || '').split('\n');
-    const footer = document.getElementById('memoFooter').value || '';
+    const title = (document.getElementById('memoTitle').value || '').trim() || 'TODAY TO-DO LIST';
+    let rawItems = (document.getElementById('memoItems').value || '').trim();
+    if (!rawItems) {
+      rawItems = '1. 调试 ESP32-C3 墨水屏蓝牙直推\n2. 3D 打印外壳按键滑槽测试\n3. 整理展会电子名片参数\n4. 傍晚跑步 5 公里锻炼身体';
+    }
+    const lines = rawItems.split('\n');
+    const footer = (document.getElementById('memoFooter').value || '').trim() || '保持专注，逐项击破！';
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
