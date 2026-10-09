@@ -421,7 +421,7 @@
     <input type="text" id="memoTitle" placeholder="TODAY TO-DO LIST" oninput="renderMemoPreview()">
 
     <label>待办项目 (每行一项):</label>
-    <textarea id="memoItems" rows="5" placeholder="例如:&#10;1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 修复 SRAM 爆内存与 LwIP 报文池耗尽&#10;4. 没有了" oninput="renderMemoPreview()"></textarea>
+    <textarea id="memoItems" rows="5" placeholder="1. 调试 ESP32-C3 墨水屏蓝牙直推&#10;2. 3D 打印外壳按键滑槽测试&#10;3. 修复 SRAM 爆内存与 LwIP 报文池耗尽&#10;4. 没有了" oninput="renderMemoPreview()"></textarea>
 
     <label>底部便签提示语:</label>
     <input type="text" id="memoFooter" placeholder="保持专注，逐项击破！" oninput="renderMemoPreview()">
@@ -2334,9 +2334,9 @@ var QRCodeLib = (function () {
     }
 
     const ctx = canvas.getContext('2d');
-    const title  = (document.getElementById('itaTitle').value || '').trim()  || '初音未来 (Hatsune Miku)';
-    const source = (document.getElementById('itaSource').value || '').trim() || 'VOCALOID 01';
-    const quote  = (document.getElementById('itaQuote').value || '').trim()  || '世界第一的公主殿下！今天也要全力以赴！';
+    const title  = (document.getElementById('itaTitle').value || '').trim()  || 'ZeroVulp';
+    const source = (document.getElementById('itaSource').value || '').trim() || '自家孩子';
+    const quote  = (document.getElementById('itaQuote').value || '').trim()  || '大楚兴，陈胜王！';
     const scale  = parseFloat(document.getElementById('itaScale').value) || 1.0;
     const rotate = parseInt(document.getElementById('itaRotate').value) || 0;
 
@@ -2410,7 +2410,7 @@ var QRCodeLib = (function () {
     const title = (document.getElementById('memoTitle').value || '').trim() || 'TODAY TO-DO LIST';
     let rawItems = (document.getElementById('memoItems').value || '').trim();
     if (!rawItems) {
-      rawItems = '1. 调试 ESP32-C3 墨水屏蓝牙直推\n2. 3D 打印外壳按键滑槽测试\n3. 整理展会电子名片参数\n4. 傍晚跑步 5 公里锻炼身体';
+      rawItems = '1. 调试 ESP32-C3 墨水屏蓝牙直推\n2. 3D 打印外壳按键滑槽测试\n3. 修复 SRAM 爆内存与 LwIP 报文池耗尽\n4. 没有了';
     }
     const lines = rawItems.split('\n');
     const footer = (document.getElementById('memoFooter').value || '').trim() || '保持专注，逐项击破！';
