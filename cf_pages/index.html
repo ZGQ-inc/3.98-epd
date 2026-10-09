@@ -476,8 +476,8 @@
       <span id="strokeSizeVal" style="font-size:12px; font-weight:700; width:28px;">6px</span>
     </div>
 
-    <div class="preview-box" style="touch-action:none;">
-      <canvas id="paintCanvas" width="768" height="552" style="cursor:crosshair;"></canvas>
+    <div class="preview-box">
+      <canvas id="paintCanvas" width="768" height="552" style="cursor:crosshair; touch-action:none;"></canvas>
     </div>
 
     <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('paintCanvas', '手绘画作')">
@@ -996,6 +996,7 @@ var QRCodeLib = (function () {
     else if (viewId === 'itabag') renderItaPreview();
     else if (viewId === 'memo') renderMemoPreview();
     else if (viewId === 'imagelab') renderLabPreview();
+    else if (viewId === 'paint') initPaintCanvas();
   }
 
   function toggleTheme() {
@@ -2476,7 +2477,6 @@ var QRCodeLib = (function () {
   let gPaintHistory = [];
   let gPaintSnapshot = null;
   let gIsPromptingText = false;
-  let gLastTouchTime = 0;
 
   function setPaintColor(hex, name) {
     gPaintColor = hex;
@@ -2561,25 +2561,21 @@ var QRCodeLib = (function () {
 
     function getCoords(e) {
       const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return { x: 0, y: 0 };
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      let clientX = e.clientX;
-      let clientY = e.clientY;
-      if (e.changedTouches && e.changedTouches.length > 0) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-      } else if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      }
       return {
-        x: Math.max(0, Math.min(canvas.width, (clientX - rect.left) * scaleX)),
-        y: Math.max(0, Math.min(canvas.height, (clientY - rect.top) * scaleY))
+        x: Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * scaleX)),
+        y: Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * scaleY))
       };
     }
 
-    function startDraw(e) {
+    function onPointerDown(e) {
+      if (e.button && e.button !== 0) return;
       const pt = getCoords(e);
+      gPaintStartX = pt.x;
+      gPaintStartY = pt.y;
+
       const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
       ctx.lineWidth = size;
       ctx.lineCap = 'round';
@@ -2588,30 +2584,12 @@ var QRCodeLib = (function () {
       ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
 
       if (gPaintTool === 'text') {
-        if (gIsPromptingText) return;
-        gIsPromptingText = true;
-        gIsPainting = false;
-        setTimeout(() => {
-          try {
-            const txt = prompt('输入题字内容:');
-            if (txt && txt.trim()) {
-              savePaintHistory();
-              const fontSize = Math.max(18, size * 4);
-              ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
-              ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-              ctx.textBaseline = 'middle';
-              ctx.fillText(txt.trim(), pt.x, pt.y);
-            }
-          } finally {
-            gIsPromptingText = false;
-          }
-        }, 30);
+        gIsPainting = true;
         return;
       }
 
       gIsPainting = true;
-      gPaintStartX = pt.x;
-      gPaintStartY = pt.y;
+      try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
 
       if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
         savePaintHistory();
@@ -2620,12 +2598,12 @@ var QRCodeLib = (function () {
         ctx.lineTo(pt.x, pt.y);
         ctx.stroke();
       } else {
-        // Shape tools: cache snapshot for rubberband preview
+        // Shape tools: cache snapshot for rubberband live preview
         gPaintSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
       }
     }
 
-    function moveDraw(e) {
+    function onPointerMove(e) {
       if (!gIsPainting) return;
       const pt = getCoords(e);
       const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
@@ -2639,6 +2617,7 @@ var QRCodeLib = (function () {
         ctx.lineTo(pt.x, pt.y);
         ctx.stroke();
       } else if (gPaintSnapshot) {
+        // Live rubberband shape preview
         ctx.putImageData(gPaintSnapshot, 0, 0);
         const sx = gPaintStartX, sy = gPaintStartY;
         const ex = pt.x, ey = pt.y;
@@ -2666,9 +2645,11 @@ var QRCodeLib = (function () {
       }
     }
 
-    function endDraw(e) {
+    function onPointerUp(e) {
       if (!gIsPainting) return;
       gIsPainting = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
+
       const pt = getCoords(e);
       const size = parseInt(document.getElementById('paintStrokeSize').value) || 6;
       ctx.lineWidth = size;
@@ -2676,6 +2657,31 @@ var QRCodeLib = (function () {
       ctx.lineJoin = 'round';
       ctx.strokeStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
       ctx.fillStyle = (gPaintTool === 'eraser') ? '#ffffff' : gPaintColor;
+
+      if (gPaintTool === 'text') {
+        const dist = Math.hypot(pt.x - gPaintStartX, pt.y - gPaintStartY);
+        if (dist > 25) return;
+
+        if (gIsPromptingText) return;
+        gIsPromptingText = true;
+
+        setTimeout(() => {
+          try {
+            const txt = prompt('输入题字内容:');
+            if (txt && txt.trim()) {
+              savePaintHistory();
+              const fontSize = Math.max(18, size * 4);
+              ctx.fillStyle = (gPaintColor === '#ffffff') ? '#ffffff' : gPaintColor;
+              ctx.font = `bold ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+              ctx.textBaseline = 'middle';
+              ctx.fillText(txt.trim(), pt.x, pt.y);
+            }
+          } finally {
+            setTimeout(() => { gIsPromptingText = false; }, 400);
+          }
+        }, 50);
+        return;
+      }
 
       if (gPaintTool === 'pen' || gPaintTool === 'eraser') {
         return;
@@ -2690,7 +2696,7 @@ var QRCodeLib = (function () {
         const dist = Math.hypot(ex - sx, ey - sy);
 
         if (dist < 6) {
-          // Click/tap without drag: create default shape centered at click
+          // Tap / click without drag: generate default shape centered at tap point!
           if (gPaintTool === 'line') {
             ctx.beginPath();
             ctx.moveTo(pt.x - 70, pt.y);
@@ -2710,7 +2716,7 @@ var QRCodeLib = (function () {
             ctx.fill();
           }
         } else {
-          // Dragged: draw final shape
+          // Dragged: commit user's dragged shape
           if (gPaintTool === 'line') {
             ctx.beginPath();
             ctx.moveTo(sx, sy);
@@ -2736,38 +2742,20 @@ var QRCodeLib = (function () {
       }
     }
 
-    function onTouchStart(e) {
-      e.preventDefault();
-      gLastTouchTime = Date.now();
-      startDraw(e);
-    }
-    function onTouchMove(e) {
-      e.preventDefault();
-      moveDraw(e);
-    }
-    function onTouchEnd(e) {
-      e.preventDefault();
-      endDraw(e);
-    }
-    function onMouseDown(e) {
-      if (Date.now() - gLastTouchTime < 600) return;
-      startDraw(e);
-    }
-    function onMouseMove(e) {
-      if (Date.now() - gLastTouchTime < 600) return;
-      moveDraw(e);
-    }
-    function onMouseUp(e) {
-      if (Date.now() - gLastTouchTime < 600) return;
-      endDraw(e);
+    function onPointerCancel(e) {
+      if (!gIsPainting) return;
+      gIsPainting = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
+      if (gPaintSnapshot) {
+        ctx.putImageData(gPaintSnapshot, 0, 0);
+        gPaintSnapshot = null;
+      }
     }
 
-    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd, { passive: false });
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerCancel);
   }
 
   // 12. 🖼️ 全能图片调色工坊 (Image Lab Engine - 自适应横竖屏)
