@@ -1,6 +1,6 @@
 # 3D 打印外壳与硬件结构设计指南 (Hardware & Enclosure)
 
-本目录包含 3.98 英寸四色电子墨水屏随身工牌 & 漫展痛卡的全部 3D 打印外壳 STL 模型、OpenSCAD 参数化源码、Python 网格构建脚本以及 FPC 屏幕转接板工程。
+本目录包含 3.98 英寸四色电子墨水屏随身工牌 & 兽聚痛卡的全部 3D 打印外壳 STL 模型、OpenSCAD 参数化源码、Python 网格构建脚本以及 FPC 屏幕转接板工程。
 
 ---
 
@@ -20,7 +20,7 @@ hardware/
 │   └── epd_case.scad       -> 完整的 OpenSCAD 参数化建模源码
 ├── scripts/
 │   └── build_epd_case.py   -> Python 3D 网格生成脚本 (纯数学算法 + Delaunay 三角剖分)
-└── fpc_adapter/            -> 24-Pin 0.5mm 墨水屏 45° 转接板 KiCad 硬件工程
+└── fpc_adapter/            -> 24-Pin 0.5mm 墨水屏 45° 转接板 KiCad 硬件工程（作废）
 ```
 
 ---

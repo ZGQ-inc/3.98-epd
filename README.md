@@ -6,11 +6,11 @@
 
 <p align="center">
   <b>无需局域网 Wi-Fi · 手机 Chrome 蓝牙直连 · 100% 离线 PWA · Cloudflare Pages 免费一键托管</b><br>
-  专为 3.98 英寸四色电子墨水屏打造的随身工牌、电子名片、漫展痛卡与冰箱留言板开源软硬件全栈解决方案。
+  专为 3.98 英寸四色电子墨水屏打造的随身工牌、电子名片、兽聚痛卡与冰箱留言板开源软硬件全栈解决方案。
 </p>
 
 <p align="center">
-  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/your-username/epd-smart-badge"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Pages"></a>
+  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/ZGQ-inc/3.98-epd"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Pages"></a>
   <a href="https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps"><img src="https://img.shields.io/badge/PWA-100%25_Offline-005ac1.svg" alt="PWA Ready"></a>
   <a href="https://developer.chrome.com/articles/bluetooth/"><img src="https://img.shields.io/badge/WebBLE-Bluetooth_5.0-success.svg" alt="Web Bluetooth"></a>
   <a href="#-硬件规格参数-hardware-specifications"><img src="https://img.shields.io/badge/E--Ink-3.98%22_768%C3%97552_BWRY-d32f2f.svg" alt="Screen"></a>
@@ -22,17 +22,17 @@
 ## 🌟 项目亮点 (Highlights)
 
 1. **彻底告别 Wi-Fi 局域网依赖 (Zero Wi-Fi Needed)**:
-   - 随身携带在漫展、地铁、办公室或野外时，无需路由器局域网。
+   - 随身携带在兽聚、地铁、办公室或野外时，无需路由器局域网。
    - 打开手机或电脑 Chrome / Edge 浏览器访问部署好的 PWA 网页，点击“连接蓝牙”即可通过 Web Bluetooth API 直接与 3.98" 墨水屏握手通信。
 2. **免费静态托管于 Cloudflare Pages**:
    - 纯前端无服务器架构（HTML5 + Canvas + Pure JS + Service Worker）。
    - 零成本全球 CDN 极速分发与自动权威 HTTPS（满足 Chromium WebBLE API 强制安全上下文要求）。
 3. **100% 离线 PWA 支持 (Offline PWA)**:
    - 首次访问后，Service Worker 会将点阵字库生成器、二维码引擎和 4色微粒抖动算法缓存在本地。
-   - 即使断网、飞行模式或深处漫展地下场馆，依然能秒速打开并向墨水屏推送。
+   - 即使断网、飞行模式或深处兽聚地下场馆，依然能秒速打开并向墨水屏推送。
 4. **四大随身定制工坊 (4 Built-in Studios)**:
-   - 📇 **智能工牌 / 电子名片 (Smart E-Badge)**: 极客黑客、商务简约、漫展同人、展会工作证 4 套高对比度大字模板，内置零依赖纯离线二维码生成器。
-   - 🎒 **漫展痛卡 / 角色挂件 (Anime Ita-Bag Charm)**: 配合外壳双挂绳孔，相册选图、自由缩放/旋转、4色微粒抖动还原，个性台词题字。
+   - 📇 **智能工牌 / 电子名片 (Smart E-Badge)**: 极客黑客、商务简约、兽聚同人、展会工作证 4 套高对比度大字模板，内置零依赖纯离线二维码生成器。
+   - 🎒 **兽聚痛卡 / 角色挂件 (Anime Ita-Bag Charm)**: 配合外壳双挂绳孔，相册选图、自由缩放/旋转、4色微粒抖动还原，个性台词题字。
    - 📝 **随身便签 / 留言板 (Memo & Checklist)**: 32px 超大字号待办清单，方框复选框，磁吸/挂绳一目了然。
    - 🎨 **4色像素手绘画板 (BWRY Paint Canvas)**: 黑/白/红/黄 4色调色盘，画笔、矩形、圆形、题字、橡皮与撤销功能。
 5. **极客级 3D 打印外壳设计 (Optimized Enclosure)**:

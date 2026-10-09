@@ -306,7 +306,7 @@
     <div class="chip-group">
       <div class="chip active" id="chip-geek" onclick="selectBadgeTpl('geek')">🧑‍💻 极客黑客</div>
       <div class="chip" id="chip-business" onclick="selectBadgeTpl('business')">💼 商务极简</div>
-      <div class="chip" id="chip-anime" onclick="selectBadgeTpl('anime')">🎨 漫展同人</div>
+      <div class="chip" id="chip-anime" onclick="selectBadgeTpl('anime')">🎨 兽聚名片</div>
       <div class="chip" id="chip-staff" onclick="selectBadgeTpl('staff')">🎫 展会工作证</div>
     </div>
 
@@ -403,7 +403,7 @@
       <canvas id="itaCanvas" width="768" height="552"></canvas>
     </div>
 
-    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('itaCanvas', '漫展痛卡')">
+    <button class="btn btn-primary btn-full" onclick="pushCurrentCanvas('itaCanvas', '兽聚痛卡')">
       🚀 蓝牙直推至痛卡屏幕 (16s)
     </button>
   </div>
@@ -539,9 +539,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- TAB 6: 📋 全部 17 场景模式与遥控 -->
-<!-- ========================================================================= -->
 <div id="view-scenes" class="tab-view">
   <div class="pwa-card">
     <div class="card-title">⚡ 墨水屏即时快捷遥控</div>
@@ -597,9 +595,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- MODAL: 多设备管理 (Multi-Device Manager) -->
-<!-- ========================================================================= -->
 <div class="modal-backdrop" id="deviceModal">
   <div class="modal-sheet">
     <div class="card-title">
@@ -618,9 +614,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- MODAL: 蓝牙隔空配网 (BLE Air Provisioning) -->
-<!-- ========================================================================= -->
 <div class="modal-backdrop" id="airProvModal">
   <div class="modal-sheet">
     <div class="card-title">
@@ -640,9 +634,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- MODAL: 局域网 IP 直连设置 -->
-<!-- ========================================================================= -->
 <div class="modal-backdrop" id="lanIpModal">
   <div class="modal-sheet">
     <div class="card-title">
@@ -668,7 +660,7 @@
   </div>
   <div class="nav-item" onclick="switchNav('itabag', this)">
     <span class="icon">🎒</span>
-    <span>漫展痛卡</span>
+    <span>兽聚痛卡</span>
   </div>
   <div class="nav-item" onclick="switchNav('memo', this)">
     <span class="icon">📝</span>
@@ -688,9 +680,7 @@
   </div>
 </div>
 
-<!-- ========================================================================= -->
 <!-- RFC-Compliant Zero-Dependency Offline Pure JS QR Code Engine -->
-<!-- ========================================================================= -->
 <script>
 /**
  * Lightweight RFC-compliant QR Code Generator (Reed-Solomon ECC Level L/M/Q/H)
@@ -992,9 +982,7 @@ var QRCodeLib = (function () {
 })();
 </script>
 
-<!-- ========================================================================= -->
 <!-- Core Application Engine: WebBLE, Multi-device, Canvas, Dithering -->
-<!-- ========================================================================= -->
 <script>
   // 1. Navigation & Theme
   function switchNav(viewId, el) {
@@ -1248,7 +1236,7 @@ var QRCodeLib = (function () {
     let list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
     const dev = list.find(d => d.id === id);
     if (!dev) return;
-    const next = prompt('输入设备自定义别名 (如: 漫展痛卡、工作名牌):', dev.alias);
+    const next = prompt('输入设备自定义别名:', dev.alias);
     if (next) {
       dev.alias = next.trim();
       localStorage.setItem('epd_devices', JSON.stringify(list));
@@ -1887,18 +1875,16 @@ var QRCodeLib = (function () {
     const name = (document.getElementById('badgeName').value || '').trim() || 'ZGQ';
     const role = (document.getElementById('badgeRole').value || '').trim() || '全栈工程师 / 嵌入式架构';
     const org  = (document.getElementById('badgeOrg').value || '').trim()  || 'ZGQ Inc.';
-    const contact = (document.getElementById('badgeContact').value || '').trim() || '1145141919810';
+    const contact = (document.getElementById('badgeContact').value || '').trim() || 't.me/ZGQinc';
     const email   = (document.getElementById('badgeEmail').value || '').trim()   || 'zgqinc@gmail.com';
     const motto   = (document.getElementById('badgeMotto').value || '').trim()   || '用代码连接物理世界，专注低功耗嵌入式！';
-    const qrText  = (document.getElementById('badgeQr').value || '').trim()      || 'https://github.com/ZGQ-inc';
+    const qrText  = (document.getElementById('badgeQr').value || '').trim()      || 'https://domain.zgqinc.gq';
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
     if (isPortrait) {
-      // -----------------------------------------------------------------------
       // 竖屏自适应工牌模式 (552 × 768 Portrait Lanyard Badge Layout)
-      // -----------------------------------------------------------------------
       if (gCurrentBadgeTpl === 'geek') {
         // 🧑‍💻 GEEK DEVELOPER PORTRAIT
         ctx.fillStyle = '#000000';
@@ -2009,9 +1995,9 @@ var QRCodeLib = (function () {
         ctx.fillRect(16, h - 42, w - 32, 24);
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 12px monospace';
-        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 26, h - 26);
+        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ Inc.', 26, h - 26);
       } else if (gCurrentBadgeTpl === 'anime') {
-        // 🎨 OTAKU / COMIC-CON PORTRAIT
+        // 🎨 OC PORTRAIT
         ctx.fillStyle = '#f4c430';
         ctx.fillRect(0, 0, w, 70);
         ctx.fillStyle = '#d32f2f';
@@ -2019,7 +2005,7 @@ var QRCodeLib = (function () {
 
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 24px "PingFang SC", sans-serif';
-        ctx.fillText(`✨ 漫展同行证 · ${org}`, 24, 46);
+        ctx.fillText(`✨ 兽聚同行证 · ${org}`, 24, 46);
 
         ctx.strokeStyle = '#d32f2f';
         ctx.lineWidth = 3;
@@ -2055,7 +2041,7 @@ var QRCodeLib = (function () {
         ctx.fillStyle = '#d32f2f';
         ctx.font = 'bold 15px "PingFang SC", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('扫码关注推特/B站', w / 2, 415 + qrSize + 26);
+        ctx.fillText('扫码关注', w / 2, 415 + qrSize + 26);
         ctx.textAlign = 'left';
 
         ctx.fillStyle = '#d32f2f';
@@ -2112,9 +2098,7 @@ var QRCodeLib = (function () {
         ctx.fillText('OFFICIAL ACCREDITATION · ALL RIGHTS RESERVED', 26, h - 13);
       }
     } else {
-      // -----------------------------------------------------------------------
       // 横屏标准模式 (768 × 552 Landscape Layout - 0° / 180°)
-      // -----------------------------------------------------------------------
       if (gCurrentBadgeTpl === 'geek') {
         // 🧑‍💻 GEEK DEVELOPER TEMPLATE
         ctx.fillStyle = '#000000';
@@ -2221,9 +2205,9 @@ var QRCodeLib = (function () {
         ctx.fillRect(20, h - 42, w - 40, 22);
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 12px monospace';
-        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ STUDIO', 36, h - 26);
+        ctx.fillText('HIGH-CONTRAST BWRY SMART TAG | ZGQ Inc.', 36, h - 26);
       } else if (gCurrentBadgeTpl === 'anime') {
-        // 🎨 OTAKU / COMIC-CON TEMPLATE
+        // 🎨 OC TEMPLATE
         ctx.fillStyle = '#f4c430';
         ctx.fillRect(0, 0, w, 70);
         ctx.fillStyle = '#d32f2f';
@@ -2231,7 +2215,7 @@ var QRCodeLib = (function () {
 
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 28px "PingFang SC", sans-serif';
-        ctx.fillText(`✨ 漫展同行证 · ${org}`, 32, 46);
+        ctx.fillText(`✨ 兽聚同行证 · ${org}`, 32, 46);
 
         ctx.strokeStyle = '#d32f2f';
         ctx.lineWidth = 3;
@@ -2320,7 +2304,7 @@ var QRCodeLib = (function () {
     }
   }
 
-  // 9. 🎒 漫展痛卡引擎 (Ita-Bag Art Charm Engine)
+  // 9. 🎒 兽聚痛卡引擎 (Ita-Bag Art Charm Engine)
   let gLoadedItaImg = null;
 
   function handleItaImageUpload(e) {
@@ -2379,7 +2363,7 @@ var QRCodeLib = (function () {
       ctx.fillStyle = '#d32f2f';
       ctx.font = 'bold 44px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('✨ OTAKU CHARM ✨', w / 2, cy + 15);
+      ctx.fillText('✨ OC ✨', w / 2, cy + 15);
       ctx.textAlign = 'left';
     }
 
