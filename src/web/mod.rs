@@ -24,10 +24,11 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 6144,
-            max_open_sockets: 7,
+            stack_size: 4096,
+            max_open_sockets: 4,
             max_uri_handlers: 36,
             uri_match_wildcard: true,
+            lru_purge_enable: true,
             ..Default::default()
         };
 
@@ -59,7 +60,6 @@ impl WebServer {
         // In Station mode -> serves full Material Web Console & Layout Studio!
         println!("  [web] Registering root handler '/' (is_ap: {})...", is_ap_mode);
         server.fn_handler("/", Method::Get, move |req| -> anyhow::Result<()> {
-            println!("  [web] HTTP GET / received (is_ap: {})", is_ap_mode);
             if is_ap_mode {
                 let len_str = CAPTIVE_HTML.len().to_string();
                 let mut resp = req.into_response(200, None, &[
@@ -79,10 +79,9 @@ impl WebServer {
                 ("Connection", "close"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1460) {
-                resp.write_all(chunk)?;
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
+                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
-            println!("  [web] HTTP GET / served gzip HTML ({} bytes)", INDEX_HTML_GZ.len());
             Ok(())
         })?;
 
@@ -96,8 +95,8 @@ impl WebServer {
                 ("Connection", "close"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1460) {
-                resp.write_all(chunk)?;
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
+                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())
         })?;
@@ -113,10 +112,9 @@ impl WebServer {
                     ("Connection", "close"),
                     ("Cache-Control", "public, max-age=3600"),
                 ])?;
-                for chunk in PWA_HTML_GZ.chunks(1460) {
-                    resp.write_all(chunk)?;
+                for chunk in PWA_HTML_GZ.chunks(1024) {
+                    resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
                 }
-                println!("  [web] HTTP GET /pwa served gzip PWA HTML ({} bytes)", PWA_HTML_GZ.len());
                 Ok(())
             })?;
         }
@@ -128,6 +126,7 @@ impl WebServer {
                 ("Content-Type", "application/manifest+json; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
             ])?;
             resp.write_all(MANIFEST_JSON)?;
             Ok(())
@@ -140,6 +139,7 @@ impl WebServer {
                 ("Content-Type", "application/javascript; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Service-Worker-Allowed", "/"),
+                ("Connection", "close"),
             ])?;
             resp.write_all(SW_JS)?;
             Ok(())
@@ -164,6 +164,7 @@ impl WebServer {
                 println!("  [web] Captive probe on {}, serving captive page", req.uri());
                 let mut resp = req.into_response(200, None, &[
                     ("Content-Type", "text/html; charset=utf-8"),
+                    ("Connection", "close"),
                     ("Cache-Control", "no-cache, no-store, must-revalidate"),
                 ])?;
                 resp.write_all(CAPTIVE_HTML)?;
@@ -210,7 +211,10 @@ impl WebServer {
                 }
             }
 
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"saved\"}")?;
             Ok(())
         })?;
@@ -218,7 +222,10 @@ impl WebServer {
         // 4. POST /api/wifi/scan
         server.fn_handler("/api/wifi/scan", Method::Post, |req| -> anyhow::Result<()> {
             let json = serde_json::json!([]).to_string();
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(json.as_bytes())?;
             Ok(())
         })?;
@@ -364,13 +371,17 @@ impl WebServer {
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;
                     return Ok(());
                 }
             }
             let json = serde_json::to_vec(&ApiResponse::err("请指定合法的 mode 字符串"))?;
-            let mut resp = req.into_response(400, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(400, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(&json)?;
             Ok(())
         })?;
@@ -499,11 +510,17 @@ impl WebServer {
                     "status": "ok",
                     "message": msg
                 }))?;
-                let mut resp = req.into_response(200, None, &[("Content-Type", "application/json; charset=utf-8")])?;
+                let mut resp = req.into_response(200, None, &[
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Connection", "close"),
+                ])?;
                 resp.write_all(&json)?;
                 return Ok(());
             }
-            let mut resp = req.into_response(400, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(400, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"error\",\"message\":\"Invalid JSON\"}")?;
             Ok(())
         })?;
@@ -539,6 +556,7 @@ impl WebServer {
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
             Ok(())
@@ -551,7 +569,10 @@ impl WebServer {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 unsafe { esp_idf_sys::esp_restart() };
             });
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json; charset=utf-8")])?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"ok\",\"message\":\"Device rebooting...\"}")?;
             Ok(())
         })?;
@@ -565,7 +586,10 @@ impl WebServer {
                 "status": "ok",
                 "message": "低电量欠压告警卡片已触发并在屏幕中心叠加刷新！"
             }))?;
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json; charset=utf-8")])?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(&json)?;
             Ok(())
         })?;
@@ -578,6 +602,22 @@ impl WebServer {
             let len = req.read(&mut buf)?;
             if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&buf[..len]) {
                 if let Some(m) = val.get("mode").and_then(|v| v.as_str()) {
+                    if m == "wifi_only" {
+                        let cfg = config_wl.lock().unwrap();
+                        if cfg.wifi_ssid.trim().is_empty() {
+                            let json = serde_json::to_vec(&serde_json::json!({
+                                "status": "error",
+                                "message": "⚠️ 墨水屏当前尚未配置任何可用 Wi-Fi 路由器的 SSID！若此时切换为仅 Wi-Fi 并关闭蓝牙，设备将无法联网且无法蓝牙直连，导致彻底失联！请先在【Wi-Fi 配网】中保存可用 Wi-Fi 后再试。"
+                            }))?;
+                            let mut resp = req.into_response(400, None, &[
+                                ("Content-Type", "application/json; charset=utf-8"),
+                                ("Access-Control-Allow-Origin", "*"),
+                                ("Connection", "close"),
+                            ])?;
+                            resp.write_all(&json)?;
+                            return Ok(());
+                        }
+                    }
                     {
                         let mut cfg = config_wl.lock().unwrap();
                         cfg.wireless_mode = m.to_string();
@@ -603,6 +643,7 @@ impl WebServer {
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;
 
@@ -617,7 +658,10 @@ impl WebServer {
                     return Ok(());
                 }
             }
-            let mut resp = req.into_response(400, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(400, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"error\",\"message\":\"Missing mode string\"}")?;
             Ok(())
         })?;
@@ -653,6 +697,7 @@ impl WebServer {
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
             Ok(())
@@ -672,12 +717,16 @@ impl WebServer {
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;
                     return Ok(());
                 }
             }
-            let mut resp = req.into_response(400, None, &[("Content-Type", "application/json")])?;
+            let mut resp = req.into_response(400, None, &[
+                ("Content-Type", "application/json"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"error\",\"message\":\"Missing client id\"}")?;
             Ok(())
         })?;
@@ -690,7 +739,10 @@ impl WebServer {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 unsafe { esp_idf_sys::esp_restart() };
             });
-            let mut resp = req.into_response(200, None, &[("Content-Type", "application/json; charset=utf-8")])?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Connection", "close"),
+            ])?;
             resp.write_all(b"{\"status\":\"ok\",\"message\":\"Factory reset complete. Rebooting into AP mode...\"}")?;
             Ok(())
         })?;
@@ -698,21 +750,17 @@ impl WebServer {
         // 13. POST /api/display/bitmap & /api/display/raw — Direct 1:1 Pixel Bitmap from Web Studio / PWA (105,984 bytes)
         for path in &["/api/display/bitmap", "/api/display/raw"] {
             server.fn_handler(path, Method::Post, move |mut req| -> anyhow::Result<()> {
-                println!("  [web-api] POST {} streaming into framebuffer...", req.uri());
+                let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
                 let mut total_read = 0usize;
-                let mut chunk = [0u8; 512];
 
                 while total_read < crate::display::TOTAL_BUFFER_SIZE {
-                    let to_read = chunk.len().min(crate::display::TOTAL_BUFFER_SIZE - total_read);
-                    let n = req.read(&mut chunk[..to_read])?;
+                    let n = req.read(&mut raw_fb[total_read..])?;
                     if n == 0 {
                         break;
                     }
-                    crate::display::framebuffer::write_raw_chunk(total_read, &chunk[..n]);
                     total_read += n;
                 }
 
-                println!("  [web-api] Received {} / {} bytes of 1:1 bitmap", total_read, crate::display::TOTAL_BUFFER_SIZE);
                 if total_read == crate::display::TOTAL_BUFFER_SIZE {
                     let ok = crate::display::request_direct_bitmap();
                     let json = serde_json::to_vec(&serde_json::json!({
@@ -741,22 +789,19 @@ impl WebServer {
             })?;
         }
 
-        // 14. GET /api/display/raw — Read current 105,984 bytes framebuffer for 1:1 Web Preview
+        // 14. GET /api/display/raw — Read current 105,984 bytes framebuffer for 1:1 Web Preview (PackBits compressed)
         server.fn_handler("/api/display/raw", Method::Get, move |req| -> anyhow::Result<()> {
+            let raw_fb = crate::display::framebuffer::get_raw_slice();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/octet-stream"),
+                ("X-Compression", "packbits"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Expose-Headers", "X-Compression"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
                 ("Connection", "close"),
             ])?;
-            let mut chunk = [0u8; 512];
-            let mut offset = 0;
-            while offset < crate::display::TOTAL_BUFFER_SIZE {
-                let n = crate::display::framebuffer::read_raw_chunk(offset, &mut chunk);
-                if n == 0 { break; }
-                resp.write_all(&chunk[..n])?;
-                offset += n;
-            }
+            let sent = stream_packbits(raw_fb, &mut resp)?;
+            println!("  [web] GET /api/display/raw sent {} bytes (PackBits RLE)", sent);
             Ok(())
         })?;
 
@@ -767,4 +812,80 @@ impl WebServer {
 
         Ok(Self)
     }
+}
+
+/// Safe stack-based chunk writer to prevent out-of-bounds indexing
+struct ChunkWriter<'a, W: esp_idf_svc::io::Write> {
+    writer: &'a mut W,
+    buf: [u8; 512],
+    pos: usize,
+    total_sent: usize,
+}
+
+impl<'a, W: esp_idf_svc::io::Write> ChunkWriter<'a, W> {
+    fn new(writer: &'a mut W) -> Self {
+        Self {
+            writer,
+            buf: [0u8; 512],
+            pos: 0,
+            total_sent: 0,
+        }
+    }
+
+    #[inline]
+    fn put(&mut self, b: u8) -> anyhow::Result<()> {
+        if self.pos >= self.buf.len() {
+            self.flush()?;
+        }
+        self.buf[self.pos] = b;
+        self.pos += 1;
+        Ok(())
+    }
+
+    fn flush(&mut self) -> anyhow::Result<()> {
+        if self.pos > 0 {
+            self.writer.write_all(&self.buf[..self.pos]).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            self.total_sent += self.pos;
+            self.pos = 0;
+        }
+        Ok(())
+    }
+}
+
+/// Zero-heap PackBits RLE stream compressor
+fn stream_packbits<W: esp_idf_svc::io::Write>(data: &[u8], writer: &mut W) -> anyhow::Result<usize> {
+    let mut cw = ChunkWriter::new(writer);
+    let n = data.len();
+    let mut i = 0;
+    while i < n {
+        // Count identical run
+        let mut run_len = 1;
+        while i + run_len < n && data[i + run_len] == data[i] && run_len < 128 {
+            run_len += 1;
+        }
+        if run_len >= 2 {
+            let header = (257 - run_len as u16) as u8;
+            cw.put(header)?;
+            cw.put(data[i])?;
+            i += run_len;
+        } else {
+            // Count literal run
+            let lit_start = i;
+            let mut lit_len = 1;
+            i += 1;
+            while i < n && lit_len < 128 {
+                if i + 1 < n && data[i] == data[i + 1] {
+                    break;
+                }
+                lit_len += 1;
+                i += 1;
+            }
+            cw.put((lit_len - 1) as u8)?;
+            for j in 0..lit_len {
+                cw.put(data[lit_start + j])?;
+            }
+        }
+    }
+    cw.flush()?;
+    Ok(cw.total_sent)
 }

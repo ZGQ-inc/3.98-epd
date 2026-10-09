@@ -780,7 +780,7 @@
     } else if (tabId === 'modes') {
       renderCurrentModePreview();
     } else if (tabId === 'dashboard') {
-      loadScreenPreview();
+      // 保持轻量，用户按需点击【抓取当前屏幕镜像】按钮获取
     } else if (tabId === 'system') {
       pollSystemDiag();
     }
@@ -2051,15 +2051,22 @@
 
   async function setWirelessMode(mode) {
     if (mode === 'wifi_only') {
+      const wifiSsidInput = document.getElementById('cfg_wifi_ssid');
+      const curSsid = (wifiSsidInput && wifiSsidInput.value) ? wifiSsidInput.value.trim() : (gConfig && gConfig.wifi_ssid ? gConfig.wifi_ssid.trim() : '');
+      if (!curSsid) {
+        alert('⚠️ 无法切换为【仅 Wi-Fi 模式】！\n\n当前尚未配置 Wi-Fi 路由器的 SSID 和密码。\n若此时关闭蓝牙，墨水屏将无法联网且无法通过蓝牙访问，导致彻底失联！\n\n请先在【Wi-Fi 配网】中填写并保存可用的路由器 Wi-Fi 凭证后再切换。');
+        return;
+      }
       const msg = 
         '⚠️【高风险操作】确定切换为【仅 Wi-Fi 模式】吗？\n\n' +
         '📌 运行规则与失联风险防范提示：\n' +
         '1. 切换后设备将彻底关闭蓝牙硬件，手机将无法再通过蓝牙搜寻或直连墨水屏！\n' +
-        '2. 墨水屏将完全依赖 Wi-Fi 连接路由器与当前局域网 Web 控制台；\n' +
-        '3. ⚠️ 特别注意（户外/无路由器风险）：\n' +
-        '   若未来将设备带到户外或没有该 Wi-Fi 路由器的环境下，设备将无法自动连网；\n' +
+        '2. 墨水屏将完全依赖已配置的 Wi-Fi 连接路由器与当前局域网 Web 控制台；\n' +
+        '3. ⚠️ 特别注意（户外/无路由器失联风险与自救方法）：\n' +
+        '   若未来将设备带到户外、学校、办公室等没有该 Wi-Fi 路由器的环境下，设备将无法自动连网；\n' +
         '   此时若需要重新配置或重新打开蓝牙：\n' +
-        '   👉 您必须使用手机开启同名热点（与已配 Wi-Fi SSID 和密码相同）供墨水屏连入，或者连接墨水屏自动弹出的应急备用热点（192.168.4.1）打开控制台，才能把模式切回蓝牙！\n\n' +
+        '   👉 您必须使用手机开启同名热点（热点名称 SSID 与密码必须与已配 Wi-Fi 完全相同）供墨水屏连入，浏览器打开控制台切回蓝牙模式；\n' +
+        '   👉 或者等待墨水屏连网失败后自动弹出的应急备用热点（192.168.4.1）打开控制台进行重置！\n\n' +
         '确认保存并重启进入【仅 Wi-Fi 模式】吗？';
       if (!confirm(msg)) return;
     } else if (mode === 'ble_only') {
@@ -2069,7 +2076,8 @@
         '1. 切换后设备将彻底关闭 Wi-Fi 射频、内置 Web 服务器、局域网 HTTP 推图与 MQTT 服务；\n' +
         '2. 当前网页控制台将立即断开，局域网内通过 IP 地址或浏览器网页将无法再访问墨水屏；\n' +
         '3. 后续所有图片推送、文字设置与参数配置均只能使用近距离 Web 蓝牙（Web BLE）完成；\n' +
-        '4. 若需要恢复 Wi-Fi 网页访问，可在蓝牙连接状态下随时重新切回【双模并发】或【仅 Wi-Fi】。\n\n' +
+        '4. ⚠️ 恢复提示：\n' +
+        '   若需要恢复 Wi-Fi 网页访问，后续只需在手机或电脑打开支持 Web 蓝牙的控制台/PWA，连接蓝牙后随时将工作模式重新切回【智能自动】或【双模并发】即可。\n\n' +
         '确认保存并重启进入【仅蓝牙模式】吗？';
       if (!confirm(msg)) return;
     } else if (mode === 'dual') {
@@ -2237,6 +2245,31 @@
     }
   }
 
+  function decodePackBits(comp, expectedLen) {
+    const out = new Uint8Array(expectedLen);
+    let inIdx = 0;
+    let outIdx = 0;
+    const len = comp.length;
+    while (inIdx < len && outIdx < expectedLen) {
+      const header = comp[inIdx++];
+      if (header <= 127) {
+        const count = header + 1;
+        for (let i = 0; i < count && inIdx < len && outIdx < expectedLen; i++) {
+          out[outIdx++] = comp[inIdx++];
+        }
+      } else if (header >= 129) {
+        const count = 257 - header;
+        if (inIdx < len) {
+          const val = comp[inIdx++];
+          for (let i = 0; i < count && outIdx < expectedLen; i++) {
+            out[outIdx++] = val;
+          }
+        }
+      }
+    }
+    return outIdx === expectedLen ? out : out.subarray(0, outIdx);
+  }
+
   async function loadScreenPreview() {
     const btn = document.getElementById('btnGrabPreview');
     const statusText = document.getElementById('previewStatusText');
@@ -2260,9 +2293,12 @@
         throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
       }
       const buf = await resp.arrayBuffer();
-      const bytes = new Uint8Array(buf);
+      let bytes = new Uint8Array(buf);
+      if (resp.headers.get('x-compression') === 'packbits' || bytes.length !== 105984) {
+        bytes = decodePackBits(bytes, 105984);
+      }
       if (bytes.length !== 105984) {
-        throw new Error(`显存数据长度异常 (期望 105984 字节，实际接收 ${bytes.length} 字节)`);
+        throw new Error(`显存点阵解析异常 (期望 105984 字节，实际得到 ${bytes.length} 字节)`);
       }
 
       const imgData = ctx.createImageData(768, 552);
@@ -2309,7 +2345,6 @@
         statusText.style.color = '#d32f2f';
         statusText.innerText = `❌ 抓取失败: ${e.message}`;
       }
-      alert(`❌ 抓取屏幕镜像失败: ${e.message}`);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -2397,13 +2432,28 @@
     }
   }
 
+  function initPreviewPlaceholder() {
+    const canvas = document.getElementById('previewCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, 768, 552);
+    ctx.fillStyle = '#5f6368';
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('📷 点击上方【抓取当前屏幕镜像】按钮获取硬件显存 (105KB)', 384, 260);
+    ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#80868b';
+    ctx.fillText('按需获取，避免页面初次载入时占用 Wi-Fi 带宽与设备资源', 384, 295);
+  }
+
   window.onload = async function() {
     initTheme();
     updatePwaLinks();
     initModesUI();
+    initPreviewPlaceholder();
     await pollStatus();
     await loadConfig();
-    setTimeout(() => { loadScreenPreview(); }, 1200);
   };
 </script>
 </body>

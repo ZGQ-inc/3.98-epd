@@ -1,7 +1,7 @@
 // src/config/mod.rs — NVS Persistent Configuration
 
 use esp_idf_svc::nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault};
-use log::{error, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 const NVS_NAMESPACE: &str = "epd_cfg";
@@ -103,7 +103,7 @@ impl ConfigManager {
 
     /// Load config from NVS, or fallback to default if not yet provisioned.
     pub fn load(&self) -> AppConfig {
-        let mut buf = vec![0u8; 1024];
+        let mut buf = vec![0u8; 4096];
         let mut cfg = match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => match serde_json::from_slice::<AppConfig>(slice) {
                 Ok(mut c) => {
@@ -114,7 +114,9 @@ impl ConfigManager {
                     if c.ble_device_name.is_empty() {
                         c.ble_device_name = "EPD-Smart-Display".to_string();
                     }
-                    if c.wireless_mode == "auto" || c.wireless_mode == "dual" || c.wireless_mode == "ble_only" {
+                    if c.wireless_mode == "wifi_only" {
+                        c.ble_enabled = false;
+                    } else if c.wireless_mode == "auto" || c.wireless_mode == "dual" || c.wireless_mode == "ble_only" {
                         c.ble_enabled = true;
                     }
                     c

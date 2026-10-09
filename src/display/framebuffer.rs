@@ -210,3 +210,16 @@ pub fn read_raw_chunk(offset: usize, dest: &mut [u8]) -> usize {
     }
 }
 
+/// Direct immutable read access to the static framebuffer (105,984 bytes).
+#[inline(always)]
+pub fn get_raw_slice() -> &'static [u8] {
+    unsafe { &EPD_STATIC_BUFFER }
+}
+
+/// Direct mutable write access to the static framebuffer (105,984 bytes).
+#[inline(always)]
+pub fn get_raw_slice_mut() -> &'static mut [u8] {
+    unsafe { &mut EPD_STATIC_BUFFER }
+}
+
+

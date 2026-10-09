@@ -183,25 +183,36 @@ impl BleManager {
                         println!("  [ble-rx] Wireless mode switch requested: '{}'", m);
                         let ble_self = BleManager::global();
                         let mut saved = false;
+                        let mut err_note: Option<&str> = None;
                         if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
                             let mut cfg = ac.lock().unwrap();
-                            cfg.wireless_mode = m.to_string();
-                            if m == "wifi_only" {
-                                cfg.ble_enabled = false;
-                            } else if m == "ble_only" {
-                                cfg.ble_enabled = true;
-                            }
-                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
-                                let mut mgr = cm.lock().unwrap();
-                                if let Err(e) = mgr.save(&cfg) {
-                                    eprintln!("  [ble-rx] Failed to save wireless_mode: {:?}", e);
-                                } else {
-                                    println!("  [ble-rx] Saved wireless_mode '{}' to NVS!", m);
-                                    saved = true;
+                            if m == "wifi_only" && cfg.wifi_ssid.trim().is_empty() {
+                                err_note = Some("ERROR:NO_WIFI_CONFIGURED");
+                                println!("  [ble-rx] Reject switch to wifi_only: wifi_ssid is empty!");
+                            } else {
+                                cfg.wireless_mode = m.to_string();
+                                if m == "wifi_only" {
+                                    cfg.ble_enabled = false;
+                                } else if m == "ble_only" {
+                                    cfg.ble_enabled = true;
+                                }
+                                if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                    let mut mgr = cm.lock().unwrap();
+                                    if let Err(e) = mgr.save(&cfg) {
+                                        eprintln!("  [ble-rx] Failed to save wireless_mode: {:?}", e);
+                                    } else {
+                                        println!("  [ble-rx] Saved wireless_mode '{}' to NVS!", m);
+                                        saved = true;
+                                    }
                                 }
                             }
                         }
-                        if saved {
+                        if let Some(err) = err_note {
+                            if let Some(ref tx) = *ble_self.tx_char.lock().unwrap() {
+                                tx.lock().set_value(err.as_bytes());
+                                tx.lock().notify();
+                            }
+                        } else if saved {
                             if let Some(ref tx) = *ble_self.tx_char.lock().unwrap() {
                                 let note = format!("MODE_SWITCHED:{}", m);
                                 tx.lock().set_value(note.as_bytes());
