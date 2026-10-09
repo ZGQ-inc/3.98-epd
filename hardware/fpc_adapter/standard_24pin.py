@@ -1,0 +1,27 @@
+# Standard 24-pin E-Paper FPC pinout (GoodDisplay, Waveshare, JD79668, SSD1680, UC8176)
+pinout = {
+    1: "NC",
+    2: "GDR (MOSFET gate drive for boost converter)",
+    3: "RESE (Current sense resistor for boost)",
+    4: "VGL (Negative gate voltage -15V)",
+    5: "VGH (Positive gate voltage +15V)",
+    6: "TSCL (I2C temp sensor clock, or NC)",
+    7: "TSDA (I2C temp sensor data, or NC)",
+    8: "BS1 (Interface select, usually GND for 4-line SPI)",
+    9: "BUSY (Busy output)",
+    10: "RES# / RST (Reset input)",
+    11: "D/C# (Data/Command select input)",
+    12: "CS# (Chip select input)",
+    13: "SCL / D0 / SCK (SPI clock input)",
+    14: "SDA / D1 / MOSI (SPI data input)",
+    15: "VDDIO (Digital logic power 3.3V)",
+    16: "VCI / VDD (System power 3.3V)",
+    17: "VSS / GND (System ground)",
+    18: "VDD (Internal core voltage capacitor)",
+    19: "VPP (OTP programming power)",
+    20: "VSH1 (Source high voltage 1)",
+    21: "VSH2 (Source high voltage 2)",
+    22: "VSL (Source low voltage)",
+    23: "VCOM (Common electrode voltage)",
+    24: "VCOM / NC"
+}

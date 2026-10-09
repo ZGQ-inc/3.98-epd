@@ -1,0 +1,6 @@
+(version 1)
+
+(rule "FPC_Edge_Pads"
+	(constraint edge_clearance (min 0.0mm))
+	(condition "A.Type == 'Pad'")
+)
