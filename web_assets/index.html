@@ -543,8 +543,8 @@
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
           <button class="m3-btn small" id="btnToggleBle" onclick="toggleBleBroadcast()">关闭蓝牙广播</button>
-          <a href="/pwa" id="linkPwaStudio" target="_blank" class="m3-btn small outlined" style="text-decoration:none; display:flex; align-items:center; gap:4px;" title="点击打开离线蓝牙 PWA 控制端 (可点击右侧设置按钮自定义为您自己的独立域名)">
-            📱 离线蓝牙 PWA 专页
+          <a href="https://398epd.zgqinc.gq" id="linkPwaStudio" target="_blank" class="m3-btn small outlined" style="text-decoration:none; display:flex; align-items:center; gap:4px;" title="点击打开 398epd.zgqinc.gq 独立 PWA 控制端 (支持 HTTPS 纯蓝牙直推)">
+            📱 独立 PWA 专页 (398epd.zgqinc.gq)
           </a>
           <button class="m3-btn small outlined" onclick="promptCustomPwaUrl()" title="自定义修改离线 PWA / Cloudflare Pages 地址" style="padding:6px 10px; cursor:pointer;">⚙️ 自定义地址</button>
         </div>
@@ -709,11 +709,11 @@
   // 0. 用户自定义离线蓝牙 PWA / Cloudflare Pages 专页地址配置
   // ─────────────────────────────────────────────────────────────────────────────
   // 【说明】您可在此处直接修改为您部署的 Cloudflare Pages 地址，例如: 'https://my-badge.pages.dev'
-  // 修改后，页面所有“离线蓝牙 PWA 专页”入口将直达您的独立域名；若留空则优先读取本地保存的配置或默认使用 '/pwa'。
-  const DEFAULT_CUSTOM_PWA_URL = '';
+  // 修改后，页面所有“离线蓝牙 PWA 专页”入口将直达您的独立域名；默认使用 'https://398epd.zgqinc.gq'。
+  const DEFAULT_CUSTOM_PWA_URL = 'https://398epd.zgqinc.gq';
 
   function getPwaUrl() {
-    return localStorage.getItem('user_custom_pwa_url') || DEFAULT_CUSTOM_PWA_URL || '/pwa';
+    return localStorage.getItem('user_custom_pwa_url') || DEFAULT_CUSTOM_PWA_URL;
   }
 
   function updatePwaLinks() {
@@ -732,9 +732,9 @@
     const current = getPwaUrl();
     const input = prompt(
       '【自定义离线蓝牙 PWA 专页地址】\n' +
-      '请输入您部署在 Cloudflare Pages 的专属网址（例如: https://my-badge.pages.dev）：\n' +
-      '(若输入为空则恢复默认设备内置 /pwa 地址)',
-      current === '/pwa' ? '' : current
+      '请输入您部署的专属网址（例如: https://398epd.zgqinc.gq）：\n' +
+      '(若输入为空则恢复默认 https://398epd.zgqinc.gq 地址)',
+      current === DEFAULT_CUSTOM_PWA_URL ? '' : current
     );
     if (input !== null) {
       const trimmed = input.trim();

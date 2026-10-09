@@ -11,7 +11,7 @@ use log::info;
 
 use crate::config::{AppConfig, ConfigManager};
 use crate::web::api::{ApiResponse, SystemStatusResponse};
-use crate::web::assets::{CAPTIVE_HTML, INDEX_HTML_GZ, MANIFEST_JSON, PWA_HTML_GZ, SW_JS};
+use crate::web::assets::{CAPTIVE_HTML, INDEX_HTML_GZ, MANIFEST_JSON, SW_JS};
 
 pub struct WebServer;
 
@@ -101,20 +101,21 @@ impl WebServer {
             Ok(())
         })?;
 
-        // 1c. Dedicated PWA mobile app routes
+        // 1c. Dedicated PWA mobile app routes -> 302 HTTP Redirect to HTTPS PWA
         for path in &["/pwa", "/pwa.html"] {
             server.fn_handler(path, Method::Get, |_req| -> anyhow::Result<()> {
-                let len_str = PWA_HTML_GZ.len().to_string();
-                let mut resp = _req.into_response(200, None, &[
+                let pwa_url = "https://398epd.zgqinc.gq";
+                let body = format!(
+                    r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD PWA</title></head><body>正在跳转至独立 PWA 专页：<a href="{pwa_url}">{pwa_url}</a>...</body></html>"#
+                );
+                let len_str = body.len().to_string();
+                let mut resp = _req.into_response(302, None, &[
+                    ("Location", pwa_url),
                     ("Content-Type", "text/html; charset=utf-8"),
-                    ("Content-Encoding", "gzip"),
                     ("Content-Length", &len_str),
                     ("Connection", "close"),
-                    ("Cache-Control", "public, max-age=3600"),
                 ])?;
-                for chunk in PWA_HTML_GZ.chunks(1024) {
-                    resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                }
+                resp.write_all(body.as_bytes())?;
                 Ok(())
             })?;
         }
