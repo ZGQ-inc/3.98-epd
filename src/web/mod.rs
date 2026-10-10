@@ -24,7 +24,7 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 4096,
+            stack_size: 4608,
             max_open_sockets: 7,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
@@ -87,7 +87,8 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
+                ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
+                ("ETag", "\"398epd-v1\""),
             ])?;
             for chunk in INDEX_HTML_GZ.chunks(2048) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
@@ -103,7 +104,8 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
+                ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
+                ("ETag", "\"398epd-v1\""),
             ])?;
             for chunk in INDEX_HTML_GZ.chunks(2048) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
@@ -251,6 +253,12 @@ impl WebServer {
             let min_free_heap = unsafe { esp_idf_sys::esp_get_minimum_free_heap_size() } as usize;
             let uptime_secs = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
 
+            let storage_stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                total_bytes: 1632 * 1024,
+                used_bytes: 0,
+                free_bytes: 1632 * 1024,
+            });
+
             let status = SystemStatusResponse {
                 free_heap,
                 min_free_heap,
@@ -264,10 +272,10 @@ impl WebServer {
                 panel_model: "SE0398NZ07-FNG-A0/A1 (4-Color BWRY)",
                 resolution: "768x552",
                 flash_chip_size: 4 * 1024 * 1024,
-                factory_partition_size: 3 * 1024 * 1024,
-                factory_used_bytes: 1695 * 1024,
-                storage_partition_size: 896 * 1024,
-                storage_free_bytes: (896 - 264) * 1024,
+                factory_partition_size: 2 * 1024 * 1024,
+                factory_used_bytes: 1450 * 1024,
+                storage_partition_size: storage_stats.total_bytes,
+                storage_free_bytes: storage_stats.free_bytes,
                 nvs_size: 24 * 1024,
                 nvs_used_bytes: 6 * 1024,
                 chip_model: "ESP32-C3 RISC-V 32-bit (rev v0.4)",
@@ -402,18 +410,7 @@ impl WebServer {
 
         // 8. POST /api/layout — Fabric.js Canvas Custom Drag & Drop JSON
         server.fn_handler("/api/layout", Method::Post, move |mut req| -> anyhow::Result<()> {
-            let mut body = Vec::with_capacity(2048);
-            let mut chunk = [0u8; 512];
-            loop {
-                let n = req.read(&mut chunk)?;
-                if n == 0 {
-                    break;
-                }
-                body.extend_from_slice(&chunk[..n]);
-                if body.len() > 32768 {
-                    break; // Safety limit
-                }
-            }
+            let body = read_request_body(&mut req, 32768)?;
             println!("  [web-api] POST /api/layout received {} bytes", body.len());
             let json_str = String::from_utf8_lossy(&body).to_string();
             let ok = crate::display::request_layout(json_str);
@@ -841,6 +838,331 @@ impl WebServer {
             Ok(())
         })?;
 
+        // 15. GET /api/presets — List all presets and storage statistics
+        server.fn_handler("/api/presets", Method::Get, |req| -> anyhow::Result<()> {
+            println!("  [web] GET /api/presets handler invoked!");
+            let list = crate::storage::list_presets();
+            println!("  [web] list_presets returned {} presets", list.presets.len());
+            let json = serde_json::to_vec(&list)?;
+            println!("  [web] serialized json: {} bytes", json.len());
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            println!("  [web] GET /api/presets response sent successfully!");
+            Ok(())
+        })?;
+
+        // 16. POST /api/presets/save — Save a preset with storage quota check
+        server.fn_handler("/api/presets/save", Method::Post, |mut req| -> anyhow::Result<()> {
+            let body = read_request_body(&mut req, 32768)?;
+
+            #[derive(serde::Deserialize)]
+            struct SavePresetPayload {
+                id: Option<String>,
+                name: Option<String>,
+                preset_type: Option<String>,
+                type_label: Option<String>,
+                mode_id: Option<String>,
+                mode_params: Option<serde_json::Value>,
+                svg_data: Option<String>,
+                fabric_json: Option<String>,
+                text_content: Option<String>,
+                preview_thumb: Option<String>,
+                save_current_screen: Option<bool>,
+            }
+
+            match serde_json::from_slice::<SavePresetPayload>(&body) {
+                Ok(p) => {
+                    let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+                    let preset_id = p.id.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| format!("preset_{}", now_ts));
+                    let preset_name = p.name.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| format!("预设效果_{}", now_ts));
+                    let p_type = p.preset_type.unwrap_or_else(|| "canvas".to_string());
+                    let p_label = p.type_label.unwrap_or_else(|| match p_type.as_str() {
+                        "mode" => "功能模式".to_string(),
+                        "bitmap" => "位图图像".to_string(),
+                        "text" => "纯文本".to_string(),
+                        _ => "画板设计".to_string(),
+                    });
+
+                    let meta = crate::storage::PresetMeta {
+                        id: preset_id,
+                        name: preset_name,
+                        preset_type: p_type.clone(),
+                        type_label: p_label,
+                        size_bytes: 0,
+                        size_str: "0 KB".to_string(),
+                        created_at: now_ts,
+                        created_str: format!("{}", now_ts),
+                        mode_id: p.mode_id,
+                        mode_params: p.mode_params,
+                        svg_data: p.svg_data,
+                        fabric_json: p.fabric_json,
+                        text_content: p.text_content,
+                        preview_thumb: p.preview_thumb,
+                        bitmap_file: None,
+                    };
+
+                    let raw_fb = if p.save_current_screen.unwrap_or(false) || p_type == "bitmap" {
+                        Some(crate::display::framebuffer::get_raw_slice())
+                    } else {
+                        None
+                    };
+
+                    match crate::storage::save_preset(meta, raw_fb) {
+                        Ok(saved) => {
+                            let resp_data = serde_json::json!({
+                                "status": "ok",
+                                "message": "预设已成功保存至设备存储！",
+                                "preset": saved,
+                                "storage": crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                                    total_bytes: 0, used_bytes: 0, free_bytes: 0
+                                })
+                            });
+                            let json = serde_json::to_vec(&resp_data)?;
+                            let len_str = json.len().to_string();
+                            let mut resp = req.into_response(200, None, &[
+                                ("Content-Type", "application/json; charset=utf-8"),
+                                ("Content-Length", &len_str),
+                                ("Access-Control-Allow-Origin", "*"),
+                                ("Connection", "close"),
+                            ])?;
+                            resp.write_all(&json)?;
+                        }
+                        Err(err_msg) => {
+                            let resp_data = serde_json::json!({
+                                "status": "error",
+                                "message": err_msg
+                            });
+                            let json = serde_json::to_vec(&resp_data)?;
+                            let len_str = json.len().to_string();
+                            let mut resp = req.into_response(400, None, &[
+                                ("Content-Type", "application/json; charset=utf-8"),
+                                ("Content-Length", &len_str),
+                                ("Access-Control-Allow-Origin", "*"),
+                                ("Connection", "close"),
+                            ])?;
+                            resp.write_all(&json)?;
+                        }
+                    }
+                }
+                Err(e) => {
+                    let resp_data = serde_json::json!({
+                        "status": "error",
+                        "message": format!("JSON解析错误: {:?}", e)
+                    });
+                    let json = serde_json::to_vec(&resp_data)?;
+                    let len_str = json.len().to_string();
+                    let mut resp = req.into_response(400, None, &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Content-Length", &len_str),
+                        ("Access-Control-Allow-Origin", "*"),
+                        ("Connection", "close"),
+                    ])?;
+                    resp.write_all(&json)?;
+                }
+            }
+            Ok(())
+        })?;
+
+        // 17. POST /api/presets/push — One-click push preset to display
+        server.fn_handler("/api/presets/push", Method::Post, |mut req| -> anyhow::Result<()> {
+            let body = read_request_body(&mut req, 4096)?;
+
+            #[derive(serde::Deserialize)]
+            struct PushPresetPayload {
+                id: String,
+            }
+
+            if let Ok(p) = serde_json::from_slice::<PushPresetPayload>(&body) {
+                let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, p.id);
+                if let Ok(content) = std::fs::read_to_string(&meta_path) {
+                    if let Ok(meta) = serde_json::from_str::<crate::storage::PresetMeta>(&content) {
+                        let mut ok = false;
+                        if meta.bitmap_file.is_some() || meta.preset_type == "bitmap" {
+                            if let Ok(bytes) = crate::storage::get_preset_bitmap(&meta.id) {
+                                if bytes.len() == crate::display::TOTAL_BUFFER_SIZE {
+                                    let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
+                                    raw_fb.copy_from_slice(&bytes);
+                                    ok = crate::display::request_direct_bitmap();
+                                }
+                            }
+                        } else if let Some(ref m_id) = meta.mode_id {
+                            ok = crate::display::request_mode(m_id.clone());
+                        } else if let Some(ref fabric) = meta.fabric_json {
+                            ok = crate::display::request_layout(fabric.clone());
+                        }
+
+                        let resp_data = serde_json::json!({
+                            "status": if ok { "ok" } else { "busy" },
+                            "message": if ok { "预设效果已一键推送，正在执行16秒硬件波形刷新！" } else { "显示引擎正忙，请稍候重试" }
+                        });
+                        let json = serde_json::to_vec(&resp_data)?;
+                        let len_str = json.len().to_string();
+                        let mut resp = req.into_response(200, None, &[
+                            ("Content-Type", "application/json; charset=utf-8"),
+                            ("Content-Length", &len_str),
+                            ("Access-Control-Allow-Origin", "*"),
+                            ("Connection", "close"),
+                        ])?;
+                        resp.write_all(&json)?;
+                        return Ok(());
+                    }
+                }
+            }
+
+            let resp_data = serde_json::json!({
+                "status": "error",
+                "message": "未能找到指定预设文件或数据损坏"
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(404, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 18. POST /api/presets/delete — Multi-select batch delete presets
+        server.fn_handler("/api/presets/delete", Method::Post, |mut req| -> anyhow::Result<()> {
+            let body = read_request_body(&mut req, 8192)?;
+
+            #[derive(serde::Deserialize)]
+            struct DeletePresetPayload {
+                ids: Vec<String>,
+            }
+
+            if let Ok(p) = serde_json::from_slice::<DeletePresetPayload>(&body) {
+                let stats = crate::storage::delete_presets(&p.ids).unwrap_or(crate::storage::StorageStats {
+                    total_bytes: 0, used_bytes: 0, free_bytes: 0
+                });
+                let list = crate::storage::list_presets();
+                let resp_data = serde_json::json!({
+                    "status": "ok",
+                    "message": format!("已成功删除选中的 {} 项预设！", p.ids.len()),
+                    "storage": stats,
+                    "presets": list.presets
+                });
+                let json = serde_json::to_vec(&resp_data)?;
+                let len_str = json.len().to_string();
+                let mut resp = req.into_response(200, None, &[
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", &len_str),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Connection", "close"),
+                ])?;
+                resp.write_all(&json)?;
+                return Ok(());
+            }
+
+            let resp_data = serde_json::json!({
+                "status": "error",
+                "message": "无效的删除请求"
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(400, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 19. GET /api/presets/preview — Get preset details and preview data
+        server.fn_handler("/api/presets/preview", Method::Get, |req| -> anyhow::Result<()> {
+            let query = req.uri();
+            let mut preset_id = String::new();
+            if let Some(pos) = query.find("id=") {
+                preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
+            }
+
+            if !preset_id.is_empty() {
+                let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, preset_id);
+                if let Ok(content) = std::fs::read_to_string(&meta_path) {
+                    let len_str = content.len().to_string();
+                    let mut resp = req.into_response(200, None, &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Content-Length", &len_str),
+                        ("Access-Control-Allow-Origin", "*"),
+                        ("Connection", "close"),
+                    ])?;
+                    resp.write_all(content.as_bytes())?;
+                    return Ok(());
+                }
+            }
+
+            let resp_data = serde_json::json!({ "status": "error", "message": "预设未找到" });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(404, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 20. GET /api/presets/bitmap — Stream raw 105,984 bytes 2bpp of a preset for canvas preview
+        server.fn_handler("/api/presets/bitmap", Method::Get, |req| -> anyhow::Result<()> {
+            let query = req.uri();
+            let mut preset_id = String::new();
+            if let Some(pos) = query.find("id=") {
+                preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
+            }
+
+            if let Ok(bytes) = crate::storage::get_preset_bitmap(&preset_id) {
+                let len_str = bytes.len().to_string();
+                let mut resp = req.into_response(200, None, &[
+                    ("Content-Type", "application/octet-stream"),
+                    ("Content-Length", &len_str),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Connection", "close"),
+                ])?;
+                resp.write_all(&bytes)?;
+                return Ok(());
+            }
+
+            let mut resp = req.into_response(404, None, &[
+                ("Content-Type", "text/plain"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(b"Preset bitmap not found")?;
+            Ok(())
+        })?;
+
+        // 21. GET /api/storage/stats — Storage partition details
+        server.fn_handler("/api/storage/stats", Method::Get, |req| -> anyhow::Result<()> {
+            let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                total_bytes: 1632 * 1024,
+                used_bytes: 0,
+                free_bytes: 1632 * 1024,
+            });
+            let json = serde_json::to_vec(&stats)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
         // Leak server to guarantee it never drops
         Box::leak(Box::new(server));
         println!("  [web] HTTP server listening on port 80");
@@ -924,4 +1246,35 @@ fn stream_packbits<W: esp_idf_svc::io::Write>(data: &[u8], writer: &mut W) -> an
     }
     cw.flush()?;
     Ok(cw.total_sent)
+}
+
+fn read_request_body<C: embedded_svc::http::server::Connection>(
+    req: &mut embedded_svc::http::server::Request<C>,
+    max_bytes: usize,
+) -> anyhow::Result<Vec<u8>> {
+    let content_len = req
+        .header("Content-Length")
+        .or_else(|| req.header("content-length"))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let target_len = content_len.min(max_bytes);
+    if target_len == 0 {
+        let mut buf = vec![0u8; 1024];
+        let n = req.read(&mut buf).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        buf.truncate(n);
+        return Ok(buf);
+    }
+
+    let mut body = vec![0u8; target_len];
+    let mut read_bytes = 0;
+    while read_bytes < target_len {
+        let n = req.read(&mut body[read_bytes..]).map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        if n == 0 {
+            break;
+        }
+        read_bytes += n;
+    }
+    body.truncate(read_bytes);
+    Ok(body)
 }

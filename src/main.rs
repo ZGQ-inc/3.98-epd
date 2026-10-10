@@ -7,6 +7,7 @@ mod modes;
 mod mqtt;
 mod power;
 mod scheduler;
+pub mod storage;
 mod web;
 mod wifi;
 
@@ -73,8 +74,11 @@ fn main() -> anyhow::Result<()> {
     let epd = EpdDriver::new(spi_device, cs, dc, rst, busy, PanelVersion::A0);
     let mut fb = Framebuffer::new();
 
-    // Initialize Chinese font MMU mapping from 'storage' partition
+    // Initialize Chinese font MMU mapping from 'font' / 'storage' partition
     crate::display::font::init_chinese_font();
+
+    // Initialize SPIFFS filesystem on 'storage' partition (1.6MB for presets and user assets)
+    crate::storage::init_spiffs();
 
     let (wireless_mode, _ble_enabled) = {
         let cfg = app_config.lock().unwrap();

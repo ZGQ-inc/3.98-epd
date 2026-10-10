@@ -265,6 +265,19 @@ html_content = '''<!DOCTYPE html>
     .diag-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .diag-table td { padding: 10px 12px; border-bottom: 1px solid var(--md-sys-color-outline-variant); }
     .diag-table td:first-child { font-weight: 600; color: var(--md-sys-color-on-surface-variant); width: 220px; }
+
+    /* Presets Management */
+    .preset-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .preset-card:hover { border-color: var(--md-sys-color-primary) !important; }
+    .preset-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; }
+    .badge-canvas { background: #e0f2fe; color: #0369a1; }
+    .badge-mode { background: #fef3c7; color: #b45309; }
+    .badge-bitmap { background: #fce7f3; color: #be185d; }
+    .badge-text { background: #dcfce7; color: #15803d; }
+    [data-theme="dark"] .badge-canvas { background: #075985; color: #e0f2fe; }
+    [data-theme="dark"] .badge-mode { background: #78350f; color: #fef3c7; }
+    [data-theme="dark"] .badge-bitmap { background: #831843; color: #fce7f3; }
+    [data-theme="dark"] .badge-text { background: #14532d; color: #dcfce7; }
   </style>
 </head>
 <body>
@@ -278,6 +291,7 @@ html_content = '''<!DOCTYPE html>
     <button class="active" data-tab="dashboard" onclick="switchTab('dashboard', this)">🏠 仪表盘</button>
     <button data-tab="modes" onclick="switchTab('modes', this)">📋 17种场景模式</button>
     <button data-tab="studio" onclick="switchTab('studio', this)">🎨 专业画板</button>
+    <button data-tab="presets" onclick="switchTab('presets', this)">💾 效果预设库</button>
     <button data-tab="network" onclick="switchTab('network', this)">📶 网络与蓝牙配置</button>
     <button data-tab="system" onclick="switchTab('system', this)">⚙️ 系统维护</button>
   </nav>
@@ -364,6 +378,7 @@ html_content = '''<!DOCTYPE html>
       <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
         <button class="m3-btn" onclick="triggerRefresh()">⚡ 立即全刷屏幕 (16s)</button>
         <button class="m3-btn tonal" id="btnGrabPreview" onclick="loadScreenPreview()">📸 抓取当前屏幕镜像</button>
+        <button class="m3-btn outlined" onclick="promptSaveCurrentPreset('bitmap')">💾 存当前镜像为预设</button>
         <button class="m3-btn outlined" onclick="toggleHeartbeat()">💤 切换心跳省电模式</button>
         <span id="previewStatusText" style="font-size:12px; font-weight:500; color:var(--md-sys-color-primary); margin-left:6px;"></span>
       </div>
@@ -514,7 +529,8 @@ html_content = '''<!DOCTYPE html>
         <hr style="border:none; border-top:1px solid var(--md-sys-color-outline-variant); margin:14px 0;">
 
         <button class="m3-btn tonal" style="width:100%; margin-bottom:8px;" onclick="showDitherPreviewModal()">👁️ 墨水屏 4色微粒效果预览</button>
-        <button class="m3-btn" style="width:100%;" id="btnPushBitmap" onclick="pushBitmapToDevice()">🚀 1:1 高保真推送到墨水屏</button>
+        <button class="m3-btn" style="width:100%; margin-bottom:8px;" id="btnPushBitmap" onclick="pushBitmapToDevice()">🚀 1:1 高保真推送到墨水屏</button>
+        <button class="m3-btn outlined" style="width:100%;" onclick="promptSaveCurrentPreset('canvas')">💾 保存当前画板为预设</button>
       </div>
 
       <!-- 右侧 768 × 552 画布视口 -->
@@ -530,7 +546,62 @@ html_content = '''<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 4: 网络与蓝牙配置 -->
+  <!-- TAB: 效果预设库 -->
+  <div id="tab-presets" class="tab-content">
+    <div class="m3-card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2 style="margin:0;">💾 效果预设库与设备存储 (1.63 MB SPIFFS Storage)</h2>
+          <p style="color:var(--md-sys-color-on-surface-variant); font-size:13px; margin:4px 0 0 0;">
+            持久化保存画板作品（矢量 SVG/JSON）、功能模式配置与 2bpp 原始位图，方便随时一键推送到墨水屏。
+          </p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="m3-btn tonal" onclick="loadPresets()">🔄 刷新列表</button>
+        </div>
+      </div>
+
+      <!-- 存储容量指标卡 -->
+      <div class="storage-bar-card" style="margin-top:14px; background:var(--md-sys-color-surface-container); border-radius:12px; padding:14px; border:1px solid var(--md-sys-color-outline-variant);">
+        <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600;">
+          <span id="storageLabel">存储空间使用情况：读取中...</span>
+          <span id="storagePercentText" style="color:var(--md-sys-color-primary);">0%</span>
+        </div>
+        <div class="storage-progress-bg" style="height:10px; background:var(--md-sys-color-surface-variant); border-radius:5px; overflow:hidden; margin:8px 0;">
+          <div id="storageProgressBar" class="storage-progress-fill" style="height:100%; width:0%; background:var(--md-sys-color-primary); border-radius:5px; transition:width 0.3s;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--md-sys-color-on-surface-variant);">
+          <span id="storageDetailText">已用: 0 KB / 总量: 1632 KB</span>
+          <span id="storageFreeText" style="font-weight:600; color:#2e7d32;">剩余可用: 1632 KB</span>
+        </div>
+      </div>
+
+      <!-- 预设操作工具条 -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px; padding-bottom:12px; border-bottom:1px solid var(--md-sys-color-outline-variant);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer;">
+            <input type="checkbox" id="selectAllPresets" onchange="toggleSelectAllPresets(this.checked)"> 全选
+          </label>
+          <button class="m3-btn outlined" id="btnBatchDelete" style="color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);" onclick="confirmBatchDeletePresets()" disabled>
+            🗑️ 批量删除 (<span id="selectedCount">0</span>)
+          </button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="m3-btn tonal" onclick="promptSaveCurrentPreset('canvas')">➕ 存当前画板为预设</button>
+          <button class="m3-btn tonal" onclick="promptSaveCurrentPreset('bitmap')">➕ 存当前镜像为预设</button>
+        </div>
+      </div>
+
+      <!-- 预设文件列表容器 -->
+      <div id="presetsListContainer" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+        <div style="text-align:center; padding:24px; color:var(--md-sys-color-on-surface-variant); font-size:13px;">
+          正在读取设备存储预设列表...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: 网络与蓝牙配置 -->
   <div id="tab-network" class="tab-content">
 
     <!-- 蓝牙 BLE 5.0 与多模式无线共存管理卡片 -->
@@ -694,6 +765,47 @@ html_content = '''<!DOCTYPE html>
   </div>
 </div>
 
+<!-- 预设效果 768×552 预览模态框 (Modal) -->
+<div class="modal-overlay" id="presetPreviewModal" onclick="if(event.target===this) closeModal('presetPreviewModal')">
+  <div class="modal-card" style="max-width:820px; text-align:left;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;" id="previewModalTitle">👁️ 预设效果预览</h3>
+      <button class="m3-btn outlined" style="padding:4px 10px; font-size:12px;" onclick="closeModal('presetPreviewModal')">✕ 关闭</button>
+    </div>
+    <div style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:10px;" id="previewModalInfo">--</div>
+    <div style="display:flex; justify-content:center; overflow-x:auto; background:#121316; padding:10px; border-radius:8px;">
+      <canvas id="presetCanvas" width="768" height="552" style="max-width:100%; height:auto; border:2px solid #333; background:#ffffff;"></canvas>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button class="m3-btn tonal" onclick="closeModal('presetPreviewModal')">返回列表</button>
+      <button class="m3-btn" id="btnPushPresetFromModal" onclick="pushCurrentPreviewPreset()">🚀 立即一键推送到墨水屏</button>
+    </div>
+  </div>
+</div>
+
+<!-- 另存为预设弹窗模态框 (Modal) -->
+<div class="modal-overlay" id="savePresetModal" onclick="if(event.target===this) closeModal('savePresetModal')">
+  <div class="modal-card" style="max-width:480px; text-align:left;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">💾 保存为新预设效果</h3>
+      <button class="m3-btn outlined" style="padding:4px 10px; font-size:12px;" onclick="closeModal('savePresetModal')">✕</button>
+    </div>
+    <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">预设名称 (支持自定义或使用默认名称)：</label>
+    <input type="text" id="presetSaveName" placeholder="例如：画板作品_1" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--md-sys-color-outline-variant); background:var(--md-sys-color-surface); color:var(--md-sys-color-on-surface);">
+
+    <div style="margin:12px 0; padding:12px; border-radius:8px; background:var(--md-sys-color-surface-container); font-size:12px;" id="savePresetMetaInfo">
+      <div>预设类型：<b id="savePresetTypeLabel">画板设计</b></div>
+      <div style="margin-top:4px;">预估占用空间：<b id="savePresetEstSize">约 2.5 KB</b></div>
+      <div style="margin-top:6px;" id="savePresetStorageCheck">存储检查：剩余可用读取中...</div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button class="m3-btn outlined" onclick="closeModal('savePresetModal')">取消</button>
+      <button class="m3-btn" id="btnConfirmSavePreset" onclick="doSavePreset()">确认保存至存储</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ─────────────────────────────────────────────────────────────────────────────
   // 0. 用户自定义离线蓝牙 PWA / Cloudflare Pages 专页地址配置
@@ -781,11 +893,413 @@ html_content = '''<!DOCTYPE html>
       }
     } else if (tabId === 'modes') {
       renderCurrentModePreview();
+    } else if (tabId === 'presets') {
+      loadPresets();
     } else if (tabId === 'dashboard') {
       loadScreenPreview();
     } else if (tabId === 'system') {
       pollSystemDiag();
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2b. 效果预设库与设备存储管理器 (SPIFFS Presets & Storage Manager)
+  // ─────────────────────────────────────────────────────────────────────────────
+  let gPresetsData = [];
+  let gStorageStats = null;
+  let gCurrentPreviewPresetId = null;
+  let gPendingSaveType = 'canvas';
+
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  }
+
+  function render2bppToCanvas(bytes, canvas) {
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(768, 552);
+    const data = imgData.data;
+    const PALETTE_RGB = [
+      [0, 0, 0],       // 00: Black
+      [255, 255, 255], // 01: White
+      [244, 196, 48],  // 10: Yellow
+      [211, 47, 47]    // 11: Red
+    ];
+
+    let byteIdx = 0;
+    for (let y = 0; y < 552; y++) {
+      for (let x = 0; x < 768; x += 4) {
+        const b = bytes[byteIdx++];
+        const p0 = (b >> 6) & 0x03;
+        const p1 = (b >> 4) & 0x03;
+        const p2 = (b >> 2) & 0x03;
+        const p3 = b & 0x03;
+        const codes = [p0, p1, p2, p3];
+
+        for (let k = 0; k < 4; k++) {
+          const pxIdx = ((y * 768) + (x + k)) * 4;
+          const rgb = PALETTE_RGB[codes[k]];
+          data[pxIdx] = rgb[0];
+          data[pxIdx + 1] = rgb[1];
+          data[pxIdx + 2] = rgb[2];
+          data[pxIdx + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  async function loadPresets() {
+    const container = document.getElementById('presetsListContainer');
+    if (container) {
+      container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--md-sys-color-on-surface-variant); font-size:13px;">⏳ 正在读取设备存储预设列表...</div>';
+    }
+    try {
+      const res = await fetch('/api/presets');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      gPresetsData = data.presets || [];
+      gStorageStats = data.storage || null;
+
+      updateStorageBar(gStorageStats);
+      renderPresetsList();
+    } catch (e) {
+      if (container) {
+        container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--md-sys-color-error); font-size:13px;">❌ 读取预设失败: ${e.message}</div>`;
+      }
+    }
+  }
+
+  function updateStorageBar(stats) {
+    if (!stats) return;
+    const total = stats.total_bytes || (1632 * 1024);
+    const used = stats.used_bytes || 0;
+    const free = stats.free_bytes || (total - used);
+    const pct = Math.min(100, Math.round((used / total) * 100));
+
+    const bar = document.getElementById('storageProgressBar');
+    const pctText = document.getElementById('storagePercentText');
+    const label = document.getElementById('storageLabel');
+    const detail = document.getElementById('storageDetailText');
+    const freeText = document.getElementById('storageFreeText');
+
+    if (bar) {
+      bar.style.width = pct + '%';
+      bar.style.background = pct > 90 ? '#d32f2f' : (pct > 75 ? '#f57c00' : 'var(--md-sys-color-primary)');
+    }
+    if (pctText) pctText.innerText = pct + '%';
+    if (label) label.innerText = `存储空间使用情况 (${pct}%)`;
+    if (detail) detail.innerText = `已用: ${(used / 1024).toFixed(1)} KB / 总量: ${(total / 1024).toFixed(1)} KB`;
+    if (freeText) {
+      freeText.innerText = `剩余可用: ${(free / 1024).toFixed(1)} KB`;
+      freeText.style.color = free < 100 * 1024 ? '#d32f2f' : '#2e7d32';
+    }
+  }
+
+  function renderPresetsList() {
+    const container = document.getElementById('presetsListContainer');
+    if (!container) return;
+    if (!gPresetsData.length) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:32px 16px; color:var(--md-sys-color-on-surface-variant); font-size:13px; background:var(--md-sys-color-surface-container); border-radius:12px;">
+          📂 暂无已保存的预设效果<br>
+          <span style="font-size:12px; opacity:0.8; margin-top:4px; display:inline-block;">您可以在上方点击【存当前画板为预设】或【存当前镜像为预设】将效果存入墨水屏存储中随时一键推送！</span>
+        </div>
+      `;
+      updateBatchDeleteBtn();
+      return;
+    }
+
+    let html = '';
+    gPresetsData.forEach((p) => {
+      const badgeClass = p.preset_type === 'mode' ? 'badge-mode' : (p.preset_type === 'bitmap' ? 'badge-bitmap' : (p.preset_type === 'text' ? 'badge-text' : 'badge-canvas'));
+      const typeLabel = p.type_label || (p.preset_type === 'mode' ? '功能模式' : (p.preset_type === 'bitmap' ? '位图图像' : (p.preset_type === 'text' ? '纯文本' : '画板设计')));
+      const sizeStr = p.size_str || (p.size_bytes ? (p.size_bytes / 1024).toFixed(1) + ' KB' : '--');
+      const dateStr = p.created_at ? new Date(p.created_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '--';
+
+      html += `
+        <div class="preset-card" style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--md-sys-color-surface-container); border-radius:12px; border:1px solid var(--md-sys-color-outline-variant); flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:240px; flex:1;">
+            <input type="checkbox" class="preset-item-check" data-id="${p.id}" onchange="updateBatchDeleteBtn()">
+            <div>
+              <div style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px;">
+                <span>${p.name || '未命名预设'}</span>
+                <span class="preset-badge ${badgeClass}">${typeLabel}</span>
+              </div>
+              <div style="font-size:11px; color:var(--md-sys-color-on-surface-variant); margin-top:3px;">
+                大小: <b>${sizeStr}</b> · 保存时间: ${dateStr}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button class="m3-btn" style="padding:6px 12px; font-size:12px;" onclick="pushPreset('${p.id}')">⚡ 一键推送</button>
+            <button class="m3-btn tonal" style="padding:6px 12px; font-size:12px;" onclick="previewPreset('${p.id}')">👁️ 预览</button>
+            <button class="m3-btn outlined" style="padding:6px 10px; font-size:12px; color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);" onclick="deleteSinglePreset('${p.id}')" title="删除该预设">🗑️</button>
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+    updateBatchDeleteBtn();
+  }
+
+  function toggleSelectAllPresets(checked) {
+    document.querySelectorAll('.preset-item-check').forEach(cb => cb.checked = checked);
+    updateBatchDeleteBtn();
+  }
+
+  function updateBatchDeleteBtn() {
+    const selected = Array.from(document.querySelectorAll('.preset-item-check:checked')).map(cb => cb.getAttribute('data-id'));
+    const btn = document.getElementById('btnBatchDelete');
+    const countSpan = document.getElementById('selectedCount');
+    if (countSpan) countSpan.innerText = selected.length;
+    if (btn) btn.disabled = selected.length === 0;
+
+    const selectAllBox = document.getElementById('selectAllPresets');
+    const allBoxes = document.querySelectorAll('.preset-item-check');
+    if (selectAllBox && allBoxes.length > 0) {
+      selectAllBox.checked = selected.length === allBoxes.length;
+    }
+  }
+
+  async function confirmBatchDeletePresets() {
+    const selected = Array.from(document.querySelectorAll('.preset-item-check:checked')).map(cb => cb.getAttribute('data-id'));
+    if (!selected.length) return;
+    if (!confirm(`确定要彻底删除选中的 ${selected.length} 项预设吗？\\n删除后将释放设备内部存储空间。`)) return;
+
+    try {
+      const res = await fetch('/api/presets/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selected })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '删除失败');
+      alert('🎉 ' + data.message);
+      gPresetsData = data.presets || [];
+      gStorageStats = data.storage || null;
+      updateStorageBar(gStorageStats);
+      renderPresetsList();
+    } catch (e) {
+      alert('❌ 批量删除失败: ' + e.message);
+    }
+  }
+
+  async function deleteSinglePreset(id) {
+    const preset = gPresetsData.find(p => p.id === id);
+    const name = preset ? preset.name : id;
+    if (!confirm(`确定要删除预设【${name}】吗？`)) return;
+
+    try {
+      const res = await fetch('/api/presets/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '删除失败');
+      gPresetsData = data.presets || [];
+      gStorageStats = data.storage || null;
+      updateStorageBar(gStorageStats);
+      renderPresetsList();
+    } catch (e) {
+      alert('❌ 删除失败: ' + e.message);
+    }
+  }
+
+  function promptSaveCurrentPreset(type) {
+    gPendingSaveType = type;
+    const now = new Date();
+    const tsStr = now.getFullYear() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0');
+
+    let defaultName = '画板作品_' + tsStr;
+    let typeLabel = '画板设计 (矢量 SVG/JSON)';
+    let estSize = 3 * 1024; // ~3 KB
+
+    if (type === 'bitmap') {
+      defaultName = '屏幕镜像_' + tsStr;
+      typeLabel = '当前屏幕 2bpp 硬件显存点阵';
+      estSize = 106 * 1024; // ~106 KB
+    } else if (type === 'mode') {
+      defaultName = '场景模式_' + (gConfig?.current_mode || 'demo') + '_' + tsStr;
+      typeLabel = '场景模式与自定义配置参数';
+      estSize = 2 * 1024; // ~2 KB
+    }
+
+    const nameInput = document.getElementById('presetSaveName');
+    if (nameInput) nameInput.value = defaultName;
+    const typeLabelEl = document.getElementById('savePresetTypeLabel');
+    if (typeLabelEl) typeLabelEl.innerText = typeLabel;
+    const estSizeEl = document.getElementById('savePresetEstSize');
+    if (estSizeEl) estSizeEl.innerText = (estSize / 1024).toFixed(1) + ' KB';
+
+    const free = gStorageStats ? gStorageStats.free_bytes : 1000 * 1024;
+    const checkEl = document.getElementById('savePresetStorageCheck');
+    const btn = document.getElementById('btnConfirmSavePreset');
+
+    if (free < estSize + 4096) {
+      if (checkEl) checkEl.innerHTML = `<span style="color:#d32f2f; font-weight:700;">⚠️ 存储空间不足！当前仅剩 ${(free / 1024).toFixed(1)} KB，不足以保存该预设。请先删除不需要的预设后再保存。</span>`;
+      if (btn) btn.disabled = true;
+    } else {
+      if (checkEl) checkEl.innerHTML = `<span style="color:#2e7d32; font-weight:600;">✓ 空间充裕：剩余可用 ${(free / 1024).toFixed(1)} KB</span>`;
+      if (btn) btn.disabled = false;
+    }
+
+    openModal('savePresetModal');
+  }
+
+  async function doSavePreset() {
+    const nameInput = document.getElementById('presetSaveName');
+    const name = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+    if (!name) {
+      alert('⚠️ 请输入预设名称！');
+      return;
+    }
+
+    const btn = document.getElementById('btnConfirmSavePreset');
+    if (btn) btn.disabled = true;
+
+    try {
+      let payload = {
+        name: name,
+        preset_type: gPendingSaveType,
+      };
+
+      if (gPendingSaveType === 'canvas') {
+        if (!fCanvas) throw new Error('画板未初始化');
+        payload.type_label = '画板设计';
+        payload.fabric_json = JSON.stringify(fCanvas.toJSON());
+        payload.svg_data = fCanvas.toSVG();
+        payload.save_current_screen = false;
+      } else if (gPendingSaveType === 'bitmap') {
+        payload.type_label = '位图图像';
+        payload.save_current_screen = true;
+      } else if (gPendingSaveType === 'mode') {
+        payload.type_label = '功能模式';
+        payload.mode_id = gConfig?.current_mode || 'demo';
+        payload.mode_params = gConfig || {};
+      }
+
+      const res = await fetch('/api/presets/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || '保存失败');
+      }
+
+      closeModal('savePresetModal');
+      alert('🎉 ' + data.message);
+      await loadPresets();
+    } catch (e) {
+      alert('❌ 保存预设失败: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function pushPreset(id) {
+    const preset = gPresetsData.find(p => p.id === id);
+    const name = preset ? preset.name : id;
+    if (!confirm(`确定要将预设【${name}】一键推送到墨水屏吗？\\n设备将启动 16 秒硬件物理全屏波形刷新。`)) return;
+
+    try {
+      const res = await fetch('/api/presets/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '推送失败');
+      alert('🎉 ' + data.message);
+    } catch (e) {
+      alert('❌ 预设推送失败: ' + e.message);
+    }
+  }
+
+  async function previewPreset(id) {
+    const preset = gPresetsData.find(p => p.id === id);
+    if (!preset) return;
+    gCurrentPreviewPresetId = id;
+
+    const titleEl = document.getElementById('previewModalTitle');
+    const infoEl = document.getElementById('previewModalInfo');
+    if (titleEl) titleEl.innerText = '👁️ 预设预览: ' + (preset.name || id);
+    if (infoEl) infoEl.innerText = `类型: ${preset.type_label || preset.preset_type} · 大小: ${preset.size_str || '--'} · 保存时间: ${preset.created_at ? new Date(preset.created_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '--'}`;
+
+    const canvas = document.getElementById('presetCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 768, 552);
+
+    openModal('presetPreviewModal');
+
+    if (preset.preset_type === 'bitmap' || preset.bitmap_file) {
+      ctx.fillStyle = '#666';
+      ctx.font = '20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⏳ 正在从设备存储读取 2bpp 显存点阵...', 384, 276);
+
+      try {
+        const resp = await fetch(`/api/presets/bitmap?id=${encodeURIComponent(id)}`);
+        if (!resp.ok) throw new Error('无法读取预设点阵数据 (HTTP ' + resp.status + ')');
+        const buf = await resp.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        if (bytes.length === 105984) {
+          render2bppToCanvas(bytes, canvas);
+        } else {
+          throw new Error('点阵数据长度不匹配: ' + bytes.length);
+        }
+      } catch (e) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 768, 552);
+        ctx.fillStyle = '#d32f2f';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('❌ 读取点阵数据失败: ' + e.message, 384, 276);
+      }
+    } else if (preset.fabric_json) {
+      try {
+        const tempF = new fabric.StaticCanvas(null, { width: 768, height: 552 });
+        tempF.loadFromJSON(preset.fabric_json, () => {
+          tempF.renderAll();
+          ctx.drawImage(tempF.lowerCanvasEl, 0, 0);
+        });
+      } catch (e) {
+        console.warn('Fabric render fallback:', e);
+      }
+    } else if (preset.preset_type === 'mode') {
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(0, 0, 768, 552);
+      ctx.fillStyle = '#111318';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('📋 场景模式预设: ' + (preset.mode_id || '未知'), 384, 230);
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#666666';
+      ctx.fillText('包含场景模式专属布局与动态参数，一键推送后设备将自动切换并执行物理刷新。', 384, 280);
+      ctx.fillStyle = '#005ac1';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('💡 点击下方【立即一键推送到墨水屏】即可切换运行此模式', 384, 330);
+    }
+  }
+
+  async function pushCurrentPreviewPreset() {
+    if (!gCurrentPreviewPresetId) return;
+    closeModal('presetPreviewModal');
+    await pushPreset(gCurrentPreviewPresetId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

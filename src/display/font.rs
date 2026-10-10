@@ -24,15 +24,22 @@ pub fn init_chinese_font() -> bool {
             return true;
         }
 
-        let part_name = std::ffi::CString::new("storage").unwrap();
-        let part = esp_idf_svc::sys::esp_partition_find_first(
+        let mut part = esp_idf_svc::sys::esp_partition_find_first(
             esp_idf_svc::sys::esp_partition_type_t_ESP_PARTITION_TYPE_DATA,
             esp_idf_svc::sys::esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_ANY,
-            part_name.as_ptr(),
+            b"font\0".as_ptr() as *const _,
         );
 
         if part.is_null() {
-            warn!("[FONT] 'storage' partition not found in partition table");
+            part = esp_idf_svc::sys::esp_partition_find_first(
+                esp_idf_svc::sys::esp_partition_type_t_ESP_PARTITION_TYPE_DATA,
+                esp_idf_svc::sys::esp_partition_subtype_t_ESP_PARTITION_SUBTYPE_ANY,
+                b"storage\0".as_ptr() as *const _,
+            );
+        }
+
+        if part.is_null() {
+            warn!("[FONT] Neither 'font' nor 'storage' partition found in partition table");
             return false;
         }
 
