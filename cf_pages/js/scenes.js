@@ -172,7 +172,7 @@
     qrcode: {
       ssid: 'Your_WiFi_SSID',
       pass: 'Your_WiFi_Password',
-      prompt: '微信或相机扫一扫，免输密码快速连网'
+      prompt: '手机系统相机扫一扫，免输密码快速连网'
     },
     photo: {
       title: '山川湖海 · 秋日光影',
@@ -2364,7 +2364,7 @@
 
       ctx.fillStyle = '#555555';
       ctx.font = '16px "PingFang SC", sans-serif';
-      this._wrapText(ctx, p.prompt || '微信或手机系统相机扫一扫，免输入密码快速连接无线网络。', 415, 335, 290, 24, 2);
+      this._wrapText(ctx, p.prompt || '手机系统相机扫一扫，免输入密码快速连接无线网络。', 415, 335, 290, 24, 2);
 
       this._drawFooter(ctx, '家庭局域网便捷共享 · 标准 RFC Wi-Fi QR Code 协议', '免输密码扫码即连');
     },

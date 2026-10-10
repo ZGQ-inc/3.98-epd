@@ -42,8 +42,8 @@ overflow-checks = false
 lto = "fat"
 codegen-units = 1
 panic = "abort"
-debug = 2
-strip = false
+debug = 0
+strip = true
 
 [profile.dev]
 debug = true

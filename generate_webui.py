@@ -1973,7 +1973,7 @@ html_content = '''<!DOCTYPE html>
 
       ctx.fillStyle = RED;
       ctx.font = '18px "PingFang SC", sans-serif';
-      ctx.fillText(p.prompt || '微信或相机扫一扫，免输密码快速连网', 410, 280, 300);
+      ctx.fillText(p.prompt || '手机系统相机扫一扫，免输密码快速连网', 410, 280, 300);
 
       // Mock QR graphic
       ctx.fillStyle = BLACK;
