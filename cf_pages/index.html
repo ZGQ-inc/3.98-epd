@@ -592,20 +592,124 @@
     <!-- ========================================================
      * TAB 8: ⚙️ 硬件诊断与 ESP32-C3 运行状态
      * ======================================================== -->
+    <!-- ========================================================
+     * TAB 8: ⚙️ 硬件诊断与 ESP32-C3 运行状态 (全量 18 项诊断与控制)
+     * ======================================================== -->
     <div class="tab-pane" id="tab-system">
-      <div class="m3-card">
-        <div class="card-title">
-          <span>⚙️ ESP32-C3 硬件运行状态</span>
+      <!-- 1. 屏显 Debug 叠加条卡片 -->
+      <div class="m3-card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="margin:0; font-size:15px; font-weight:700;">📺 屏幕底层 Debug 叠加层</h3>
+            <p style="color:var(--md-sys-color-on-surface-variant); font-size:12px; margin:4px 0 0 0;">
+              在墨水屏物理屏幕最底部绘制 20px 硬件状态条（实时标注 IP 地址、MAC、Wi-Fi 模式与运行状态）
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span id="screenDebugStatusText" style="font-size:12px; font-weight:700; color:var(--md-sys-color-primary);">--</span>
+            <button class="m3-btn small tonal" id="btnToggleScreenDebug" onclick="UI.toggleScreenDebug()">切换屏显 Debug</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 无线通信模式与 BLE 广播状态卡片 -->
+      <div class="m3-card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:15px; font-weight:700;">📡 无线工作模式与 BLE 5.0 广播管理</h3>
+          <span id="bleStatusBadge" style="font-size:11px; padding:3px 8px; border-radius:12px; background:#757575; color:#fff; font-weight:700;">--</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <button class="m3-btn small tonal wireless-opt-btn" id="opt-auto" onclick="UI.setWirelessMode('auto')">智能自动 (Auto)</button>
+          <button class="m3-btn small tonal wireless-opt-btn" id="opt-dual" onclick="UI.setWirelessMode('dual')">双模并发 (Dual)</button>
+          <button class="m3-btn small tonal wireless-opt-btn" id="opt-ble_only" onclick="UI.setWirelessMode('ble_only')">仅蓝牙 (BLE Only)</button>
+          <button class="m3-btn small tonal wireless-opt-btn" id="opt-wifi_only" onclick="UI.setWirelessMode('wifi_only')">仅 Wi-Fi</button>
+          <button class="m3-btn small" id="btnToggleBle" onclick="UI.toggleBleBroadcast()">切换蓝牙广播</button>
+        </div>
+        <div style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:8px; display:flex; justify-content:space-between;">
+          <span>已连接蓝牙主机：</span>
+          <span id="bleClientsCount" style="font-weight:700;">当前在线：0 台</span>
+        </div>
+        <div id="bleDeviceList" style="display:flex; flex-direction:column; gap:6px;">
+          <div style="padding:10px; background:var(--md-sys-color-surface-container); border-radius:8px; font-size:12px; color:var(--md-sys-color-on-surface-variant); text-align:center;">
+            暂无已连接的蓝牙主机（可用手机 Chrome 开启蓝牙直连配对）
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. ⚙️ 系统硬件指标与实时底层诊断 (18项完整指标) -->
+      <div class="m3-card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:15px; font-weight:700;">⚙️ 系统硬件指标与实时底层诊断</h3>
+          <button class="m3-btn small tonal" onclick="UI.pollSystemDiag()">🔄 实时刷新系统参数</button>
         </div>
         <table class="diag-table">
           <tbody>
-            <tr><td>局域网 IP 地址</td><td id="diagIp">未连接</td></tr>
-            <tr><td>WiFi 信号强度 (RSSI)</td><td id="diagRssi">-</td></tr>
-            <tr><td>系统空闲堆内存 (Free Heap)</td><td id="diagFreeHeap">-</td></tr>
-            <tr><td>SPIFFS 预设存储分区</td><td id="diagStorage">-</td></tr>
-            <tr><td>屏幕型号规格</td><td>SE0398NZ07-FNG-A0/A1 (768×552 BWRY)</td></tr>
+            <tr><td>主控芯片架构 (SoC)</td><td id="diagChip">ESP32-C3 RISC-V 160MHz, Rev v0.4</td></tr>
+            <tr><td>物理网卡 MAC 地址</td><td id="diagMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
+            <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="diagRssi">-- dBm</td></tr>
+            <tr><td>当前局域网 IP / 域名</td><td id="diagIp">http://&lt;DEVICE_IP&gt; / http://epd-display.local</td></tr>
+            <tr><td>系统连续运行时间 (Uptime)</td><td id="diagUptime">--</td></tr>
+            <tr><td>实时可用堆内存 (SRAM)</td><td id="diagHeap">--</td></tr>
+            <tr><td>SPI Flash 闪存规格</td><td id="diagFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
+            <tr><td>内部存储分区 (storage)</td><td id="diagStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
+            <tr><td>参数配置分区 (nvs)</td><td id="diagNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>
+            <tr><td>墨水屏硬件与控制器</td><td id="diagPanel">SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)</td></tr>
+            <tr><td>硬件接口总线</td><td id="diagBus">Hardware SPI 8MHz (SCK=4, MOSI=6, CS=7, DC=1, RST=2, BUSY=10)</td></tr>
+            <tr><td>中文字库方案</td><td id="diagFont">Flash MMU 零内存占用标准点阵中文字库 (7445字)</td></tr>
+            <tr><td>无线通信工作模式</td><td id="diagWirelessMode">智能自动 (Auto)</td></tr>
+            <tr><td>蓝牙 BLE 5.0 运行状态</td><td id="diagBleStatus">广播中 (ADV · EPD-Smart-Display)</td></tr>
+            <tr><td>已连接蓝牙客户端数</td><td id="diagBleClients">0 台客户端在线</td></tr>
+            <tr><td>屏显 Debug 叠加条状态</td><td id="diagDebugOverlay">已关闭</td></tr>
+            <tr><td>电池状态与电量预警</td><td id="diagBattery">供电正常 (USB 5V / 3.3V LDO)</td></tr>
+            <tr><td>最近系统复位原因</td><td id="diagResetReason">Power-on / Normal</td></tr>
           </tbody>
         </table>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button class="m3-btn danger small" onclick="UI.rebootDevice()">软重启设备</button>
+          <button class="m3-btn outlined small" onclick="UI.factoryReset()">恢复出厂设置 (清空WiFi)</button>
+        </div>
+      </div>
+
+      <!-- 4. Wi-Fi 网络与 MQTT Broker (Home Assistant) 局域网接入配置 -->
+      <div class="m3-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:15px; font-weight:700;">📶 Wi-Fi 网络与 MQTT Broker (Home Assistant) 接入</h3>
+          <button class="m3-btn small tonal" onclick="UI.loadConfig()">🔄 读取当前配置</button>
+        </div>
+        <div class="card-subtitle" style="margin-bottom:12px;">
+          支持将墨水屏无缝接入 Home Assistant 局域网智能家居平台，接收传感器与事件推送
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Wi-Fi 名称 (SSID):</label>
+            <input type="text" id="wifiSsid" class="m3-input" placeholder="输入 2.4GHz WiFi 名称">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Wi-Fi 密码:</label>
+            <input type="password" id="wifiPass" class="m3-input" placeholder="输入 WiFi 密码">
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">MQTT Broker 主机地址 (IP / 域名):</label>
+            <input type="text" id="mqttHost" class="m3-input" placeholder="如 192.168.1.100 或 homeassistant.local">
+          </div>
+          <div class="form-group">
+            <label class="form-label">MQTT 端口 (默认 1883):</label>
+            <input type="number" id="mqttPort" class="m3-input" placeholder="1883" value="1883">
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+          <div class="form-group">
+            <label class="form-label">MQTT 用户名 (可选):</label>
+            <input type="text" id="mqttUser" class="m3-input" placeholder="留空则免密连接">
+          </div>
+          <div class="form-group">
+            <label class="form-label">MQTT 密码 (可选):</label>
+            <input type="password" id="mqttPass" class="m3-input" placeholder="留空则无密码">
+          </div>
+        </div>
+        <button class="m3-btn btn-full" onclick="UI.saveNetworkConfig()">💾 保存网络与 MQTT 配置</button>
       </div>
     </div>
 
@@ -656,21 +760,47 @@
     </div>
   </div>
 
-  <!-- Modal 3: 🌐 局域网 IP 直连设置 (lanIpModal) -->
+  <!-- Modal 3: 🌐 局域网 IP 直连与 MQTT 设置 (lanIpModal) -->
   <div class="modal-backdrop" id="lanIpModal">
-    <div class="modal-sheet">
+    <div class="modal-sheet" style="max-width:620px;">
       <div class="modal-header">
-        <h3 class="modal-title">🌐 填入局域网 IP 直连</h3>
+        <h3 class="modal-title">🌐 局域网 IP 直连与 MQTT 配置</h3>
         <button class="modal-close" onclick="UI.closeModal('lanIpModal')">&times;</button>
       </div>
       <div class="card-subtitle">
-        若墨水屏已连上 Wi-Fi，且运行在双模或 Wi-Fi 模式下，可输入局域网 IP 直接通过 HTTP 高速通信
+        若墨水屏已连上 Wi-Fi，输入局域网 IP 可直接进行 HTTP 高速传输，并可配置 Home Assistant MQTT 桥接
       </div>
       <div class="form-group">
         <label class="form-label">墨水屏局域网 IP 地址:</label>
         <input type="text" id="lanModalIpInput" class="m3-input" placeholder="如 192.168.10.203">
       </div>
-      <button class="m3-btn btn-full" id="btnSaveLanIp">💾 保存并测试连接</button>
+      <div style="margin: 12px 0 6px 0; font-size:12px; font-weight:700; color:var(--md-sys-color-primary);">
+        🏠 Home Assistant / MQTT Broker 快捷配置 (可选)
+      </div>
+      <div style="display:grid; grid-template-columns:2fr 1fr; gap:8px; margin-bottom:8px;">
+        <div>
+          <label class="form-label">MQTT Broker 地址:</label>
+          <input type="text" id="modalMqttHost" class="m3-input" placeholder="homeassistant.local 或 IP">
+        </div>
+        <div>
+          <label class="form-label">端口:</label>
+          <input type="number" id="modalMqttPort" class="m3-input" placeholder="1883" value="1883">
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px;">
+        <div>
+          <label class="form-label">MQTT 用户名:</label>
+          <input type="text" id="modalMqttUser" class="m3-input" placeholder="用户名 (可选)">
+        </div>
+        <div>
+          <label class="form-label">MQTT 密码:</label>
+          <input type="password" id="modalMqttPass" class="m3-input" placeholder="密码 (可选)">
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="m3-btn" style="flex:1;" id="btnSaveLanIp">💾 保存并测试连接</button>
+        <button class="m3-btn tonal" onclick="UI.saveModalMqttConfig()">📡 同步保存 MQTT</button>
+      </div>
     </div>
   </div>
 

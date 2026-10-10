@@ -104,6 +104,8 @@ const BWRY = {
       tempCanvas.width = w;
       tempCanvas.height = h;
       ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
       ctx.drawImage(sourceCanvas, 0, 0, w, h);
       data = ctx.getImageData(0, 0, w, h).data;
     } else if (sourceCanvas && sourceCanvas.getContext) {
@@ -124,6 +126,15 @@ const BWRY = {
       let r = data[i];
       let g = data[i + 1];
       let b = data[i + 2];
+      const a = data[i + 3];
+
+      // Alpha blend against white background if translucent
+      if (a < 255) {
+        const alpha = a / 255;
+        r = r * alpha + 255 * (1 - alpha);
+        g = g * alpha + 255 * (1 - alpha);
+        b = b * alpha + 255 * (1 - alpha);
+      }
 
       if (contrast !== 0) {
         r = Math.min(255, Math.max(0, 128 + contrastFactor * (r - 128)));

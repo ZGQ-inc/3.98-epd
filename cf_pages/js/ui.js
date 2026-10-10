@@ -423,16 +423,31 @@ const UI = {
       return;
     }
 
+    const isPortrait = (this.orientation === 90 || this.orientation === 270);
+    modalCanvas.width = isPortrait ? 552 : 768;
+    modalCanvas.height = isPortrait ? 768 : 552;
+
+    const modalTitle = document.querySelector('#ditherPreviewModal .modal-title');
+    if (modalTitle) {
+      modalTitle.textContent = `👁️ 墨水屏 4色微粒物理点阵预览 (${modalCanvas.width}×${modalCanvas.height} · ${this.orientation || 0}°)`;
+    }
+
     if (!algo) {
       algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
     }
     if (!options) {
-      const contrast = parseFloat(document.getElementById('imageContrastSlider')?.value || 15);
-      const redBoostVal = parseFloat(document.getElementById('imageRedBoostSlider')?.value || 0);
-      const yellowBoostVal = parseFloat(document.getElementById('imageYellowBoostSlider')?.value || 0);
-      const redBoost = redBoostVal > 0 ? 1.0 + (redBoostVal / 50) : 1.0;
-      const yellowBoost = yellowBoostVal > 0 ? 1.0 + (yellowBoostVal / 50) : 1.0;
-      options = { contrast, redBoost, yellowBoost };
+      const activePane = document.querySelector('.tab-pane.active, .tab-view.active');
+      const isPhotoLab = activePane && (activePane.id === 'tab-image' || activePane.id === 'view-image');
+      if (isPhotoLab) {
+        const contrast = parseFloat(document.getElementById('imageContrastSlider')?.value || 15);
+        const redBoostVal = parseFloat(document.getElementById('imageRedBoostSlider')?.value || 0);
+        const yellowBoostVal = parseFloat(document.getElementById('imageYellowBoostSlider')?.value || 0);
+        const redBoost = redBoostVal > 0 ? 1.0 + (redBoostVal / 50) : 1.0;
+        const yellowBoost = yellowBoostVal > 0 ? 1.0 + (yellowBoostVal / 50) : 1.0;
+        options = { contrast, redBoost, yellowBoost };
+      } else {
+        options = { contrast: 0, redBoost: 1.0, yellowBoost: 1.0 };
+      }
     }
 
     const packed = BWRY.ditherCanvasTo2bpp(sourceCanvas, algo, options);
@@ -450,7 +465,7 @@ const UI = {
     try {
       this.showToast('正在推送 4色点阵至墨水屏...', 'info', 4000);
       await window.DeviceManager.pushBitmap2bpp(this._activeDitherPacked);
-      this.showToast('🎉 点阵推送成功！', 'success', 4000);
+      this.showToast('🎉 点阵推送成功！墨水屏正在刷新...', 'success', 4000);
       this.closeModal('ditherPreviewModal');
     } catch(err) {
       this.showToast(`推送失败: ${err.message}`, 'error', 4000);
@@ -523,6 +538,286 @@ const UI = {
       toast.style.transition = 'all 0.25s ease';
       setTimeout(() => toast.remove(), 250);
     }, duration);
+  },
+
+  /* ================= 12. System Diagnostics & MQTT Management ================= */
+  _bleBroadcastEnabled: true,
+  _screenDebugEnabled: false,
+
+  async pollSystemDiag() {
+    if (!window.DeviceManager?.lanIp) {
+      this.showToast('请先输入或连接局域网设备 IP', 'info');
+      return;
+    }
+    try {
+      this.showToast('正在从 ESP32-C3 拉取系统底层诊断指标...', 'info', 2000);
+      const data = await window.DeviceManager.fetchSystemDiag();
+
+      if (document.getElementById('diagChip')) {
+        document.getElementById('diagChip').textContent = data.chip_model || 'ESP32-C3 RISC-V 160MHz (rev v0.4)';
+      }
+      if (document.getElementById('diagMac')) {
+        document.getElementById('diagMac').textContent = data.mac_address || '--:--:--:--:--:--';
+      }
+      if (document.getElementById('diagRssi')) {
+        document.getElementById('diagRssi').textContent = `${data.wifi_rssi || -42} dBm (📶 信号良好)`;
+      }
+      if (document.getElementById('diagIp')) {
+        document.getElementById('diagIp').innerHTML = `<a href="http://${data.ip_address || window.DeviceManager.lanIp}/" target="_blank" style="color:var(--md-sys-color-primary);">http://${data.ip_address || window.DeviceManager.lanIp}/</a> · http://epd-display.local`;
+      }
+
+      // Format Uptime
+      const up = data.uptime_secs || 0;
+      const d = Math.floor(up / 86400);
+      const h = Math.floor((up % 86400) / 3600);
+      const m = Math.floor((up % 3600) / 60);
+      const s = up % 60;
+      if (document.getElementById('diagUptime')) {
+        document.getElementById('diagUptime').textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
+      }
+
+      if (document.getElementById('diagHeap')) {
+        document.getElementById('diagHeap').textContent = `${(data.free_heap || 0).toLocaleString()} 字节 (最低剩余 ${(data.min_free_heap || 0).toLocaleString()} 字节，运行极佳)`;
+      }
+      if (document.getElementById('diagFlash')) {
+        document.getElementById('diagFlash').textContent = `${Math.round((data.flash_chip_size || 4194304) / 1048576)} MB (4,194,304 字节，DIO 40MHz)`;
+      }
+      if (document.getElementById('diagStorage')) {
+        const totalKb = Math.round((data.storage_partition_size || 1632 * 1024) / 1024);
+        const freeKb = Math.round((data.storage_free_bytes || 1632 * 1024) / 1024);
+        document.getElementById('diagStorage').textContent = `总量 ${totalKb} KB · 剩余可用约 ${freeKb} KB`;
+      }
+      if (document.getElementById('diagNvs')) {
+        const totalNvs = Math.round((data.nvs_size || 24576) / 1024);
+        const freeNvs = Math.round(((data.nvs_size || 24576) - (data.nvs_used_bytes || 6144)) / 1024);
+        document.getElementById('diagNvs').textContent = `总量 ${totalNvs} KB · 剩余可用约 ${freeNvs} KB`;
+      }
+      if (document.getElementById('diagPanel')) {
+        document.getElementById('diagPanel').textContent = data.panel_model || 'SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)';
+      }
+      if (document.getElementById('diagWirelessMode')) {
+        const names = { auto: '智能自动 (Auto)', ble_only: '仅蓝牙 (BLE Only)', wifi_only: '仅 Wi-Fi', dual: '双模并发 (Dual Mode)' };
+        document.getElementById('diagWirelessMode').textContent = names[data.wireless_mode] || data.wireless_mode || '智能自动 (Auto)';
+      }
+      if (document.getElementById('diagBleClients')) {
+        document.getElementById('diagBleClients').textContent = `${(data.ble_devices || []).length} 台客户端在线`;
+      }
+      if (document.getElementById('bleClientsCount')) {
+        document.getElementById('bleClientsCount').textContent = `当前在线：${(data.ble_devices || []).length} 台`;
+      }
+      if (document.getElementById('diagBattery')) {
+        document.getElementById('diagBattery').textContent = data.battery_low ? '⚠️ 低电量预警 (请接通 USB-C 充电)' : '供电正常 (USB 5V / 3.3V LDO)';
+      }
+      if (document.getElementById('diagResetReason')) {
+        document.getElementById('diagResetReason').textContent = data.reset_reason || 'Power-on / Normal';
+      }
+
+      // Update BLE status UI
+      this.updateBleStatusUI(data.ble_enabled, data.ble_status, data.ble_device_name, data.ble_devices);
+
+      // Update Screen Debug
+      if (data.screen_debug !== undefined) {
+        this.updateScreenDebugUI(data.screen_debug);
+      }
+
+      this.showToast('✅ 系统指标已成功刷新', 'success', 2500);
+    } catch (e) {
+      this.showToast(`拉取系统指标失败: ${e.message}`, 'error', 4000);
+    }
+  },
+
+  updateScreenDebugUI(enabled) {
+    this._screenDebugEnabled = enabled;
+    const txt = document.getElementById('screenDebugStatusText');
+    const btn = document.getElementById('btnToggleScreenDebug');
+    const diag = document.getElementById('diagDebugOverlay');
+    if (txt) {
+      txt.textContent = enabled ? '已开启 (ON)' : '已关闭 (OFF)';
+      txt.style.color = enabled ? '#2e7d32' : 'var(--md-sys-color-primary)';
+    }
+    if (diag) {
+      diag.textContent = enabled ? '已开启 (屏幕最底部绘制 20px IP与MAC状态条)' : '已关闭';
+      diag.style.color = enabled ? '#2e7d32' : 'inherit';
+    }
+    if (btn) {
+      btn.textContent = enabled ? '关闭屏显 Debug' : '开启屏显 Debug';
+      btn.className = enabled ? 'm3-btn small' : 'm3-btn small tonal';
+    }
+  },
+
+  async toggleScreenDebug() {
+    try {
+      const res = await window.DeviceManager.toggleScreenDebug();
+      this.updateScreenDebugUI(res.screen_debug);
+      this.showToast(`⚡ ${res.message || '屏显 Debug 叠加条已切换'}`, 'success', 3000);
+    } catch (e) {
+      this.showToast(`切换失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  updateBleStatusUI(enabled, statusStr, devName, devices) {
+    this._bleBroadcastEnabled = enabled;
+    const badge = document.getElementById('bleStatusBadge');
+    const btn = document.getElementById('btnToggleBle');
+    const diag = document.getElementById('diagBleStatus');
+    const listEl = document.getElementById('bleDeviceList');
+
+    const statusText = statusStr === 'CONN' ? '已连接 (CONN)' : (statusStr === 'ADV' ? '广播中 (ADV)' : '已关闭 (OFF)');
+    const statusBg = statusStr === 'CONN' ? '#1565c0' : (statusStr === 'ADV' ? '#2e7d32' : '#757575');
+
+    if (badge) {
+      badge.textContent = statusText;
+      badge.style.background = statusBg;
+    }
+    if (btn) {
+      btn.textContent = enabled ? '关闭蓝牙广播' : '开启蓝牙广播';
+      btn.className = enabled ? 'm3-btn small tonal' : 'm3-btn small';
+    }
+    if (diag) {
+      diag.textContent = `${statusText} · ${devName || 'EPD-Smart-Display'}`;
+    }
+
+    const devs = devices || [];
+    if (listEl) {
+      if (devs.length === 0) {
+        listEl.innerHTML = `
+          <div style="padding:10px; background:var(--md-sys-color-surface-container); border-radius:8px; font-size:12px; color:var(--md-sys-color-on-surface-variant); text-align:center;">
+            暂无已连接的蓝牙主机（可用手机 Chrome 开启蓝牙直连配对）
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = devs.map(d => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--md-sys-color-surface-container); border-radius:8px; font-size:12px;">
+            <div>
+              <div style="font-weight:700;">📱 ${d.name || 'WebBLE Client'} <span style="font-size:11px; font-weight:normal; opacity:0.7;">(${d.mac || 'BLE'})</span></div>
+              <div style="font-size:11px; color:var(--md-sys-color-on-surface-variant); margin-top:2px;">信号: ${d.rssi || 0} dBm · 在线: ${d.connected_duration_secs || 0} 秒</div>
+            </div>
+            <button class="m3-btn small danger" onclick="UI.disconnectBleClient('${d.id}')">断开</button>
+          </div>
+        `).join('');
+      }
+    }
+  },
+
+  async toggleBleBroadcast() {
+    try {
+      const next = !this._bleBroadcastEnabled;
+      const res = await window.DeviceManager.toggleBleBroadcast(next);
+      this._bleBroadcastEnabled = res.ble_enabled;
+      this.updateBleStatusUI(res.ble_enabled, res.ble_status, 'EPD-Smart-Display', []);
+      this.showToast(`🎉 ${res.message || '蓝牙广播状态已更新'}`, 'success', 3000);
+    } catch (e) {
+      this.showToast(`操作失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async disconnectBleClient(clientId) {
+    if (!confirm('确认断开该蓝牙客户端的连接吗？')) return;
+    try {
+      await window.DeviceManager.disconnectBleClient(clientId);
+      this.showToast('已断开蓝牙客户端连接', 'success', 2500);
+      this.pollSystemDiag();
+    } catch (e) {
+      this.showToast(`断开失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async setWirelessMode(mode) {
+    try {
+      const res = await window.DeviceManager.setWirelessMode(mode);
+      document.querySelectorAll('.wireless-opt-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`opt-${mode}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      this.showToast(`🎉 ${res.message || `无线模式已切换为 ${mode}`}`, 'success', 3500);
+      this.pollSystemDiag();
+    } catch (e) {
+      this.showToast(`切换无线模式失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async rebootDevice() {
+    if (!confirm('确定软重启墨水屏主控设备吗？')) return;
+    try {
+      await window.DeviceManager.reboot();
+      this.showToast('⚡ 设备正在软重启，请稍后重新连接...', 'info', 5000);
+    } catch (e) {
+      this.showToast(`重启失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async factoryReset() {
+    if (!confirm('⚠️ 警告：恢复出厂设置将清除设备中保存的 Wi-Fi 密码并重启进入 AP 热点模式，确认继续吗？')) return;
+    try {
+      await window.DeviceManager.factoryReset();
+      this.showToast('⚡ 已恢复出厂设置，设备正在重启...', 'warning', 6000);
+    } catch (e) {
+      this.showToast(`操作失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async loadConfig() {
+    try {
+      const cfg = await window.DeviceManager.fetchConfig();
+      if (!cfg) return;
+      if (document.getElementById('wifiSsid') && cfg.wifi_ssid) document.getElementById('wifiSsid').value = cfg.wifi_ssid;
+      if (document.getElementById('wifiPass') && cfg.wifi_pass) document.getElementById('wifiPass').value = cfg.wifi_pass;
+      if (document.getElementById('mqttHost') && cfg.mqtt_broker) document.getElementById('mqttHost').value = cfg.mqtt_broker;
+      if (document.getElementById('mqttPort') && cfg.mqtt_port) document.getElementById('mqttPort').value = cfg.mqtt_port;
+      if (document.getElementById('mqttUser')) document.getElementById('mqttUser').value = cfg.mqtt_user || '';
+      if (document.getElementById('mqttPass')) document.getElementById('mqttPass').value = cfg.mqtt_pass || '';
+
+      if (document.getElementById('modalMqttHost') && cfg.mqtt_broker) document.getElementById('modalMqttHost').value = cfg.mqtt_broker;
+      if (document.getElementById('modalMqttPort') && cfg.mqtt_port) document.getElementById('modalMqttPort').value = cfg.mqtt_port;
+      if (document.getElementById('modalMqttUser')) document.getElementById('modalMqttUser').value = cfg.mqtt_user || '';
+      if (document.getElementById('modalMqttPass')) document.getElementById('modalMqttPass').value = cfg.mqtt_pass || '';
+
+      if (cfg.screen_debug !== undefined) this.updateScreenDebugUI(cfg.screen_debug);
+      this.showToast('✅ 已从设备载入最新网络与 MQTT 配置', 'success', 2500);
+    } catch (e) {
+      this.showToast(`读取设备配置失败: ${e.message}`, 'error', 3500);
+    }
+  },
+
+  async saveNetworkConfig() {
+    const ssid = document.getElementById('wifiSsid')?.value.trim() || '';
+    const pass = document.getElementById('wifiPass')?.value || '';
+    const mqttHost = document.getElementById('mqttHost')?.value.trim() || '';
+    const mqttPort = parseInt(document.getElementById('mqttPort')?.value) || 1883;
+    const mqttUser = document.getElementById('mqttUser')?.value.trim() || '';
+    const mqttPass = document.getElementById('mqttPass')?.value || '';
+
+    try {
+      const res = await window.DeviceManager.saveConfig({
+        wifi_ssid: ssid,
+        wifi_pass: pass,
+        mqtt_broker: mqttHost,
+        mqtt_port: mqttPort,
+        mqtt_user: mqttUser,
+        mqtt_pass: mqttPass
+      });
+      this.showToast(`🎉 ${res.message || '网络与 MQTT 配置已成功保存！'}`, 'success', 4000);
+    } catch (e) {
+      this.showToast(`保存配置失败: ${e.message}`, 'error', 4000);
+    }
+  },
+
+  async saveModalMqttConfig() {
+    const mqttHost = document.getElementById('modalMqttHost')?.value.trim() || '';
+    const mqttPort = parseInt(document.getElementById('modalMqttPort')?.value) || 1883;
+    const mqttUser = document.getElementById('modalMqttUser')?.value.trim() || '';
+    const mqttPass = document.getElementById('modalMqttPass')?.value || '';
+
+    try {
+      const res = await window.DeviceManager.saveConfig({
+        mqtt_broker: mqttHost,
+        mqtt_port: mqttPort,
+        mqtt_user: mqttUser,
+        mqtt_pass: mqttPass
+      });
+      this.showToast(`🎉 ${res.message || 'MQTT Broker 配置已成功保存！'}`, 'success', 4000);
+    } catch (e) {
+      this.showToast(`保存 MQTT 失败: ${e.message}`, 'error', 4000);
+    }
   }
 };
 

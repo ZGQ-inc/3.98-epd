@@ -319,185 +319,112 @@
      */
     _drawPlaceholder(ctx) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
+      const w = 768;
+      const cardX = 24;
+      const cardY = 68;
+      const cardW = w - 48;
+      const cardH = 345;
+      const cx = w / 2;
+      const cy = cardY + cardH / 2;
 
-      // Decorative lattice background pattern
-      ctx.fillStyle = '#f7f7f9';
-      for (let y = 70; y < 400; y += 24) {
-        for (let x = 30; x < 738; x += 24) {
-          if ((x + y) % 48 === 0) {
-            ctx.beginPath();
-            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-            ctx.fillStyle = YELLOW;
-            ctx.fill();
-          }
-        }
+      // Full-bleed clean card container (no wasted whitespace)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(cardX, cardY, cardW, cardH);
+
+      // Geometric grid accent
+      ctx.strokeStyle = '#f0f0f2';
+      ctx.lineWidth = 1;
+      for (let x = cardX; x <= cardX + cardW; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, cardY);
+        ctx.lineTo(x, cardY + cardH);
+        ctx.stroke();
+      }
+      for (let y = cardY; y <= cardY + cardH; y += 36) {
+        ctx.beginPath();
+        ctx.moveTo(cardX, y);
+        ctx.lineTo(cardX + cardW, y);
+        ctx.stroke();
       }
 
-      // Outer Avatar Circle Frame (Center x: 384, y: 220, r: 100)
-      const cx = 384;
-      const cy = 220;
-      const r = 95;
+      // Elegant inner border frame
+      ctx.strokeStyle = BLACK;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cardX + 8, cardY + 8, cardW - 16, cardH - 16);
 
-      // Red outer ring
-      ctx.strokeStyle = RED;
+      // Corner accent brackets in Red and Yellow
+      const cornerLen = 28;
+      const bx = cardX + 8;
+      const by = cardY + 8;
+      const bw = cardW - 16;
+      const bh = cardH - 16;
+
       ctx.lineWidth = 5;
+      // Top-Left (RED)
+      ctx.strokeStyle = RED;
       ctx.beginPath();
-      ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+      ctx.moveTo(bx + cornerLen, by); ctx.lineTo(bx, by); ctx.lineTo(bx, by + cornerLen);
       ctx.stroke();
 
-      // Yellow middle ring
+      // Top-Right (YELLOW)
       ctx.strokeStyle = YELLOW;
-      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.moveTo(bx + bw - cornerLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cornerLen);
       ctx.stroke();
 
-      // White face fill
-      ctx.fillStyle = WHITE;
+      // Bottom-Left (YELLOW)
+      ctx.strokeStyle = YELLOW;
       ctx.beginPath();
-      ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // --- Vector Anime Cat-Eared Mascot ---
-      // Left Ear
-      ctx.fillStyle = BLACK;
-      ctx.beginPath();
-      ctx.moveTo(cx - 50, cy - 60);
-      ctx.lineTo(cx - 75, cy - 105);
-      ctx.lineTo(cx - 20, cy - 75);
-      ctx.closePath();
-      ctx.fill();
-
-      // Left Inner Ear (Red)
-      ctx.fillStyle = RED;
-      ctx.beginPath();
-      ctx.moveTo(cx - 48, cy - 65);
-      ctx.lineTo(cx - 68, cy - 98);
-      ctx.lineTo(cx - 26, cy - 75);
-      ctx.closePath();
-      ctx.fill();
-
-      // Right Ear
-      ctx.fillStyle = BLACK;
-      ctx.beginPath();
-      ctx.moveTo(cx + 50, cy - 60);
-      ctx.lineTo(cx + 75, cy - 105);
-      ctx.lineTo(cx + 20, cy - 75);
-      ctx.closePath();
-      ctx.fill();
-
-      // Right Inner Ear (Red)
-      ctx.fillStyle = RED;
-      ctx.beginPath();
-      ctx.moveTo(cx + 48, cy - 65);
-      ctx.lineTo(cx + 68, cy - 98);
-      ctx.lineTo(cx + 26, cy - 75);
-      ctx.closePath();
-      ctx.fill();
-
-      // Hair bangs (Black curved tufts)
-      ctx.fillStyle = BLACK;
-      ctx.beginPath();
-      ctx.arc(cx, cy - 45, 55, Math.PI * 0.9, Math.PI * 2.1);
-      ctx.lineTo(cx, cy - 25);
-      ctx.closePath();
-      ctx.fill();
-
-      // Anime Eyes (Large expressive eyes with highlight sparkles)
-      const drawEye = (ex, ey) => {
-        ctx.fillStyle = BLACK;
-        ctx.beginPath();
-        ctx.ellipse(ex, ey, 14, 20, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // White specular highlights
-        ctx.fillStyle = WHITE;
-        ctx.beginPath();
-        ctx.arc(ex - 4, ey - 6, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(ex + 4, ey + 6, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Top eyelash stroke
-        ctx.strokeStyle = BLACK;
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.arc(ex, ey - 10, 18, Math.PI * 1.1, Math.PI * 1.9);
-        ctx.stroke();
-      };
-      drawEye(cx - 32, cy - 5);
-      drawEye(cx + 32, cy - 5);
-
-      // Blushing Cheeks (Red mini dashes)
-      ctx.fillStyle = RED;
-      ctx.beginPath();
-      ctx.ellipse(cx - 46, cy + 18, 12, 6, -0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(cx + 46, cy + 18, 12, 6, 0.1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Kawaii Cat Mouth (ω)
-      ctx.strokeStyle = BLACK;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx - 8, cy + 16, 8, 0, Math.PI * 0.85);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(cx + 8, cy + 16, 8, Math.PI * 0.15, Math.PI);
+      ctx.moveTo(bx, by + bh - cornerLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cornerLen, by + bh);
       ctx.stroke();
 
-      // Neck Ribbon Bow (Red + Yellow bell)
-      ctx.fillStyle = RED;
+      // Bottom-Right (RED)
+      ctx.strokeStyle = RED;
       ctx.beginPath();
-      ctx.moveTo(cx, cy + 54);
-      ctx.lineTo(cx - 24, cy + 42);
-      ctx.lineTo(cx - 24, cy + 66);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(bx + bw - cornerLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cornerLen);
+      ctx.stroke();
+
+      // Central "OC PIC" Big Badge Tag
+      ctx.fillStyle = BLACK;
       ctx.beginPath();
-      ctx.moveTo(cx, cy + 54);
-      ctx.lineTo(cx + 24, cy + 42);
-      ctx.lineTo(cx + 24, cy + 66);
-      ctx.closePath();
+      ctx.arc(cx - 160, cy - 35, 6, 0, Math.PI * 2);
+      ctx.arc(cx + 160, cy - 35, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Center Star Bell (Yellow)
+      // Yellow top bar for OC PIC
       ctx.fillStyle = YELLOW;
-      ctx.strokeStyle = BLACK;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 54, 9, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      ctx.fillRect(cx - 140, cy - 78, 280, 8);
 
-      // Sparkle stars around avatar
-      const drawStar = (sx, sy, size, color) => {
-        ctx.fillStyle = color;
-        ctx.font = `bold ${size}px sans-serif`;
-        ctx.fillText('★', sx, sy);
-      };
-      drawStar(cx - 165, cy - 50, 24, YELLOW);
-      drawStar(cx + 145, cy - 55, 26, RED);
-      drawStar(cx - 150, cy + 65, 20, RED);
-      drawStar(cx + 135, cy + 70, 22, YELLOW);
-
-      // Upload prompt button pill
-      ctx.fillStyle = YELLOW;
-      ctx.strokeStyle = BLACK;
-      ctx.lineWidth = 2.5;
-      this._roundRect(ctx, cx - 160, cy + 120, 320, 36, 18, true, true);
-
+      // Big Bold Modern "OC PIC" Text
       ctx.fillStyle = BLACK;
-      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+      ctx.font = '900 68px "Arial Black", "Impact", -apple-system, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('📷 点击上传角色立绘 / 谷子照片', cx, cy + 144);
+      ctx.textBaseline = 'middle';
+      ctx.fillText('OC PIC', cx, cy - 36);
 
-      ctx.fillStyle = '#444444';
+      // Red accent underline
+      ctx.fillStyle = RED;
+      ctx.fillRect(cx - 140, cy + 4, 280, 8);
+
+      // Subtitle
+      ctx.fillStyle = BLACK;
+      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+      ctx.fillText('[ 角色立绘 · 谷美相片 · 随身痛卡 ]', cx, cy + 42);
+
+      // Clean Upload Hint Pill
+      ctx.fillStyle = '#000000';
+      this._roundRect(ctx, cx - 180, cy + 72, 360, 38, 19, true, false);
+
+      ctx.fillStyle = YELLOW;
+      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+      ctx.fillText('📷 点击或拖拽上传自定义立绘照片', cx, cy + 92);
+
+      ctx.fillStyle = '#777777';
       ctx.font = '13px -apple-system, sans-serif';
-      ctx.fillText('支持 PNG / JPG / WEBP · 0.5x~2.5x 缩放与四向旋转', cx, cy + 172);
+      ctx.fillText('支持 PNG / JPG / WEBP · 50%~250% 无级缩放与四向旋转', cx, cy + 128);
+
       ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
     },
 
     /**

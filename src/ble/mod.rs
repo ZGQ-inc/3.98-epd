@@ -81,7 +81,7 @@ impl BleManager {
         &self,
         mode: &str,
         device_name: &str,
-        ble_enabled: bool,
+        _ble_enabled: bool,
         config_mgr: Option<Arc<Mutex<crate::config::ConfigManager>>>,
         app_config: Option<Arc<Mutex<crate::config::AppConfig>>>,
     ) {
@@ -126,15 +126,13 @@ impl BleManager {
         device.set_power(PowerType::Default, PowerLevel::P9).ok();
         BLEDevice::set_device_name(name).ok();
 
-        // Configure BLE Security for seamless pairing (supporting both Legacy & Secure Connections)
+        // Configure BLE Security: Use open JustWorks pairing without requiring Bond
+        // Crucial for Web Bluetooth on Windows/Android/Chrome to avoid "GATT Server is disconnected" rejection!
         device.security()
-            .set_auth(AuthReq::Bond | AuthReq::Sc)
-            .set_io_cap(SecurityIOCap::NoInputNoOutput)
-            .resolve_rpa();
+            .set_auth(AuthReq::empty())
+            .set_io_cap(SecurityIOCap::NoInputNoOutput);
 
         let server = device.get_server();
-        server.on_confirm_pin(|_pin| true);
-        server.on_passkey_request(|| 0);
         server.on_connect(|_server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
@@ -163,8 +161,18 @@ impl BleManager {
             let data = args.recv_data();
             if data.is_empty() { return; }
 
-            // Check if string command or JSON
-            if data[0] == b'{' || data.starts_with(b"refresh") || data.starts_with(b"mode:") || data.starts_with(b"wireless:") || data.starts_with(b"clear:") || data.starts_with(b"status") || data.starts_with(b"get_") {
+            // Check if string command or JSON (< 120 bytes). Binary chunks (240 bytes) must NEVER reset offset!
+            let is_text_cmd = data.len() < 120 && (
+                data[0] == b'{'
+                || data.starts_with(b"refresh")
+                || data.starts_with(b"mode:")
+                || data.starts_with(b"wireless:")
+                || data.starts_with(b"clear:")
+                || data.starts_with(b"status")
+                || data.starts_with(b"get_")
+            );
+
+            if is_text_cmd {
                 STREAM_OFFSET.store(0, Ordering::Relaxed);
                 if let Ok(text) = std::str::from_utf8(data) {
                     let text = text.trim();
@@ -280,6 +288,10 @@ impl BleManager {
                 println!("  [ble-rx] 2bpp Framebuffer complete ({} bytes)! Triggering physical refresh...", next);
                 STREAM_OFFSET.store(0, Ordering::Relaxed);
                 crate::display::request_direct_bitmap();
+                if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                    tx.lock().set_value(b"REFRESH_TRIGGERED");
+                    tx.lock().notify();
+                }
             }
         });
 
