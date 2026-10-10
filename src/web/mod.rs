@@ -88,14 +88,11 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
+                ("Cache-Control", "no-cache, no-store, must-revalidate"),
                 ("ETag", "\"398epd-v1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1400) {
-                resp.write_all(chunk).map_err(|e| {
-                    eprintln!("  [web] write_all chunk error: {:?}", e);
-                    anyhow::anyhow!("{e:?}")
-                })?;
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
+                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())
         })?;
@@ -108,10 +105,10 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
+                ("Cache-Control", "no-cache, no-store, must-revalidate"),
                 ("ETag", "\"398epd-v1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1400) {
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())

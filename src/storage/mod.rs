@@ -72,7 +72,7 @@ pub fn init_spiffs() -> bool {
     let conf = esp_idf_svc::sys::esp_vfs_spiffs_conf_t {
         base_path: b"/spiffs\0".as_ptr() as *const _,
         partition_label: b"storage\0".as_ptr() as *const _,
-        max_files: 10,
+        max_files: 5,
         format_if_mount_failed: true,
     };
 

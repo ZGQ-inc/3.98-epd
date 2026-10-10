@@ -97,18 +97,14 @@ impl BleManager {
 
         let should_start = if mode_str == "wifi_only" {
             false
-        } else if mode_str == "dual" || mode_str == "ble_only" {
-            true
-        } else if mode_str == "auto" {
-            !crate::wifi::is_station_connected()
         } else {
-            ble_enabled
+            true
         };
 
         if !should_start {
             *self.status.lock().unwrap() = BleStatus::Off;
-            println!("  [ble-hardware] Smart Coexistence: Wireless mode '{}', BLE advertising suppressed (Wi-Fi station active or Wi-Fi only).", mode_str);
-            info!("[BLE] Wireless mode is '{}', BLE advertising not started.", mode_str);
+            println!("  [ble-hardware] Wireless mode is '{}', BLE hardware standing by (OFF).", mode_str);
+            info!("[BLE] Wireless mode is '{}', BLE hardware not started.", mode_str);
             return;
         }
 
@@ -389,11 +385,11 @@ impl BleManager {
     }
 
     /// Called when Wi-Fi is successfully configured/connected to router.
-    /// In 'auto' or 'wifi_only', shuts down BLE advertising to save power & RF contention.
+    /// In 'wifi_only', shuts down BLE advertising.
     pub fn on_wifi_configured(&self) {
         let mode = self.wireless_mode.lock().unwrap().clone();
-        if mode == "auto" || mode == "wifi_only" {
-            println!("  [ble-hardware] Smart Coexistence: Wi-Fi Station connected. Stopping BLE advertising...");
+        if mode == "wifi_only" {
+            println!("  [ble-hardware] Wireless mode is 'wifi_only'. Stopping BLE advertising...");
             self.stop_advertising();
         }
     }
@@ -437,17 +433,6 @@ impl BleManager {
         });
         *self.status.lock().unwrap() = BleStatus::Connected;
         drop(devs);
-
-        // Stop advertising during active connection to avoid RF contention
-        self.stop_advertising();
-        *self.status.lock().unwrap() = BleStatus::Connected;
-
-        // Smart Coexistence: BLE connected, shut down SoftAP hotspot if running
-        let mode = self.get_wireless_mode();
-        if mode == "auto" {
-            println!("  [ble-hardware] Smart Coexistence: BLE Client connected. Stopping Wi-Fi SoftAP hotspot...");
-            crate::wifi::stop_softap();
-        }
 
         // If device was unconfigured on first boot, update e-ink to show PWA guide
         if crate::display::is_unconfigured() {
