@@ -11,9 +11,10 @@ const App = {
   imageLabCanvas: null,
   modalCanvas: null,
   uploadedImg: null,
+  badgeTemplate: 'geek',
 
   init() {
-    console.log('[App] Initializing subsystems...');
+    console.log('[App] Initializing application orchestrator...');
     UI.init();
     DeviceManager.init();
     PresetHub.init();
@@ -22,7 +23,7 @@ const App = {
     this.memoCanvas = document.getElementById('memoPreviewCanvas');
     this.paintCanvas = document.getElementById('paintDrawingCanvas');
     this.imageLabCanvas = document.getElementById('imageLabCanvas');
-    this.modalCanvas = document.getElementById('modalPreviewCanvas');
+    this.modalCanvas = document.getElementById('ditherModalCanvas') || document.getElementById('modalPreviewCanvas');
 
     if (this.paintCanvas) {
       PaintCanvas.init(this.paintCanvas);
@@ -40,7 +41,7 @@ const App = {
     this.bindEvents();
     this.renderPresetsUI();
 
-    // Setup Service Worker
+    // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').then((reg) => {
         console.log('[PWA] Service Worker registered:', reg.scope);
@@ -51,53 +52,108 @@ const App = {
     console.log('[App] Ready!');
   },
 
+  /* ================= 1. Smart Badge Studio ================= */
+  selectBadgeTpl(tpl) {
+    this.badgeTemplate = tpl;
+    ['geek', 'business', 'anime', 'staff'].forEach(t => {
+      const el = document.getElementById(`chip-${t}`);
+      if (el) el.classList.toggle('active', t === tpl);
+    });
+    this.renderBadge();
+  },
+
   renderBadge() {
     if (!this.badgeCanvas) return;
+    const name    = document.getElementById('badgeName')?.value || 'ZGQ';
+    const role    = document.getElementById('badgeRole')?.value || document.getElementById('badgeTitle')?.value || '全栈工程师 / 嵌入式架构';
+    const org     = document.getElementById('badgeOrg')?.value || 'ZGQ Inc.';
+    const contact = document.getElementById('badgeContact')?.value || document.getElementById('badgeHandle')?.value || 't.me/ZGQinc';
+    const email   = document.getElementById('badgeEmail')?.value || 'zgqinc@gmail.com';
+    const motto   = document.getElementById('badgeMotto')?.value || document.getElementById('badgeBio')?.value || '用代码连接物理世界，专注低功耗嵌入式！';
+    const qrText  = document.getElementById('badgeQr')?.value || document.getElementById('badgeQrText')?.value || 'https://domain.zgqinc.gq';
+
     Studios.renderBadge(this.badgeCanvas, {
-      template: document.getElementById('badgeTemplate')?.value || 'hacker',
-      name: document.getElementById('badgeName')?.value || 'ZGQ',
-      handle: document.getElementById('badgeHandle')?.value || '@zgq_inc',
-      title: document.getElementById('badgeTitle')?.value || 'Hardware Hacker',
-      bio: document.getElementById('badgeBio')?.value || 'Building open-source smart hardware.',
-      qrText: document.getElementById('badgeQrText')?.value || 'https://domain.zgqinc.gq/'
+      template: this.badgeTemplate,
+      name,
+      role,
+      org,
+      contact,
+      email,
+      motto,
+      qrText,
+      orientation: UI.orientation
     });
   },
 
+  /* ================= 2. Memo & Checklist ================= */
   renderMemo() {
     if (!this.memoCanvas) return;
+    const title = document.getElementById('memoTitle')?.value || 'TODAY TO-DO LIST';
     const itemsRaw = document.getElementById('memoItems')?.value || '';
+    const footer = document.getElementById('memoFooter')?.value || '保持专注，逐项击破！ | 墨水屏双稳态零功耗保持';
+
     Studios.renderMemo(this.memoCanvas, {
-      title: document.getElementById('memoTitle')?.value || '今日核心待办',
+      title,
       items: itemsRaw.split('\n'),
+      footer,
       date: new Date().toLocaleDateString('zh-CN')
     });
   },
 
+  /* ================= 3. Image Lab (9 Algorithms & Sliders) ================= */
   renderImageLab() {
-    if (!this.uploadedImg || !this.imageLabCanvas) return;
-    this.imageLabCanvas.width = 768;
-    this.imageLabCanvas.height = 552;
-    const ctx = this.imageLabCanvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 768, 552);
+    if (!this.imageLabCanvas) return;
+    const canvas = this.imageLabCanvas;
+    const isPortrait = (UI.orientation === 90 || UI.orientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
 
-    const scale = Math.min(768 / this.uploadedImg.width, 552 / this.uploadedImg.height);
-    const w = this.uploadedImg.width * scale;
-    const h = this.uploadedImg.height * scale;
-    const x = (768 - w) / 2;
-    const y = (552 - h) / 2;
-    ctx.drawImage(this.uploadedImg, x, y, w, h);
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!this.uploadedImg) {
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#8e9099';
+      ctx.font = '22px "PingFang SC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('📷 请先上传相册照片 (PNG / JPG / WEBP)', w / 2, h / 2);
+      ctx.textAlign = 'left';
+      return;
+    }
+
+    const scale = Math.max(w / this.uploadedImg.width, h / this.uploadedImg.height);
+    const dw = this.uploadedImg.width * scale;
+    const dh = this.uploadedImg.height * scale;
+    const dx = (w - dw) / 2;
+    const dy = (h - dh) / 2;
+    ctx.drawImage(this.uploadedImg, dx, dy, dw, dh);
 
     const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
-    const packed = BWRY.ditherCanvasTo2bpp(this.imageLabCanvas, algo);
-    BWRY.render2bppToCanvas(this.imageLabCanvas, packed);
+    const contrast = parseFloat(document.getElementById('imageContrastSlider')?.value ?? 15);
+    const redBoostVal = parseFloat(document.getElementById('imageRedBoostSlider')?.value || 0);
+    const yellowBoostVal = parseFloat(document.getElementById('imageYellowBoostSlider')?.value || 0);
+    const redBoost = redBoostVal > 0 ? 1.0 + (redBoostVal / 50) : 1.0;
+    const yellowBoost = yellowBoostVal > 0 ? 1.0 + (yellowBoostVal / 50) : 1.0;
+
+    const packed = BWRY.ditherCanvasTo2bpp(canvas, algo, {
+      contrast,
+      redBoost,
+      yellowBoost
+    });
+    BWRY.render2bppToCanvas(canvas, packed);
   },
 
+  /* ================= 4. Push & Presets Engine ================= */
   async pushCanvas(canvas, name) {
     if (!canvas) return;
     try {
       UI.showToast(`正在量化并推送【${name}】至墨水屏...`, 'info', 4000);
-      const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
+      const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
+      const packed = BWRY.ditherCanvasTo2bpp(canvas, algo);
       await DeviceManager.pushBitmap2bpp(packed, (pct) => {
         console.log(`[Push Progress]: ${pct}%`);
       });
@@ -115,12 +171,12 @@ const App = {
     try {
       const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
       const typeLabelMap = {
-        badge: '工牌名片',
+        badge: '智能工牌',
         itabag: '兽聚痛卡',
-        memo: '待办清单',
+        memo: '随身便签',
         paint: '像素手绘',
-        image: '图像工坊',
-        scenes: '场景模式'
+        image: '图片调色',
+        scenes: '场景遥控'
       };
       await PresetHub.savePreset({
         name,
@@ -155,7 +211,7 @@ const App = {
 
     if (PresetHub.presets.length === 0) {
       listEl.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:32px; color:var(--md-sys-color-outline);">
-        📂 暂无已保存预设。您可以在工牌、便签、画板或图片工坊中点击「保存为预设」，一键记录所有效果！
+        📂 暂无已保存预设。您可以在工牌、痛卡、便签、画板中点击「保存为预设」，随时一键直推！
       </div>`;
       if (deleteBtn) deleteBtn.disabled = true;
       return;
@@ -202,7 +258,7 @@ const App = {
         const preset = PresetHub.presets.find(p => p.id === id);
         if (preset && preset.raw_bitmap && this.modalCanvas) {
           BWRY.render2bppToCanvas(this.modalCanvas, new Uint8Array(preset.raw_bitmap));
-          UI.openModal('presetPreviewModal');
+          UI.openModal('ditherPreviewModal');
         } else {
           UI.showToast('该预设未包含点阵位图数据', 'warning');
         }
@@ -226,48 +282,78 @@ const App = {
     });
   },
 
+  /* ================= 5. Universal Event Bindings ================= */
   bindEvents() {
-    // Badge inputs
+    // 1. Badge inputs
     document.querySelectorAll('.badge-input').forEach(el => {
       el.addEventListener('input', () => this.renderBadge());
       el.addEventListener('change', () => this.renderBadge());
     });
 
-    // Memo inputs
+    // Badge template chips
+    ['geek', 'business', 'anime', 'staff'].forEach(tpl => {
+      document.getElementById(`chip-${tpl}`)?.addEventListener('click', () => this.selectBadgeTpl(tpl));
+    });
+
+    // 2. Memo inputs
     document.querySelectorAll('.memo-input').forEach(el => {
       el.addEventListener('input', () => this.renderMemo());
       el.addEventListener('change', () => this.renderMemo());
     });
 
-    // Paint Canvas Controls
+    // 3. Paint Canvas Tools & Palette
+    const paintToolSelect = document.getElementById('paintToolSelect');
+    if (paintToolSelect) {
+      paintToolSelect.addEventListener('change', (e) => {
+        PaintCanvas.currentTool = e.target.value;
+      });
+    }
+
     document.querySelectorAll('.tool-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         PaintCanvas.currentTool = btn.getAttribute('data-tool');
+        if (paintToolSelect) paintToolSelect.value = PaintCanvas.currentTool;
       });
     });
 
-    document.querySelectorAll('.color-swatch').forEach(swatch => {
+    // Swatches (pure inks + mixed colors)
+    document.querySelectorAll('.swatch-item, .palette-btn, .color-swatch').forEach(swatch => {
       swatch.addEventListener('click', () => {
-        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.swatch-item, .palette-btn, .color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
-        PaintCanvas.currentColor = swatch.getAttribute('data-color');
+        const color = swatch.getAttribute('data-color') || swatch.style.backgroundColor;
+        PaintCanvas.currentColor = color;
+        const picker = document.getElementById('nativeColorPicker');
+        if (picker && color.startsWith('#')) picker.value = color;
       });
     });
+
+    // Native Color Picker
+    const nativeColorPicker = document.getElementById('nativeColorPicker');
+    if (nativeColorPicker) {
+      nativeColorPicker.addEventListener('input', (e) => {
+        PaintCanvas.currentColor = e.target.value;
+        document.querySelectorAll('.swatch-item, .palette-btn, .color-swatch').forEach(s => s.classList.remove('active'));
+      });
+    }
 
     document.getElementById('paintClearBtn')?.addEventListener('click', () => PaintCanvas.clear());
     document.getElementById('paintUndoBtn')?.addEventListener('click', () => PaintCanvas.undo());
     document.getElementById('paintRedoBtn')?.addEventListener('click', () => PaintCanvas.redo());
     document.getElementById('paintLineWidth')?.addEventListener('input', (e) => {
-      PaintCanvas.lineWidth = parseInt(e.target.value) || 4;
+      const val = parseInt(e.target.value) || 4;
+      PaintCanvas.lineWidth = val;
+      const valBadge = document.getElementById('paintLineWidthVal');
+      if (valBadge) valBadge.textContent = `${val}px`;
     });
 
-    // Image Lab
-    const imageUploadInput = document.getElementById('imageUploadInput');
+    // 4. Image Lab Controls
+    const imageUploadInput = document.getElementById('imageUploadInput') || document.getElementById('labImgInput');
     if (imageUploadInput) {
       imageUploadInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files && e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -275,33 +361,48 @@ const App = {
           img.onload = () => {
             this.uploadedImg = img;
             this.renderImageLab();
+            UI.showToast(`已载入图片 (${img.width}×${img.height})`, 'success');
           };
           img.src = event.target.result;
         };
         reader.readAsDataURL(file);
       });
     }
-    document.getElementById('imageAlgoSelect')?.addEventListener('change', () => this.renderImageLab());
 
-    // Connect Bluetooth
-    const bleConnectBtn = document.getElementById('bleConnectBtn');
+    document.getElementById('imageAlgoSelect')?.addEventListener('change', () => this.renderImageLab());
+    ['imageContrastSlider', 'imageBrightnessSlider', 'imageRedBoostSlider', 'imageYellowBoostSlider'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => {
+          const badge = document.getElementById(`${id}Val`);
+          if (badge) badge.textContent = el.value;
+          this.renderImageLab();
+        });
+      }
+    });
+
+    // 5. Connectivity Bar Bindings
+    const bleConnectBtn = document.getElementById('bleConnectBtn') || document.getElementById('btnBleConnect');
     const bleStatusDot = document.getElementById('bleStatusDot');
     const bleStatusText = document.getElementById('bleStatusText');
-    const lanIpInput = document.getElementById('lanIpInput');
-    const lanConnectBtn = document.getElementById('lanConnectBtn');
+    const bleSubText = document.getElementById('bleSubText');
 
     const updateConnUI = (status) => {
       if (status.type === 'ble') {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
-        if (bleStatusText) bleStatusText.textContent = `蓝牙已连接: ${status.name}`;
+        if (bleStatusText) bleStatusText.textContent = `● 已连接: ${status.name}`;
+        if (bleSubText) bleSubText.textContent = 'Web Bluetooth 5.0 · 物理低延迟点阵直推中';
         if (bleConnectBtn) bleConnectBtn.textContent = '断开蓝牙';
+        UI.rememberDevice(DeviceManager.bleDevice?.id, status.name);
       } else if (status.type === 'lan') {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
-        if (bleStatusText) bleStatusText.textContent = `局域网已连接: ${status.name}`;
+        if (bleStatusText) bleStatusText.textContent = `● 局域网已连接: ${status.name}`;
+        if (bleSubText) bleSubText.textContent = 'REST API 高速全双工信道已连通';
       } else {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot';
-        if (bleStatusText) bleStatusText.textContent = '未连接设备';
-        if (bleConnectBtn) bleConnectBtn.textContent = '连接蓝牙';
+        if (bleStatusText) bleStatusText.textContent = '● 已断开连接';
+        if (bleSubText) bleSubText.textContent = '无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推';
+        if (bleConnectBtn) bleConnectBtn.textContent = '🔍 扫描连接';
       }
     };
     DeviceManager.onStatusChange = updateConnUI;
@@ -320,45 +421,80 @@ const App = {
             UI.showToast(`成功连接到蓝牙设备: ${name}`, 'success');
           } catch (e) {
             if (bleStatusDot) bleStatusDot.className = 'conn-status-dot';
-            if (bleStatusText) bleStatusText.textContent = '连接取消或失败';
+            if (bleStatusText) bleStatusText.textContent = '● 已断开连接';
             UI.showToast(`蓝牙连接失败: ${e.message}`, 'error');
           }
         }
       });
     }
 
-    if (lanConnectBtn && lanIpInput) {
-      lanIpInput.value = DeviceManager.lanIp;
-      lanConnectBtn.addEventListener('click', async () => {
-        const ip = lanIpInput.value.trim();
-        if (!ip) return UI.showToast('请输入有效的局域网 IP', 'warning');
-        lanConnectBtn.disabled = true;
-        lanConnectBtn.textContent = '连接中...';
-        const ok = await DeviceManager.setLanIp(ip);
-        lanConnectBtn.disabled = false;
-        lanConnectBtn.textContent = '连接 IP';
-        if (ok) {
-          UI.showToast(`成功连接到设备 http://${ip}/`, 'success');
-          PresetHub.syncWithDevice().then(() => this.renderPresetsUI());
-        } else {
-          UI.showToast(`无法连通 http://${ip}/`, 'error');
-        }
-      });
-    }
+    // Top status modals
+    document.getElementById('btnDevManage')?.addEventListener('click', () => UI.openDeviceManagerModal());
+    document.getElementById('btnAirProv')?.addEventListener('click', () => UI.openAirProvisionModal());
+    document.getElementById('btnLanIp')?.addEventListener('click', () => UI.openLanIpModal());
+    document.getElementById('btnSendAirProv')?.addEventListener('click', () => UI.executeBleAirProvision());
+    document.getElementById('btnSaveLanIp')?.addEventListener('click', () => UI.saveCustomLanIp());
 
-    // Push Buttons
+    // 6. Push Buttons
     document.getElementById('badgePushBtn')?.addEventListener('click', () => this.pushCanvas(this.badgeCanvas, '工牌'));
+    document.getElementById('itabagPushBtn')?.addEventListener('click', () => {
+      const c = window.ItaBagStudio?.getCanvas ? window.ItaBagStudio.getCanvas() : document.getElementById('itaPreviewCanvas');
+      this.pushCanvas(c, '痛卡挂件');
+    });
     document.getElementById('memoPushBtn')?.addEventListener('click', () => this.pushCanvas(this.memoCanvas, '便签'));
-    document.getElementById('paintPushBtn')?.addEventListener('click', () => this.pushCanvas(this.paintCanvas, '画板'));
-    document.getElementById('imagePushBtn')?.addEventListener('click', () => this.pushCanvas(this.imageLabCanvas, '图片'));
+    document.getElementById('paintPushBtn')?.addEventListener('click', () => this.pushCanvas(this.paintCanvas, '手绘画作'));
+    document.getElementById('imagePushBtn')?.addEventListener('click', () => this.pushCanvas(this.imageLabCanvas, '精修相册'));
 
-    // Save Preset Buttons
+    // 7. Save Preset Buttons
     document.getElementById('badgeSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.badgeCanvas, 'badge', '个性工牌预设'));
+    document.getElementById('itabagSavePresetBtn')?.addEventListener('click', () => {
+      const c = window.ItaBagStudio?.getCanvas ? window.ItaBagStudio.getCanvas() : document.getElementById('itaPreviewCanvas');
+      this.promptSavePreset(c, 'itabag', '兽聚痛卡预设');
+    });
     document.getElementById('memoSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.memoCanvas, 'memo', '待办便签预设'));
     document.getElementById('paintSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.paintCanvas, 'paint', '像素手绘预设'));
     document.getElementById('imageSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.imageLabCanvas, 'image', '图像作品预设'));
 
-    // Preset Toolbar
+    // 8. 1:1 Dither Physical Preview Buttons on Each Tab
+    document.querySelectorAll('[data-dither-preview]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-dither-preview');
+        const targetCanvas = document.getElementById(targetId) || this.badgeCanvas;
+        UI.openDitherPreviewModal(targetCanvas);
+      });
+    });
+
+    // 9. Tab 6 Scenes Remote & Controls
+    // 4 Clear buttons
+    document.querySelectorAll('[data-clear-cmd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cmd = btn.getAttribute('data-clear-cmd');
+        if (window.ScenesStudio) window.ScenesStudio.sendRemoteCmd(cmd);
+      });
+    });
+
+    // 12 Mode switchers
+    document.querySelectorAll('[data-mode-cmd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode-cmd');
+        if (window.ScenesStudio) window.ScenesStudio.sendRemoteCmd(`mode:${mode}`);
+      });
+    });
+
+    // 4 RF mode switchers
+    document.querySelectorAll('[data-rf-cmd]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rf = btn.getAttribute('data-rf-cmd');
+        if (window.ScenesStudio) window.ScenesStudio.sendRemoteCmd(`rf:${rf}`);
+      });
+    });
+
+    // 2bpp BIN export & import
+    document.getElementById('btnExportBin')?.addEventListener('click', () => UI.exportCanvasAsBin());
+    document.getElementById('btnImportBin')?.addEventListener('click', () => document.getElementById('importBinInput')?.click());
+    document.getElementById('importBinInput')?.addEventListener('change', (e) => UI.handleImportBinFile(e));
+
+    // 10. Presets Toolbar
     document.getElementById('presetSelectAllBtn')?.addEventListener('click', () => {
       PresetHub.selectAll();
       this.renderPresetsUI();
@@ -380,11 +516,20 @@ const App = {
       else UI.showToast('未连通单片机，已加载本地预设', 'warning');
     });
 
-    // Tab Change Hook
+    // 11. Modal Push Dither
+    document.getElementById('modalPushDitherBtn')?.addEventListener('click', () => UI.pushModalDither());
+
+    // 12. Tab Change Hook
     window.addEventListener('tabchange', async (e) => {
       const tabId = e.detail.tabId;
-      if (tabId === 'itabag' && window.ItaBagStudio) {
+      if (tabId === 'badge') {
+        this.renderBadge();
+      } else if (tabId === 'itabag' && window.ItaBagStudio) {
         window.ItaBagStudio.renderPreview();
+      } else if (tabId === 'memo') {
+        this.renderMemo();
+      } else if (tabId === 'image') {
+        this.renderImageLab();
       } else if (tabId === 'scenes' && window.ScenesStudio) {
         window.ScenesStudio.renderPreview();
       } else if (tabId === 'presets') {
@@ -408,7 +553,6 @@ const App = {
 
 window.App = App;
 
-// Bulletproof execution ensuring we run even if DOMContentLoaded already fired
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => App.init());
 } else {

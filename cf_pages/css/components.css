@@ -1,31 +1,49 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
- * Components (Buttons, Cards, Inputs, Modals, Toasts)
+ * Components (Material Design 3 Tokens, Buttons, Chips, Modals, Swatches, Toasts)
  * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
  */
 
-/* Cards */
-.m3-card {
+/* ========================================================
+ * 1. Cards (M3 Elevated & Filled Surface Containers)
+ * ======================================================== */
+.m3-card,
+.pwa-card {
   background: var(--md-sys-color-surface-container);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   box-shadow: var(--shadow-1);
   margin-bottom: 16px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.m3-card-title {
+.m3-card-title,
+.card-title {
   margin-top: 0;
   margin-bottom: 12px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  letter-spacing: -0.1px;
 }
 
-/* Buttons */
-.m3-btn {
+.card-subtitle {
+  font-size: 12px;
+  color: var(--md-sys-color-outline);
+  margin-top: -6px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* ========================================================
+ * 2. Buttons (Tactile Touch Feedback & M3 Variants)
+ * ======================================================== */
+.m3-btn,
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -36,45 +54,74 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   background: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
   text-decoration: none;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.m3-btn:hover {
+.m3-btn:hover,
+.btn:hover {
   box-shadow: var(--shadow-2);
   filter: brightness(1.05);
 }
 
-.m3-btn:active {
-  transform: scale(0.98);
+.m3-btn:active,
+.btn:active {
+  transform: scale(0.97);
+  filter: brightness(0.95);
 }
 
-.m3-btn.outlined {
+/* Button Variants */
+.m3-btn.outlined,
+.btn-outlined {
   background: transparent;
-  color: var(--md-sys-color-primary);
-  border: 1px solid var(--md-sys-color-outline);
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
 }
 
-.m3-btn.outlined:hover {
+.m3-btn.outlined:hover,
+.btn-outlined:hover {
   background: var(--md-sys-color-surface-container-high);
+  border-color: var(--md-sys-color-primary);
 }
 
-.m3-btn.tonal {
+.m3-btn.tonal,
+.btn-tonal {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
+  border: 1px solid transparent;
 }
 
-.m3-btn.danger {
+.m3-btn.tonal:hover,
+.btn-tonal:hover {
+  filter: brightness(1.06);
+}
+
+.m3-btn.danger,
+.btn-danger {
   background: var(--md-sys-color-error);
   color: #ffffff;
 }
 
-.m3-btn.small {
-  padding: 4px 10px;
+.m3-btn.small,
+.btn-sm {
+  padding: 5px 12px;
   font-size: 12px;
   border-radius: var(--radius-sm);
+  gap: 4px;
+}
+
+.m3-btn.btn-full,
+.btn-full {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px 18px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
 }
 
 .icon-btn {
@@ -88,55 +135,247 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .icon-btn:hover {
   background: var(--md-sys-color-surface-container-high);
 }
 
-/* Form Controls */
-.form-group {
-  margin-bottom: 14px;
+.icon-btn:active {
+  transform: scale(0.92);
 }
 
-.form-label {
+/* ========================================================
+ * 3. Chips & Chip Groups (M3 Selection Chips)
+ * ======================================================== */
+.chip-group {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 0;
+  margin-bottom: 10px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chip-group::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: var(--radius-xl);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip:hover {
+  background: var(--md-sys-color-surface-container-high);
+}
+
+.chip:active {
+  transform: scale(0.95);
+}
+
+.chip.active {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-color: var(--md-sys-color-primary);
+  box-shadow: var(--shadow-1);
+}
+
+/* ========================================================
+ * 4. Form Controls & Inputs
+ * ======================================================== */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-label,
+label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   color: var(--md-sys-color-outline);
 }
 
-.m3-input, .m3-select, .m3-textarea {
+.m3-input,
+.m3-select,
+.m3-textarea,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="file"],
+select,
+textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--md-sys-color-outline);
+  border: 1px solid var(--md-sys-color-outline-variant);
   background: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
   font-size: 13px;
   font-family: inherit;
-  transition: border-color 0.2s;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
 }
 
-.m3-input:focus, .m3-select:focus, .m3-textarea:focus {
-  outline: none;
+.m3-input:focus,
+.m3-select:focus,
+.m3-textarea:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
   border-color: var(--md-sys-color-primary);
   box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
 }
 
-.m3-textarea {
+.m3-input::placeholder,
+.m3-textarea::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--md-sys-color-outline);
+  opacity: 0.7;
+}
+
+.m3-textarea,
+textarea {
   resize: vertical;
   min-height: 70px;
 }
 
-/* Modal Dialog */
-.modal-overlay {
+/* Range Sliders */
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--md-sys-color-surface-container-highest);
+  outline: none;
+  touch-action: pan-y;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  border: none;
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+
+/* ========================================================
+ * 5. Palette Swatches & Native Color Picker
+ * ======================================================== */
+.swatch-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.swatch-item,
+.palette-btn,
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--md-sys-color-outline-variant);
+  cursor: pointer;
+  display: inline-block;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.swatch-item:hover,
+.palette-btn:hover,
+.color-swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch-item.active,
+.palette-btn.active,
+.color-swatch.active {
+  transform: scale(1.18);
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 3px var(--md-sys-color-primary-container);
+}
+
+.native-color-picker,
+#nativeColorPicker {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--md-sys-color-outline-variant);
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  overflow: hidden;
+}
+
+.native-color-picker::-webkit-color-swatch-wrapper,
+#nativeColorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.native-color-picker::-webkit-color-swatch,
+#nativeColorPicker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* ========================================================
+ * 6. Modal Dialogs (Full Compatibility: Overlay & Backdrop)
+ * ======================================================== */
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 2000;
   display: none;
   align-items: center;
@@ -145,21 +384,25 @@
   animation: fadeIn 0.2s ease;
 }
 
-.modal-overlay.active {
+.modal-overlay.active,
+.modal-backdrop.open,
+.modal-backdrop.active {
   display: flex;
 }
 
-.modal-card {
+.modal-card,
+.modal-sheet {
   background: var(--md-sys-color-surface);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--radius-xl);
-  padding: 24px;
+  padding: 22px 24px;
   max-width: 580px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 88vh;
   overflow-y: auto;
   box-shadow: var(--shadow-3);
   animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 @keyframes scaleUp {
@@ -171,13 +414,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .modal-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .modal-close {
@@ -186,6 +432,13 @@
   font-size: 20px;
   cursor: pointer;
   color: var(--md-sys-color-outline);
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.modal-close:hover {
+  color: var(--md-sys-color-on-surface);
 }
 
 .modal-footer {
@@ -195,7 +448,9 @@
   margin-top: 20px;
 }
 
-/* Storage Capacity Bar */
+/* ========================================================
+ * 7. Storage Capacity Bar
+ * ======================================================== */
 .storage-progress-bar {
   height: 8px;
   background: var(--md-sys-color-surface-container-highest);
@@ -211,7 +466,9 @@
   transition: width 0.3s ease;
 }
 
-/* Toast Notifications */
+/* ========================================================
+ * 8. Toast Notifications
+ * ======================================================== */
 .toast-container {
   position: fixed;
   bottom: 24px;
@@ -223,11 +480,19 @@
   pointer-events: none;
 }
 
+@media (max-width: 640px) {
+  .toast-container {
+    bottom: calc(84px + env(safe-area-inset-bottom, 8px));
+    left: 16px;
+    right: 16px;
+  }
+}
+
 .toast {
   background: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
   border-left: 4px solid var(--md-sys-color-primary);
-  padding: 10px 18px;
+  padding: 10px 16px;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-2);
   font-size: 13px;

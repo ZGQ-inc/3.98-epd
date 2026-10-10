@@ -1,10 +1,12 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
- * Layout & Responsive Multi-Device Styles
+ * Layout & Responsive Multi-Device Styles (Material Design 3)
  * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
  */
 
-/* Header */
+/* ========================================================
+ * 1. Global Header
+ * ======================================================== */
 header {
   background: var(--md-sys-color-surface-container);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
@@ -15,8 +17,8 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .brand {
@@ -25,6 +27,7 @@ header {
   display: flex;
   align-items: center;
   gap: 10px;
+  letter-spacing: -0.2px;
 }
 
 .brand-badge {
@@ -34,6 +37,7 @@ header {
   color: var(--md-sys-color-on-primary-container);
   padding: 2px 8px;
   border-radius: 6px;
+  letter-spacing: 0.5px;
 }
 
 .header-right {
@@ -42,8 +46,12 @@ header {
   gap: 10px;
 }
 
-/* Connectivity Banner */
-.conn-banner {
+/* ========================================================
+ * 2. Top Connectivity & Status Bar Cards
+ * ======================================================== */
+/* Primary Connection Card (WebBLE) */
+.conn-banner,
+.ble-banner {
   background: var(--md-sys-color-surface-container-high);
   margin: 12px 16px 8px 16px;
   border-radius: var(--radius-md);
@@ -55,30 +63,43 @@ header {
   border: 1px solid var(--md-sys-color-outline-variant);
   flex-wrap: wrap;
   gap: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .conn-left {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.conn-status-dot {
+.conn-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.conn-status-dot,
+.ble-status-dot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   display: inline-block;
-  background-color: #888;
-  box-shadow: 0 0 6px rgba(0,0,0,0.2);
+  background-color: #888888;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.conn-status-dot.connected {
+.conn-status-dot.connected,
+.ble-status-dot.connected {
   background-color: #4caf50;
   box-shadow: 0 0 8px #4caf50;
 }
 
-.conn-status-dot.connecting {
+.conn-status-dot.connecting,
+.ble-status-dot.connecting {
   background-color: #ff9800;
   animation: pulse-dot 1.2s infinite;
 }
@@ -88,6 +109,12 @@ header {
   50% { opacity: 0.4; transform: scale(0.85); }
 }
 
+.conn-subtext {
+  font-size: 11px;
+  color: var(--md-sys-color-outline);
+  padding-left: 18px;
+}
+
 .conn-right {
   display: flex;
   align-items: center;
@@ -95,12 +122,126 @@ header {
   flex-wrap: wrap;
 }
 
+/* Secondary Connection Bar (LAN / Wi-Fi Air Provisioning) */
+.network-sub-bar {
+  margin: 0 16px 8px 16px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: var(--md-sys-color-surface-container);
+  font-size: 12px;
+  color: var(--md-sys-color-outline);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: var(--shadow-1);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.network-sub-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lan-ip-badge {
+  font-weight: 700;
+  color: var(--md-sys-color-primary);
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.lan-console-link {
+  color: var(--md-sys-color-primary);
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 4px;
+  border-bottom: 1px dashed var(--md-sys-color-primary);
+  padding-bottom: 1px;
+}
+
+.lan-console-link:hover {
+  opacity: 0.8;
+}
+
+.network-sub-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 4-Way Display Orientation Bar */
+.orientation-bar {
+  margin: 0 16px 12px 16px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-1);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orientation-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+
+.orientation-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-family: monospace;
+}
+
+.orientation-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Transmission Progress Bar */
+.progress-bar-wrap {
+  margin: 0 16px 8px 16px;
+  height: 6px;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: 3px;
+  overflow: hidden;
+  display: none;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background: var(--md-sys-color-primary);
+  transition: width 0.15s ease;
+}
+
+.transfer-msg {
+  margin: -4px 16px 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  min-height: 16px;
+}
+
 /* ========================================================
- * 🚀 Responsive Sliding Tab Bar Navigation with Scroll Hint
+ * 3. Responsive Sliding Tab Bar Navigation with Scroll Hint
  * ======================================================== */
 .tab-scroll-wrapper {
   position: relative;
-  margin: 4px 16px 12px 16px;
+  margin: 4px 16px 14px 16px;
 }
 
 .tab-scroll-container {
@@ -118,14 +259,14 @@ header {
   display: none;
 }
 
-/* Fade Masks on Left & Right to indicate more content (Desktop/Tablet default) */
+/* Gradient Fade Masks on Left & Right */
 .tab-scroll-wrapper::before,
 .tab-scroll-wrapper::after {
   content: '';
   position: absolute;
   top: 4px;
   bottom: 4px;
-  width: 24px;
+  width: 28px;
   pointer-events: none;
   z-index: 10;
   opacity: 0;
@@ -150,7 +291,7 @@ header {
   opacity: 1;
 }
 
-/* Tab Bar Base */
+/* Tab Bar Base (Desktop / Tablet top bar) */
 .tab-nav {
   display: inline-flex;
   gap: 8px;
@@ -185,13 +326,17 @@ header {
   background: var(--md-sys-color-surface-container-high);
 }
 
+.tab-btn:active {
+  transform: scale(0.97);
+}
+
 .tab-btn.active {
   background: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
   box-shadow: var(--shadow-1);
 }
 
-/* Mobile Slide Hint Tooltip (Default) */
+/* Mobile Slide Hint Tooltip */
 .tab-scroll-hint {
   display: none;
   align-items: center;
@@ -200,10 +345,11 @@ header {
   color: var(--md-sys-color-on-primary-container);
   font-size: 11px;
   font-weight: 600;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 20px;
   margin-bottom: 6px;
   animation: fadeIn 0.3s ease;
+  box-shadow: var(--shadow-2);
 }
 
 .tab-scroll-hint span {
@@ -216,13 +362,15 @@ header {
   background: transparent;
   border: none;
   color: inherit;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
 
-/* Main Container */
+/* ========================================================
+ * 4. Main Container & Tab Panes
+ * ======================================================== */
 main {
   flex: 1;
   padding: 0 16px 24px 16px;
@@ -231,12 +379,14 @@ main {
   width: 100%;
 }
 
-.tab-pane {
+.tab-pane,
+.tab-view {
   display: none;
   animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.tab-pane.active {
+.tab-pane.active,
+.tab-view.active {
   display: block;
 }
 
@@ -245,12 +395,14 @@ main {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Footer */
+/* ========================================================
+ * 5. Footer
+ * ======================================================== */
 .app-footer {
   margin-top: auto;
   border-top: 1px solid var(--md-sys-color-outline-variant);
   background: var(--md-sys-color-surface-container);
-  padding: 16px 20px;
+  padding: 18px 20px;
   text-align: center;
   font-size: 13px;
   color: var(--md-sys-color-outline);
@@ -290,10 +442,8 @@ main {
 }
 
 /* ========================================================
- * 📱 Multi-Device Adaptive Media Queries & UA Detection
+ * 6. Responsive Mobile Navigation (Bottom Fixed Sliding Bar)
  * ======================================================== */
-
-/* Mobile Phones (<= 640px) */
 @media (max-width: 640px) {
   header {
     padding: 10px 14px;
@@ -301,8 +451,10 @@ main {
   .brand {
     font-size: 14px;
   }
-  .conn-banner {
-    margin: 8px 10px;
+
+  .conn-banner,
+  .ble-banner {
+    margin: 8px 10px 6px 10px;
     padding: 10px 12px;
     gap: 8px;
   }
@@ -310,12 +462,20 @@ main {
     width: 100%;
     justify-content: flex-start;
   }
-  .conn-right input {
-    flex: 1;
-    min-width: 120px;
+
+  .network-sub-bar {
+    margin: 0 10px 6px 10px;
+    padding: 8px 12px;
+    gap: 6px;
   }
 
-  /* Fixed Bottom Navigation Bar */
+  .orientation-bar {
+    margin: 0 10px 10px 10px;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  /* Fixed Bottom Sliding Navigation Bar */
   .tab-scroll-wrapper {
     position: fixed;
     bottom: 0;
@@ -326,22 +486,21 @@ main {
     background: var(--md-sys-color-surface-container);
     border-top: 1px solid var(--md-sys-color-outline-variant);
     border-bottom: none;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.28);
     padding-bottom: env(safe-area-inset-bottom, 8px);
-    padding-top: 4px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    padding-top: 6px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Smooth horizontal scrolling for tabs */
   .tab-scroll-container {
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    padding: 4px 8px;
+    padding: 2px 10px;
   }
 
-  /* Gradient fade masks on left and right */
+  /* Gradient edge masks */
   .tab-scroll-wrapper::before,
   .tab-scroll-wrapper::after {
     top: 0;
@@ -365,14 +524,14 @@ main {
     display: inline-flex;
     background: transparent;
     border: none;
-    padding: 0 4px;
-    gap: 8px;
+    padding: 0 2px;
+    gap: 6px;
     white-space: nowrap;
   }
 
   /* Touch-friendly tab buttons */
   .tab-btn {
-    min-height: 44px;
+    min-height: 42px;
     padding: 8px 14px;
     font-size: 13px;
     border-radius: var(--radius-xl);
@@ -405,17 +564,17 @@ main {
     pointer-events: auto;
   }
 
-  /* Padding on body and main to prevent occlusion by bottom bar */
+  /* Safe padding on body and main to avoid occlusion */
   body {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom, 8px));
+    padding-bottom: calc(78px + env(safe-area-inset-bottom, 8px));
   }
 
   main {
-    padding: 0 10px calc(76px + env(safe-area-inset-bottom, 8px)) 10px;
+    padding: 0 10px calc(78px + env(safe-area-inset-bottom, 8px)) 10px;
   }
 
   .app-footer {
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 8px));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 8px));
   }
 }
 

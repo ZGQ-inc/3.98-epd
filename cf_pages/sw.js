@@ -1,7 +1,7 @@
 // sw.js — Service Worker for 3.98" BWRY E-Paper Open Badge PWA
 // Provides 100% offline capability for Cloudflare Pages deployment
 
-const CACHE_NAME = 'epd-pwa-v2.1';
+const CACHE_NAME = 'epd-pwa-v2.5';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -17,6 +17,8 @@ const STATIC_ASSETS = [
   './js/device.js',
   './js/presets.js',
   './js/canvas.js',
+  './js/itabag.js',
+  './js/scenes.js',
   './js/studio.js',
   './js/ui.js',
   './js/app.js'

@@ -12,11 +12,11 @@
   <meta name="apple-mobile-web-app-title" content="墨水屏工坊">
   <meta name="description" content="专为 3.98 英寸四色墨水屏打造的蓝牙与局域网双模独立控制端 PWA。">
 
-  <!-- Modular Stylesheets -->
-  <link rel="stylesheet" href="./css/theme.css?v=2.1">
-  <link rel="stylesheet" href="./css/layout.css?v=2.1">
-  <link rel="stylesheet" href="./css/components.css?v=2.1">
-  <link rel="stylesheet" href="./css/studios.css?v=2.1">
+  <!-- Modular Stylesheets (Material Web 3.0 Tokens) -->
+  <link rel="stylesheet" href="./css/theme.css?v=2.5">
+  <link rel="stylesheet" href="./css/layout.css?v=2.5">
+  <link rel="stylesheet" href="./css/components.css?v=2.5">
+  <link rel="stylesheet" href="./css/studios.css?v=2.5">
 </head>
 <body>
 
@@ -28,28 +28,63 @@
       <span class="brand-badge">PWA</span>
     </div>
     <div class="header-right">
-      <button class="icon-btn" id="themeToggleBtn" title="切换暗黑/亮色主题">🌓</button>
+      <button class="icon-btn" id="themeToggleBtn" title="切换暗黑/亮色主题">🌙</button>
     </div>
   </header>
 
-  <!-- Connectivity Banner -->
+  <!-- 1. Top Status Bar: Bluetooth WebBLE Connectivity Card -->
   <div class="conn-banner">
     <div class="conn-left">
-      <span class="conn-status-dot" id="bleStatusDot"></span>
-      <strong id="bleStatusText" style="font-size:13px;">未连接设备</strong>
+      <div class="conn-title-row">
+        <span class="conn-status-dot" id="bleStatusDot"></span>
+        <strong id="bleStatusText">● 已断开连接</strong>
+      </div>
+      <div class="conn-subtext" id="bleSubText">
+        无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推
+      </div>
     </div>
     <div class="conn-right">
-      <button class="m3-btn small outlined" id="bleConnectBtn">连接蓝牙</button>
-      <div style="display:inline-flex; gap:4px; align-items:center;">
-        <input type="text" id="lanIpInput" class="m3-input" placeholder="局域网 IP (如 192.168.10.203)" style="width:170px; padding:4px 8px; font-size:12px;">
-        <button class="m3-btn small tonal" id="lanConnectBtn">连接 IP</button>
-      </div>
+      <button class="m3-btn small" id="bleConnectBtn">🔍 扫描连接</button>
+      <button class="m3-btn small outlined" id="btnDevManage" title="记忆设备管理">🗂️ 设备管理</button>
     </div>
   </div>
 
-  <!-- Sliding Tab Navigation -->
+  <!-- 2. LAN Connection & Air Provisioning Bar -->
+  <div class="network-sub-bar">
+    <div class="network-sub-left">
+      <span>●</span>
+      <span id="netLanStatus" class="lan-ip-badge">局域网: 192.168.10.203</span>
+      <a href="http://192.168.10.203/" target="_blank" rel="noopener noreferrer" id="lanConsoleLink" class="lan-console-link">[打开控制台]</a>
+    </div>
+    <div class="network-sub-right">
+      <button class="m3-btn small outlined" id="btnAirProv">📶 蓝牙配网</button>
+      <button class="m3-btn small outlined" id="btnLanIp">🌐 填入 IP</button>
+    </div>
+  </div>
+
+  <!-- 3. 4-Way Display Orientation Bar -->
+  <div class="orientation-bar">
+    <div class="orientation-left">
+      <span>🔄 朝向:</span>
+      <span id="orientationBadge" class="orientation-badge">0° 横屏 (768×552)</span>
+    </div>
+    <div class="orientation-chips">
+      <button class="chip active" id="rot-chip-0" onclick="UI.setOrientation(0)">0° 横屏</button>
+      <button class="chip" id="rot-chip-90" onclick="UI.setOrientation(90)">90° 竖屏</button>
+      <button class="chip" id="rot-chip-180" onclick="UI.setOrientation(180)">180° 倒横</button>
+      <button class="chip" id="rot-chip-270" onclick="UI.setOrientation(270)">270° 倒竖</button>
+    </div>
+  </div>
+
+  <!-- Transmission Progress Indicator -->
+  <div class="progress-bar-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="transfer-msg" id="transferMsg"></div>
+
+  <!-- Sliding Tab Navigation (Desktop Top Bar / Mobile Bottom Fixed Sliding Bar) -->
   <div class="tab-scroll-wrapper">
-    <!-- Mobile Swipe Hint -->
+    <!-- Mobile Gesture Hint Tooltip -->
     <div class="tab-scroll-hint" id="tabScrollHint">
       <span>👉 左右滑动切换功能标签</span>
       <button class="hint-close">&times;</button>
@@ -57,88 +92,129 @@
 
     <div class="tab-scroll-container">
       <nav class="tab-nav">
-        <button class="tab-btn active" data-tab="badge" onclick="UI.switchTab('badge', this)">📇 智能工牌</button>
-        <button class="tab-btn" data-tab="itabag" onclick="UI.switchTab('itabag', this)">🎒 兽聚痛卡</button>
-        <button class="tab-btn" data-tab="memo" onclick="UI.switchTab('memo', this)">📝 随身便签</button>
-        <button class="tab-btn" data-tab="paint" onclick="UI.switchTab('paint', this)">🎨 像素手绘</button>
-        <button class="tab-btn" data-tab="image" onclick="UI.switchTab('image', this)">🖼️ 图像工坊</button>
-        <button class="tab-btn" data-tab="scenes" onclick="UI.switchTab('scenes', this)">📋 场景遥控</button>
-        <button class="tab-btn" data-tab="presets" onclick="UI.switchTab('presets', this)">🗂️ 预设效果库</button>
-        <button class="tab-btn" data-tab="system" onclick="UI.switchTab('system', this)">⚙️ 硬件诊断</button>
+        <button class="tab-btn active" data-tab="badge">📇 智能工牌</button>
+        <button class="tab-btn" data-tab="itabag">🎒 兽聚痛卡</button>
+        <button class="tab-btn" data-tab="memo">📝 随身便签</button>
+        <button class="tab-btn" data-tab="paint">🎨 4色手绘</button>
+        <button class="tab-btn" data-tab="image">🖼️ 图片调色</button>
+        <button class="tab-btn" data-tab="scenes">⚙️ 场景遥控</button>
+        <button class="tab-btn" data-tab="presets">🗂️ 预设效果库</button>
+        <button class="tab-btn" data-tab="system">⚙️ 硬件诊断</button>
       </nav>
     </div>
   </div>
 
-  <!-- Main Content Areas -->
+  <!-- Main Content Panes -->
   <main>
 
-    <!-- 1. Smart E-Badge Tab -->
+    <!-- ========================================================
+     * TAB 1: 📇 智能工牌 / 随身名片
+     * ======================================================== -->
     <div class="tab-pane active" id="tab-badge">
       <div class="grid-2col">
         <div class="m3-card">
-          <h3 class="m3-card-title">👁️ 实时点阵预览 (768×552)</h3>
+          <div class="card-title">
+            <span>👁️ 实时点阵预览 (768×552)</span>
+            <span style="font-size:12px; color:var(--md-sys-color-primary);">BWRY 四色</span>
+          </div>
           <div class="preview-container">
-            <canvas id="badgePreviewCanvas" class="preview-canvas"></canvas>
+            <canvas id="badgePreviewCanvas" class="preview-canvas" width="768" height="552"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="badgePushBtn" onclick="App.pushCanvas(App.badgeCanvas, '工牌')">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="badgeSavePresetBtn" onclick="App.promptSavePreset(App.badgeCanvas, 'badge', '个性工牌预设')">💾 保存为预设</button>
+            <button class="m3-btn" id="badgePushBtn">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="badgeSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn outlined" data-dither-preview="badgePreviewCanvas">👁️ 4色微粒物理预览</button>
           </div>
         </div>
 
         <div class="m3-card">
-          <h3 class="m3-card-title">⚙️ 工牌与名片排版定制</h3>
-          <div class="form-group">
-            <label class="form-label">模板风格</label>
-            <select id="badgeTemplate" class="m3-select badge-input">
-              <option value="hacker">极客黑客 (Hacker Black & Yellow)</option>
-              <option value="business">商务极简 (Clean Minimalist)</option>
-              <option value="anime">兽聚漫展 (Anime & Furry Badge)</option>
-            </select>
+          <div class="card-title">
+            <span>⚙️ 工牌与名片排版定制</span>
           </div>
-          <div class="form-group">
-            <label class="form-label">显示昵称 / 姓名</label>
-            <input type="text" id="badgeName" class="m3-input badge-input" value="ZGQ">
+          <div class="card-subtitle">
+            支持横竖屏自适应、双向挂绳佩戴、极客/商务/兽聚/展会风格与二维码扫码
           </div>
-          <div class="form-group">
-            <label class="form-label">社交账号 / ID</label>
-            <input type="text" id="badgeHandle" class="m3-input badge-input" value="@zgq_inc">
+
+          <!-- 4 Style Cards -->
+          <div class="badge-style-chips">
+            <div class="badge-style-card active" id="chip-geek">🧑‍💻 极客黑客</div>
+            <div class="badge-style-card" id="chip-business">💼 商务极简</div>
+            <div class="badge-style-card" id="chip-anime">🐾 兽聚名片</div>
+            <div class="badge-style-card" id="chip-staff">🎫 展会工作证</div>
           </div>
+
           <div class="form-group">
-            <label class="form-label">职位 / 头衔</label>
-            <input type="text" id="badgeTitle" class="m3-input badge-input" value="Hardware Hacker">
+            <label class="form-label">姓名 / 昵称</label>
+            <input type="text" id="badgeName" class="m3-input badge-input" value="ZGQ" placeholder="ZGQ">
           </div>
-          <div class="form-group">
-            <label class="form-label">个性签名 / 简介</label>
-            <textarea id="badgeBio" class="m3-textarea badge-input">Building open-source smart hardware with e-ink technology.</textarea>
+
+          <div class="grid-2col" style="gap:10px; margin-bottom:10px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">身份 / 职位</label>
+              <input type="text" id="badgeRole" class="m3-input badge-input" value="全栈工程师 / 嵌入式架构" placeholder="Hardware Hacker">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">所属组织 / 公司</label>
+              <input type="text" id="badgeOrg" class="m3-input badge-input" value="ZGQ Inc." placeholder="ZGQ Inc.">
+            </div>
           </div>
+
+          <div class="grid-2col" style="gap:10px; margin-bottom:10px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">联系方式 / 电话</label>
+              <input type="text" id="badgeContact" class="m3-input badge-input" value="t.me/ZGQinc" placeholder="t.me/ZGQinc">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">电子邮箱 / 即时通讯</label>
+              <input type="text" id="badgeEmail" class="m3-input badge-input" value="zgqinc@gmail.com" placeholder="zgqinc@gmail.com">
+            </div>
+          </div>
+
           <div class="form-group">
-            <label class="form-label">二维码链接 (主页 / 微信 / 名片)</label>
-            <input type="text" id="badgeQrText" class="m3-input badge-input" value="https://domain.zgqinc.gq/">
+            <label class="form-label">座右铭 / 签名 / 简介</label>
+            <textarea id="badgeMotto" class="m3-textarea badge-input">用代码连接物理世界，专注低功耗嵌入式！</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">二维码链接 (主页 / 微信 / 个人名片)</label>
+            <input type="text" id="badgeQr" class="m3-input badge-input" value="https://domain.zgqinc.gq/">
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 2. Ita-Bag & Charm Tab -->
+    <!-- ========================================================
+     * TAB 2: 🎒 兽聚痛卡 / 角色立绘随身挂饰
+     * ======================================================== -->
     <div class="tab-pane" id="tab-itabag">
       <div class="grid-2col">
         <div class="m3-card">
-          <h3 class="m3-card-title">👁️ 痛卡点阵预览 (768×552)</h3>
+          <div class="card-title">
+            <span>👁️ 痛卡点阵预览 (768×552)</span>
+            <span class="itabag-lanyard-tag">外壳挂孔适用</span>
+          </div>
           <div class="itabag-preview-frame">
             <div class="itabag-bezel">
               <div class="itabag-window-glare"></div>
-              <canvas id="itaPreviewCanvas" class="preview-canvas"></canvas>
+              <canvas id="itaPreviewCanvas" class="preview-canvas" width="768" height="552"></canvas>
             </div>
           </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-            <button class="m3-btn" id="itabagPushBtn" onclick="App.pushCanvas(ItaBagStudio.getCanvas(), '痛卡挂饰')">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="itabagSavePresetBtn" onclick="App.promptSavePreset(ItaBagStudio.getCanvas(), 'itabag', '兽聚痛卡预设')">💾 保存为预设</button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+            <button class="m3-btn" id="itabagPushBtn">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="itabagSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn outlined" data-dither-preview="itaPreviewCanvas">👁️ 4色微粒物理预览</button>
           </div>
         </div>
 
         <div class="m3-card">
-          <h3 class="m3-card-title">🎒 角色立绘与挂饰排版定制</h3>
+          <div class="card-title">
+            <span>🎒 角色立绘与挂饰排版定制</span>
+          </div>
+          <div class="card-subtitle">
+            专为痛包、钥匙扣与挂绳随身携带设计！支持相册选图、4色微粒物理抖动还原与专属题字
+          </div>
+
+          <!-- Upload Dropzone -->
           <div class="itabag-upload-zone file-drop-area">
             <span class="itabag-upload-icon">📷</span>
             <span class="itabag-upload-title">点击或拖拽上传角色立绘 / 照片</span>
@@ -159,15 +235,15 @@
 
           <div class="form-group">
             <label class="form-label">专属台词 / 个性题字</label>
-            <textarea id="itaQuote" class="m3-textarea itabag-input" style="min-height:70px;">出发去漫展！有你陪伴的每一天都是奇迹！</textarea>
+            <textarea id="itaQuote" class="m3-textarea itabag-input" style="min-height:60px;">出发去漫展！有你陪伴的每一天都是奇迹！</textarea>
           </div>
 
-          <div class="grid-2col" style="gap:10px;">
-            <div class="form-group">
+          <div class="grid-2col" style="gap:10px; margin-bottom:10px;">
+            <div class="form-group" style="margin:0;">
               <label class="form-label">缩放比例 (50% ~ 250%)</label>
-              <input type="range" id="itaScaleInput" class="itabag-slider" min="0.5" max="2.5" step="0.05" value="1.0">
+              <input type="range" id="itaScaleInput" min="0.5" max="2.5" step="0.05" value="1.0">
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin:0;">
               <label class="form-label">旋转角度</label>
               <select id="itaRotateSelect" class="m3-select itabag-input">
                 <option value="0">0° 正常显示</option>
@@ -179,14 +255,14 @@
           </div>
 
           <div class="grid-2col" style="gap:10px;">
-            <div class="form-group">
+            <div class="form-group" style="margin:0;">
               <label class="form-label">文字样式</label>
               <select id="itaStyleSelect" class="m3-select itabag-input">
                 <option value="bubble">漫画对话气泡 (Speech Bubble)</option>
                 <option value="banner">底部铭牌横幅 (Subtitle Banner)</option>
               </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin:0;">
               <label class="form-label">外框装饰</label>
               <select id="itaBorderSelect" class="m3-select itabag-input">
                 <option value="charm">挂饰双层边框 + 金属铆钉</option>
@@ -198,140 +274,286 @@
       </div>
     </div>
 
-    <!-- 3. Memo & Checklist Tab -->
+    <!-- ========================================================
+     * TAB 3: 📝 随身备忘 / 便签清单
+     * ======================================================== -->
     <div class="tab-pane" id="tab-memo">
       <div class="grid-2col">
         <div class="m3-card">
-          <h3 class="m3-card-title">👁️ 便签点阵预览</h3>
+          <div class="card-title">
+            <span>👁️ 便签点阵预览</span>
+          </div>
           <div class="preview-container">
-            <canvas id="memoPreviewCanvas" class="preview-canvas"></canvas>
+            <canvas id="memoPreviewCanvas" class="preview-canvas" width="768" height="552"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="memoPushBtn" onclick="App.pushCanvas(App.memoCanvas, '便签')">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="memoSavePresetBtn" onclick="App.promptSavePreset(App.memoCanvas, 'memo', '待办便签预设')">💾 保存为预设</button>
+            <button class="m3-btn" id="memoPushBtn">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="memoSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn outlined" data-dither-preview="memoPreviewCanvas">👁️ 4色微粒物理预览</button>
           </div>
         </div>
 
         <div class="m3-card">
-          <h3 class="m3-card-title">📝 便签与待办清单内容</h3>
+          <div class="card-title">
+            <span>📝 便签与待办清单内容</span>
+          </div>
+          <div class="card-subtitle">
+            清晰 32px 醒目大号字体，随身携带或磁吸冰箱一目了然
+          </div>
           <div class="form-group">
             <label class="form-label">便签标题</label>
-            <input type="text" id="memoTitle" class="m3-input memo-input" value="今日核心待办">
+            <input type="text" id="memoTitle" class="m3-input memo-input" value="TODAY TO-DO LIST">
           </div>
           <div class="form-group">
             <label class="form-label">待办事项（每行一项，自动生成复选框）</label>
-            <textarea id="memoItems" class="m3-textarea memo-input" style="min-height:160px;">出门记得带钥匙和工牌
+            <textarea id="memoItems" class="m3-textarea memo-input" style="min-height:140px;">出门记得带钥匙和工牌
 晚上 8 点智能门禁固件升级
 给痛包充好电备战周末漫展</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">底部便签提示语</label>
+            <input type="text" id="memoFooter" class="m3-input memo-input" value="保持专注，逐项击破！ | 墨水屏双稳态零功耗保持">
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 3. Pixel Paint Canvas Tab -->
+    <!-- ========================================================
+     * TAB 4: 🎨 4色手绘画板 / 涂鸦创作
+     * ======================================================== -->
     <div class="tab-pane" id="tab-paint">
       <div class="m3-card">
-        <h3 class="m3-card-title">🎨 4色像素手绘画板 (BWRY 768×552)</h3>
+        <div class="card-title">
+          <span>🎨 4色手绘画板 (BWRY 768×552)</span>
+          <div style="display:flex; gap:6px;">
+            <button class="m3-btn small outlined" id="paintUndoBtn">↩️ 撤销</button>
+            <button class="m3-btn small outlined" id="paintRedoBtn">↪️ 重做</button>
+            <button class="m3-btn small danger" id="paintClearBtn">🗑️ 清空</button>
+          </div>
+        </div>
 
         <!-- Palette & Tools Toolbar -->
-        <div class="palette-bar">
-          <div style="display:flex; gap:6px; align-items:center;">
-            <span class="form-label" style="margin:0;">微粒调色盘:</span>
-            <span class="color-swatch swatch-black active" data-color="#000000" title="黑"></span>
-            <span class="color-swatch swatch-white" data-color="#ffffff" title="白"></span>
-            <span class="color-swatch swatch-yellow" data-color="#f4c430" title="黄"></span>
-            <span class="color-swatch swatch-red" data-color="#d32f2f" title="红"></span>
+        <div class="palette-box">
+          <div class="palette-group-title">纯色基础墨水 (Pure Inks) & 取色器:</div>
+          <div class="swatch-row">
+            <span class="color-swatch swatch-item active" style="background-color:#000000;" data-color="#000000" title="纯黑"></span>
+            <span class="color-swatch swatch-item" style="background-color:#ffffff; border-color:#888;" data-color="#ffffff" title="纯白"></span>
+            <span class="color-swatch swatch-item" style="background-color:#f4c430;" data-color="#f4c430" title="纯黄"></span>
+            <span class="color-swatch swatch-item" style="background-color:#d32f2f;" data-color="#d32f2f" title="纯红"></span>
+            <input type="color" id="nativeColorPicker" value="#000000" class="native-color-picker" title="原生自定义取色器">
+
+            <div style="display:inline-flex; align-items:center; gap:8px; margin-left:auto; flex-wrap:wrap;">
+              <label class="form-label" style="margin:0;">工具:</label>
+              <select id="paintToolSelect" class="m3-select" style="width:auto; padding:5px 10px; font-size:12px;">
+                <option value="pen">✏️ 画笔 (Pen)</option>
+                <option value="circle_pen">⭕ 圆头笔 (Circle Pen)</option>
+                <option value="line">📏 直线 (Line)</option>
+                <option value="rect">⬜ 矩形框 (Rect)</option>
+                <option value="rect_fill">⬛ 实心矩形 (Rect Fill)</option>
+                <option value="circle">⭕ 圆形框 (Circle)</option>
+                <option value="circle_fill">🔴 实心圆形 (Circle Fill)</option>
+                <option value="text">🔤 题字 (Text)</option>
+                <option value="eraser">🧹 橡皮擦 (Eraser)</option>
+              </select>
+
+              <label class="form-label" style="margin:0;">粗细:</label>
+              <input type="range" id="paintLineWidth" min="1" max="40" value="4" style="width:70px;">
+              <span id="paintLineWidthVal" style="font-size:12px; font-weight:700; width:28px;">4px</span>
+            </div>
           </div>
 
-          <div style="display:flex; gap:6px; align-items:center; margin-left:auto; flex-wrap:wrap;">
-            <button class="m3-btn small tonal tool-btn active" data-tool="pen">✏️ 画笔</button>
-            <button class="m3-btn small outlined tool-btn" data-tool="line">📏 直线</button>
-            <button class="m3-btn small outlined tool-btn" data-tool="rect">⬜ 矩形</button>
-            <button class="m3-btn small outlined tool-btn" data-tool="circle">⚪ 圆形</button>
-            <button class="m3-btn small outlined tool-btn" data-tool="eraser">🧹 橡皮</button>
-            <input type="range" id="paintLineWidth" min="1" max="20" value="4" style="width:70px;" title="笔触粗细">
-            <button class="m3-btn small outlined" id="paintUndoBtn" onclick="PaintCanvas.undo()">↩️ 撤销</button>
-            <button class="m3-btn small outlined" id="paintRedoBtn" onclick="PaintCanvas.redo()">↪️ 重做</button>
-            <button class="m3-btn small danger" id="paintClearBtn" onclick="PaintCanvas.clear()">清空</button>
+          <div class="palette-group-title" style="margin-top:10px;">10 种物理微粒混色与精选灰阶 (Mixed BWRY):</div>
+          <div class="swatch-row">
+            <span class="color-swatch swatch-item" style="background-color:#ff8c00;" data-color="#ff8c00" title="亮橙 (红+黄混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#ff9999;" data-color="#ff9999" title="浅粉 (红+白混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#800000;" data-color="#800000" title="深红 / 勃艮第 (红+黑混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#fff3cc;" data-color="#fff3cc" title="米黄 / 奶黄 (黄+白混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#666600;" data-color="#666600" title="暗橄榄 (黄+黑混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#8b4513;" data-color="#8b4513" title="棕褐 (红+黄+黑混色)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#e6e6e6;" data-color="#e6e6e6" title="10% 浅灰 (黑白点阵)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#cccccc;" data-color="#cccccc" title="25% 灰 (黑白交错)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#808080;" data-color="#808080" title="50% 中灰 (黑白棋盘点阵)"></span>
+            <span class="color-swatch swatch-item" style="background-color:#404040;" data-color="#404040" title="75% 深灰 (黑白高密)"></span>
           </div>
         </div>
 
         <div class="preview-container">
-          <canvas id="paintDrawingCanvas" class="preview-canvas" style="cursor:crosshair;"></canvas>
+          <canvas id="paintDrawingCanvas" class="preview-canvas" width="768" height="552" style="cursor:crosshair;"></canvas>
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-          <button class="m3-btn" id="paintPushBtn" onclick="App.pushCanvas(App.paintCanvas, '画板')">🚀 推送画板至墨水屏</button>
-          <button class="m3-btn tonal" id="paintSavePresetBtn" onclick="App.promptSavePreset(App.paintCanvas, 'paint', '像素手绘预设')">💾 保存为预设</button>
+          <button class="m3-btn" id="paintPushBtn">🚀 推送画板至墨水屏</button>
+          <button class="m3-btn tonal" id="paintSavePresetBtn">💾 保存为预设</button>
+          <button class="m3-btn outlined" data-dither-preview="paintDrawingCanvas">👁️ 4色微粒物理预览</button>
         </div>
       </div>
     </div>
 
-    <!-- 4. Image Lab Tab -->
+    <!-- ========================================================
+     * TAB 5: 🖼️ 全能图片调色工坊 (9 种微粒抖动算法)
+     * ======================================================== -->
     <div class="tab-pane" id="tab-image">
       <div class="grid-2col">
         <div class="m3-card">
-          <h3 class="m3-card-title">👁️ 4色微粒物理量化效果</h3>
+          <div class="card-title">
+            <span>👁️ 4色微粒物理量化效果</span>
+          </div>
           <div class="preview-container">
-            <canvas id="imageLabCanvas" class="preview-canvas"></canvas>
+            <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="imagePushBtn" onclick="App.pushCanvas(App.imageLabCanvas, '图片')">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="imageSavePresetBtn" onclick="App.promptSavePreset(App.imageLabCanvas, 'image', '图像作品预设')">💾 保存为预设</button>
+            <button class="m3-btn" id="imagePushBtn">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="imageSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn outlined" data-dither-preview="imageLabCanvas">👁️ 4色微粒物理预览</button>
           </div>
         </div>
 
         <div class="m3-card">
-          <h3 class="m3-card-title">🖼️ 图片上传与微粒算法调校</h3>
+          <div class="card-title">
+            <span>🖼️ 图片上传与 9 种微粒算法调校</span>
+          </div>
+          <div class="card-subtitle">
+            将任意相册图片精准转为 768×552 物理点阵，提供对比度、亮度、红黄灵敏度阈值微调
+          </div>
+
           <div class="form-group">
             <label class="form-label">选择本地图片 (PNG / JPG / WEBP)</label>
             <input type="file" id="imageUploadInput" class="m3-input" accept="image/*">
           </div>
+
           <div class="form-group">
-            <label class="form-label">4色 BWRY 误差扩散微粒算法</label>
+            <label class="form-label">4色 BWRY 误差扩散与半色调算法 (全部 9 种)</label>
             <select id="imageAlgoSelect" class="m3-select">
-              <option value="floyd">Floyd-Steinberg (推荐 · 细腻层次)</option>
+              <option value="floyd">Floyd-Steinberg 误差扩散 (推荐 · 细腻层次)</option>
               <option value="atkinson">Atkinson (复古 Mac 风格 · 清晰线条)</option>
+              <option value="microsoft">Microsoft 8x8 GDI (经典 Win95 复古像素)</option>
+              <option value="stucki">Stucki 误差扩散 (细节细腻锐利)</option>
+              <option value="burkes">Burkes 误差扩散 (快速高保真)</option>
+              <option value="sierra">Sierra 误差扩散 (三行平衡扩散)</option>
+              <option value="ostromoukhov">Ostromoukhov (动态变系数抗蠕虫)</option>
               <option value="bayer">Bayer 4×4 (有序抖动点阵)</option>
+              <option value="threshold">Threshold (纯阈值硬边缘)</option>
             </select>
+          </div>
+
+          <div class="lab-slider-grid">
+            <div class="form-group" style="margin:0;">
+              <div style="display:flex; justify-content:space-between;">
+                <label class="form-label">对比度增强 (-50 ~ +50)</label>
+                <span id="imageContrastSliderVal" class="slider-val-badge">15</span>
+              </div>
+              <input type="range" id="imageContrastSlider" min="-50" max="50" value="15">
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <div style="display:flex; justify-content:space-between;">
+                <label class="form-label">亮度调节 (-50 ~ +50)</label>
+                <span id="imageBrightnessSliderVal" class="slider-val-badge">0</span>
+              </div>
+              <input type="range" id="imageBrightnessSlider" min="-50" max="50" value="0">
+            </div>
+          </div>
+
+          <div class="lab-slider-grid">
+            <div class="form-group" style="margin:0;">
+              <div style="display:flex; justify-content:space-between;">
+                <label class="form-label">红色灵敏度 (提升鲜艳度, 0~50)</label>
+                <span id="imageRedBoostSliderVal" class="slider-val-badge">20</span>
+              </div>
+              <input type="range" id="imageRedBoostSlider" min="0" max="50" value="20">
+            </div>
+
+            <div class="form-group" style="margin:0;">
+              <div style="display:flex; justify-content:space-between;">
+                <label class="form-label">黄色灵敏度 (提升鲜艳度, 0~50)</label>
+                <span id="imageYellowBoostSliderVal" class="slider-val-badge">0</span>
+              </div>
+              <input type="range" id="imageYellowBoostSlider" min="0" max="50" value="0">
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 6. Scenes & Remote Tab -->
+    <!-- ========================================================
+     * TAB 6: ⚙️ 场景模式与墨水屏即时遥控
+     * ======================================================== -->
     <div class="tab-pane" id="tab-scenes">
       <div class="grid-2col">
         <div class="m3-card">
-          <h3 class="m3-card-title">👁️ 场景实时点阵预览 (768×552)</h3>
-          <div class="preview-container">
-            <canvas id="scenesPreviewCanvas" class="preview-canvas"></canvas>
-          </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-            <button class="m3-btn" id="scenesPushBtn" onclick="App.pushCanvas(ScenesStudio.getCanvas(), '场景模式')">🚀 推送当前场景至墨水屏</button>
-            <button class="m3-btn tonal" id="scenesSavePresetBtn" onclick="App.promptSavePreset(ScenesStudio.getCanvas(), 'scenes', '场景模式预设')">💾 保存为预设</button>
+          <div class="card-title">
+            <span>⚡ 墨水屏即时快捷遥控</span>
           </div>
 
-          <div style="margin-top:20px; border-top:1px solid var(--md-sys-color-outline-variant); padding-top:16px;">
-            <h4 style="font-size:14px; font-weight:700; margin-bottom:10px;">⚡ 墨水屏即时快捷遥控</h4>
-            <div class="remote-control-grid">
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('refresh')">⚡ 物理全刷 (16s)</button>
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('clear:white')">⬜ 全白清屏</button>
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('reboot')">🔄 固件重启</button>
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:auto')">📡 智能共存 (Auto)</button>
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:ble')">🔵 仅蓝牙 (BLE Only)</button>
-              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:wifi')">📶 仅 Wi-Fi (WiFi Only)</button>
-            </div>
+          <!-- 4 Physical Clear Buttons -->
+          <div class="clear-buttons-grid">
+            <button class="clear-btn refresh" data-clear-cmd="refresh">⚡ 物理全刷 (16s)</button>
+            <button class="clear-btn white" data-clear-cmd="clear:white">⬜ 全白</button>
+            <button class="clear-btn black" data-clear-cmd="clear:black">⬛ 全黑</button>
+            <button class="clear-btn red" data-clear-cmd="clear:red">🟥 全红</button>
+          </div>
+
+          <div class="card-title" style="margin-top:16px;">
+            <span>📋 12 套功能模式快捷切换</span>
+          </div>
+          <div class="mode-switcher-grid">
+            <button class="mode-card-btn" data-mode-cmd="demo">🖥️ 默认极客时钟</button>
+            <button class="mode-card-btn" data-mode-cmd="memo">📝 随身备忘便签</button>
+            <button class="mode-card-btn" data-mode-cmd="fridge_board">🏠 厨房冰箱留言</button>
+            <button class="mode-card-btn" data-mode-cmd="weather">🌤️ 7天天气看板</button>
+            <button class="mode-card-btn" data-mode-cmd="calendar">📅 电子日历倒数</button>
+            <button class="mode-card-btn" data-mode-cmd="geek">📊 硬件网络雷达</button>
+            <button class="mode-card-btn" data-mode-cmd="photo">🖼️ 电子相框模式</button>
+            <button class="mode-card-btn" data-mode-cmd="pomodoro">🍅 番茄专注时钟</button>
+            <button class="mode-card-btn" data-mode-cmd="poetry">📜 每日诗词鉴赏</button>
+            <button class="mode-card-btn" data-mode-cmd="stock">📈 股票加密行情</button>
+            <button class="mode-card-btn" data-mode-cmd="countdown">⏳ 纪念日倒计时</button>
+            <button class="mode-card-btn" data-mode-cmd="battery_warning">⚠️ 欠压低电告警</button>
+          </div>
+
+          <div class="card-title" style="margin-top:16px;">
+            <span>📡 射频与固件工作模式 (4种)</span>
+          </div>
+          <div class="rf-mode-grid">
+            <button class="rf-btn" data-rf-cmd="auto">🔄 智能共存 (Auto)</button>
+            <button class="rf-btn" data-rf-cmd="ble">🔵 仅蓝牙 (BLE Only)</button>
+            <button class="rf-btn" data-rf-cmd="wifi">📶 仅 Wi-Fi (WiFi Only)</button>
+            <button class="rf-btn" data-rf-cmd="dual">🌐 双模并发 (Dual Mode)</button>
+          </div>
+
+          <div class="card-title" style="margin-top:16px;">
+            <span>💾 2bpp 原始显存裸流导入与导出</span>
+          </div>
+          <div class="bin-tools-row">
+            <button class="m3-btn tonal" id="btnExportBin">💾 下载 .BIN 文件</button>
+            <button class="m3-btn tonal" id="btnImportBin">📥 导入 .BIN 推送</button>
+            <input type="file" id="importBinInput" accept=".bin" style="display:none;">
           </div>
         </div>
 
         <div class="m3-card">
-          <h3 class="m3-card-title">📋 18 套全能场景选择器</h3>
+          <div class="card-title">
+            <span>👁️ 场景实时点阵预览 (768×552)</span>
+          </div>
+          <div class="preview-container">
+            <canvas id="scenesPreviewCanvas" class="preview-canvas" width="768" height="552"></canvas>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <button class="m3-btn" id="scenesPushBtn" onclick="App.pushCanvas(ScenesStudio.getCanvas(), '场景模式')">🚀 推送当前场景至墨水屏</button>
+            <button class="m3-btn tonal" id="scenesSavePresetBtn" onclick="App.promptSavePreset(ScenesStudio.getCanvas(), 'scenes', '场景模式预设')">💾 保存为预设</button>
+            <button class="m3-btn outlined" data-dither-preview="scenesPreviewCanvas">👁️ 4色微粒物理预览</button>
+          </div>
+
+          <div class="card-title">
+            <span>📋 18 套全能场景选择器</span>
+          </div>
           <div class="scene-mode-chips" id="modeChipsContainer">
             <!-- Dynamically populated by ScenesStudio -->
           </div>
 
-          <h3 class="m3-card-title" id="modeFormTitle" style="margin-top:16px;">⚙️ 参数动态配置</h3>
+          <div class="card-title" id="modeFormTitle" style="margin-top:16px;">
+            <span>⚙️ 参数动态配置</span>
+          </div>
           <div class="scene-form" id="modeFormFields">
             <!-- Dynamically populated by ScenesStudio -->
           </div>
@@ -339,11 +561,15 @@
       </div>
     </div>
 
-    <!-- 7. Preset Hub Tab -->
+    <!-- ========================================================
+     * TAB 7: 🗂️ 预设效果库与 SPIFFS 存储
+     * ======================================================== -->
     <div class="tab-pane" id="tab-presets">
       <div class="m3-card">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <h3 class="m3-card-title" style="margin:0;">🗂️ 墨水屏预设效果库</h3>
+          <div class="card-title" style="margin:0;">
+            <span>🗂️ 墨水屏预设效果库</span>
+          </div>
           <div style="display:flex; gap:8px;">
             <button class="m3-btn small outlined" id="presetSelectAllBtn">全选</button>
             <button class="m3-btn small danger" id="presetDeleteSelectedBtn" disabled>删除选中</button>
@@ -351,7 +577,6 @@
           </div>
         </div>
 
-        <!-- Storage Capacity Status -->
         <div style="margin-top:14px; font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
           <span>已占用空间: <strong id="storageUsedText">0 KB</strong></span>
           <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
@@ -360,15 +585,18 @@
           <div class="storage-progress-fill" id="storageProgressFill"></div>
         </div>
 
-        <!-- Presets Grid List -->
         <div class="preset-list" id="presetList"></div>
       </div>
     </div>
 
-    <!-- 6. Hardware Diagnostics Tab -->
+    <!-- ========================================================
+     * TAB 8: ⚙️ 硬件诊断与 ESP32-C3 运行状态
+     * ======================================================== -->
     <div class="tab-pane" id="tab-system">
       <div class="m3-card">
-        <h3 class="m3-card-title">⚙️ ESP32-C3 硬件运行状态</h3>
+        <div class="card-title">
+          <span>⚙️ ESP32-C3 硬件运行状态</span>
+        </div>
         <table class="diag-table">
           <tbody>
             <tr><td>局域网 IP 地址</td><td id="diagIp">未连接</td></tr>
@@ -383,18 +611,85 @@
 
   </main>
 
-  <!-- Modal: Preset Dot-Matrix Simulation Preview -->
-  <div class="modal-overlay" id="presetPreviewModal">
-    <div class="modal-card">
+  <!-- ========================================================
+   * MODALS (Air Provisioning, Device Manager, LAN IP, 1:1 Dither)
+   * ======================================================== -->
+
+  <!-- Modal 1: 📡 蓝牙隔空 Wi-Fi 配网 (airProvModal) -->
+  <div class="modal-backdrop" id="airProvModal">
+    <div class="modal-sheet">
       <div class="modal-header">
-        <h3 class="modal-title">👁️ 墨水屏 4色微粒物理点阵预览</h3>
-        <button class="modal-close">&times;</button>
+        <h3 class="modal-title">📡 蓝牙隔空 Wi-Fi 配网</h3>
+        <button class="modal-close" onclick="UI.closeModal('airProvModal')">&times;</button>
+      </div>
+      <div class="card-subtitle">
+        无需手机切换 Wi-Fi 热点！直接通过蓝牙将家中或公司路由器账号密码发给墨水屏
+      </div>
+      <div class="form-group">
+        <label class="form-label">路由器 Wi-Fi 名称 (SSID):</label>
+        <input type="text" id="provSsid" class="m3-input" placeholder="输入 2.4GHz WiFi 名称">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Wi-Fi 密码:</label>
+        <input type="password" id="provPassword" class="m3-input" placeholder="输入 WiFi 密码">
+      </div>
+      <button class="m3-btn btn-full" id="btnSendAirProv">🚀 蓝牙隔空写入并联网</button>
+    </div>
+  </div>
+
+  <!-- Modal 2: 🗂️ 记忆设备管理 (devManageModal) -->
+  <div class="modal-backdrop" id="devManageModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title">🗂️ 已记忆墨水屏设备列表</h3>
+        <button class="modal-close" onclick="UI.closeModal('devManageModal')">&times;</button>
+      </div>
+      <div class="card-subtitle">
+        支持同时管理与佩戴多个墨水屏胸牌、痛包挂件与冰箱留言板，一键点击重连或切换
+      </div>
+      <div id="deviceListContainer" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+        <!-- Populated via UI.openDeviceManagerModal() -->
+      </div>
+      <button class="m3-btn btn-full" onclick="UI.closeModal('devManageModal'); DeviceManager.connectBle();">
+        ➕ 扫描配对新墨水屏设备
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal 3: 🌐 局域网 IP 直连设置 (lanIpModal) -->
+  <div class="modal-backdrop" id="lanIpModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title">🌐 填入局域网 IP 直连</h3>
+        <button class="modal-close" onclick="UI.closeModal('lanIpModal')">&times;</button>
+      </div>
+      <div class="card-subtitle">
+        若墨水屏已连上 Wi-Fi，且运行在双模或 Wi-Fi 模式下，可输入局域网 IP 直接通过 HTTP 高速通信
+      </div>
+      <div class="form-group">
+        <label class="form-label">墨水屏局域网 IP 地址:</label>
+        <input type="text" id="lanModalIpInput" class="m3-input" placeholder="如 192.168.10.203">
+      </div>
+      <button class="m3-btn btn-full" id="btnSaveLanIp">💾 保存并测试连接</button>
+    </div>
+  </div>
+
+  <!-- Modal 4: 👁️ 4色微粒物理点阵预览 (ditherPreviewModal) -->
+  <div class="modal-backdrop" id="ditherPreviewModal">
+    <div class="modal-sheet" style="max-width:820px;">
+      <div class="modal-header">
+        <h3 class="modal-title">👁️ 墨水屏 4色微粒物理点阵预览 (768×552)</h3>
+        <button class="modal-close" onclick="UI.closeModal('ditherPreviewModal')">&times;</button>
+      </div>
+      <div class="card-subtitle">
+        1:1 像素级模拟四色电泳墨水颗粒微观扩散效果
       </div>
       <div class="preview-container">
-        <canvas id="modalPreviewCanvas" class="preview-canvas"></canvas>
+        <canvas id="ditherModalCanvas" class="preview-canvas" width="768" height="552"></canvas>
       </div>
       <div class="modal-footer">
-        <button class="m3-btn outlined" onclick="UI.closeModal('presetPreviewModal')">关闭</button>
+        <button class="m3-btn" id="modalPushDitherBtn">🚀 推送此点阵至墨水屏</button>
+        <button class="m3-btn outlined" onclick="UI.closeModal('ditherPreviewModal')">关闭</button>
       </div>
     </div>
   </div>
@@ -416,15 +711,15 @@
   </footer>
 
   <!-- Modular Scripts -->
-  <script src="./js/qrcode.js?v=2.2"></script>
-  <script src="./js/dither.js?v=2.2"></script>
-  <script src="./js/device.js?v=2.2"></script>
-  <script src="./js/presets.js?v=2.2"></script>
-  <script src="./js/canvas.js?v=2.2"></script>
-  <script src="./js/itabag.js?v=2.2"></script>
-  <script src="./js/scenes.js?v=2.2"></script>
-  <script src="./js/studio.js?v=2.2"></script>
-  <script src="./js/ui.js?v=2.2"></script>
-  <script src="./js/app.js?v=2.2"></script>
+  <script src="./js/qrcode.js?v=2.5"></script>
+  <script src="./js/dither.js?v=2.5"></script>
+  <script src="./js/device.js?v=2.5"></script>
+  <script src="./js/presets.js?v=2.5"></script>
+  <script src="./js/canvas.js?v=2.5"></script>
+  <script src="./js/itabag.js?v=2.5"></script>
+  <script src="./js/scenes.js?v=2.5"></script>
+  <script src="./js/studio.js?v=2.5"></script>
+  <script src="./js/ui.js?v=2.5"></script>
+  <script src="./js/app.js?v=2.5"></script>
 </body>
 </html>
