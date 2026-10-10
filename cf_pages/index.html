@@ -58,9 +58,11 @@
     <div class="tab-scroll-container">
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="badge" onclick="UI.switchTab('badge', this)">📇 智能工牌</button>
+        <button class="tab-btn" data-tab="itabag" onclick="UI.switchTab('itabag', this)">🎒 兽聚痛卡</button>
         <button class="tab-btn" data-tab="memo" onclick="UI.switchTab('memo', this)">📝 随身便签</button>
         <button class="tab-btn" data-tab="paint" onclick="UI.switchTab('paint', this)">🎨 像素手绘</button>
         <button class="tab-btn" data-tab="image" onclick="UI.switchTab('image', this)">🖼️ 图像工坊</button>
+        <button class="tab-btn" data-tab="scenes" onclick="UI.switchTab('scenes', this)">📋 场景遥控</button>
         <button class="tab-btn" data-tab="presets" onclick="UI.switchTab('presets', this)">🗂️ 预设效果库</button>
         <button class="tab-btn" data-tab="system" onclick="UI.switchTab('system', this)">⚙️ 硬件诊断</button>
       </nav>
@@ -118,7 +120,85 @@
       </div>
     </div>
 
-    <!-- 2. Memo & Checklist Tab -->
+    <!-- 2. Ita-Bag & Charm Tab -->
+    <div class="tab-pane" id="tab-itabag">
+      <div class="grid-2col">
+        <div class="m3-card">
+          <h3 class="m3-card-title">👁️ 痛卡点阵预览 (768×552)</h3>
+          <div class="itabag-preview-frame">
+            <div class="itabag-bezel">
+              <div class="itabag-window-glare"></div>
+              <canvas id="itaPreviewCanvas" class="preview-canvas"></canvas>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button class="m3-btn" id="itabagPushBtn" onclick="App.pushCanvas(ItaBagStudio.getCanvas(), '痛卡挂饰')">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="itabagSavePresetBtn" onclick="App.promptSavePreset(ItaBagStudio.getCanvas(), 'itabag', '兽聚痛卡预设')">💾 保存为预设</button>
+          </div>
+        </div>
+
+        <div class="m3-card">
+          <h3 class="m3-card-title">🎒 角色立绘与挂饰排版定制</h3>
+          <div class="itabag-upload-zone file-drop-area">
+            <span class="itabag-upload-icon">📷</span>
+            <span class="itabag-upload-title">点击或拖拽上传角色立绘 / 照片</span>
+            <span class="itabag-upload-desc">支持 PNG / JPG / WEBP，自动适配四色墨水屏</span>
+            <input type="file" id="itaUploadInput" class="itabag-file-input" accept="image/*">
+          </div>
+
+          <div class="grid-2col" style="gap:10px; margin-bottom:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">角色名称 (大字)</label>
+              <input type="text" id="itaTitle" class="m3-input itabag-input" value="ZeroVulp / 零狐">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">作品 / 出处</label>
+              <input type="text" id="itaSource" class="m3-input itabag-input" value="自家毛毛 OC">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">专属台词 / 个性题字</label>
+            <textarea id="itaQuote" class="m3-textarea itabag-input" style="min-height:70px;">出发去漫展！有你陪伴的每一天都是奇迹！</textarea>
+          </div>
+
+          <div class="grid-2col" style="gap:10px;">
+            <div class="form-group">
+              <label class="form-label">缩放比例 (50% ~ 250%)</label>
+              <input type="range" id="itaScaleInput" class="itabag-slider" min="0.5" max="2.5" step="0.05" value="1.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">旋转角度</label>
+              <select id="itaRotateSelect" class="m3-select itabag-input">
+                <option value="0">0° 正常显示</option>
+                <option value="90">90° 顺时针旋转</option>
+                <option value="180">180° 倒置显示</option>
+                <option value="270">270° 逆时针旋转</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2col" style="gap:10px;">
+            <div class="form-group">
+              <label class="form-label">文字样式</label>
+              <select id="itaStyleSelect" class="m3-select itabag-input">
+                <option value="bubble">漫画对话气泡 (Speech Bubble)</option>
+                <option value="banner">底部铭牌横幅 (Subtitle Banner)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">外框装饰</label>
+              <select id="itaBorderSelect" class="m3-select itabag-input">
+                <option value="charm">挂饰双层边框 + 金属铆钉</option>
+                <option value="stars">四角星芒护角</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Memo & Checklist Tab -->
     <div class="tab-pane" id="tab-memo">
       <div class="grid-2col">
         <div class="m3-card">
@@ -219,7 +299,47 @@
       </div>
     </div>
 
-    <!-- 5. Preset Hub Tab -->
+    <!-- 6. Scenes & Remote Tab -->
+    <div class="tab-pane" id="tab-scenes">
+      <div class="grid-2col">
+        <div class="m3-card">
+          <h3 class="m3-card-title">👁️ 场景实时点阵预览 (768×552)</h3>
+          <div class="preview-container">
+            <canvas id="scenesPreviewCanvas" class="preview-canvas"></canvas>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button class="m3-btn" id="scenesPushBtn" onclick="App.pushCanvas(ScenesStudio.getCanvas(), '场景模式')">🚀 推送当前场景至墨水屏</button>
+            <button class="m3-btn tonal" id="scenesSavePresetBtn" onclick="App.promptSavePreset(ScenesStudio.getCanvas(), 'scenes', '场景模式预设')">💾 保存为预设</button>
+          </div>
+
+          <div style="margin-top:20px; border-top:1px solid var(--md-sys-color-outline-variant); padding-top:16px;">
+            <h4 style="font-size:14px; font-weight:700; margin-bottom:10px;">⚡ 墨水屏即时快捷遥控</h4>
+            <div class="remote-control-grid">
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('refresh')">⚡ 物理全刷 (16s)</button>
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('clear:white')">⬜ 全白清屏</button>
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('reboot')">🔄 固件重启</button>
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:auto')">📡 智能共存 (Auto)</button>
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:ble')">🔵 仅蓝牙 (BLE Only)</button>
+              <button class="m3-btn outlined remote-btn" onclick="ScenesStudio.sendRemoteCmd('rf:wifi')">📶 仅 Wi-Fi (WiFi Only)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="m3-card">
+          <h3 class="m3-card-title">📋 18 套全能场景选择器</h3>
+          <div class="scene-mode-chips" id="modeChipsContainer">
+            <!-- Dynamically populated by ScenesStudio -->
+          </div>
+
+          <h3 class="m3-card-title" id="modeFormTitle" style="margin-top:16px;">⚙️ 参数动态配置</h3>
+          <div class="scene-form" id="modeFormFields">
+            <!-- Dynamically populated by ScenesStudio -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. Preset Hub Tab -->
     <div class="tab-pane" id="tab-presets">
       <div class="m3-card">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -296,13 +416,15 @@
   </footer>
 
   <!-- Modular Scripts -->
-  <script src="./js/qrcode.js?v=2.1"></script>
-  <script src="./js/dither.js?v=2.1"></script>
-  <script src="./js/device.js?v=2.1"></script>
-  <script src="./js/presets.js?v=2.1"></script>
-  <script src="./js/canvas.js?v=2.1"></script>
-  <script src="./js/studio.js?v=2.1"></script>
-  <script src="./js/ui.js?v=2.1"></script>
-  <script src="./js/app.js?v=2.1"></script>
+  <script src="./js/qrcode.js?v=2.2"></script>
+  <script src="./js/dither.js?v=2.2"></script>
+  <script src="./js/device.js?v=2.2"></script>
+  <script src="./js/presets.js?v=2.2"></script>
+  <script src="./js/canvas.js?v=2.2"></script>
+  <script src="./js/itabag.js?v=2.2"></script>
+  <script src="./js/scenes.js?v=2.2"></script>
+  <script src="./js/studio.js?v=2.2"></script>
+  <script src="./js/ui.js?v=2.2"></script>
+  <script src="./js/app.js?v=2.2"></script>
 </body>
 </html>

@@ -2,10 +2,17 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=https://398epd.zgqinc.gq">
   <title>Redirecting to EPD PWA...</title>
+  <script>
+    const host = window.location.hostname || '192.168.10.203';
+    window.location.replace(`https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}`);
+  </script>
 </head>
 <body>
-  <p>正在跳转至 3.98" 墨水屏独立 PWA 专页：<a href="https://398epd.zgqinc.gq">https://398epd.zgqinc.gq</a></p>
+  <p>正在跳转至 3.98" 墨水屏独立 PWA 专页：<a id="redirectLink" href="https://398epd.zgqinc.gq">https://398epd.zgqinc.gq</a></p>
+  <script>
+    const host = window.location.hostname || '192.168.10.203';
+    document.getElementById('redirectLink').href = `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}`;
+  </script>
 </body>
 </html>

@@ -28,6 +28,13 @@ const App = {
       PaintCanvas.init(this.paintCanvas);
     }
 
+    if (window.ItaBagStudio && typeof window.ItaBagStudio.init === 'function') {
+      window.ItaBagStudio.init();
+    }
+    if (window.ScenesStudio && typeof window.ScenesStudio.init === 'function') {
+      window.ScenesStudio.init();
+    }
+
     this.renderBadge();
     this.renderMemo();
     this.bindEvents();
@@ -107,10 +114,18 @@ const App = {
 
     try {
       const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
+      const typeLabelMap = {
+        badge: '工牌名片',
+        itabag: '兽聚痛卡',
+        memo: '待办清单',
+        paint: '像素手绘',
+        image: '图像工坊',
+        scenes: '场景模式'
+      };
       await PresetHub.savePreset({
         name,
         type,
-        typeLabel: type === 'badge' ? '工牌名片' : (type === 'memo' ? '待办清单' : (type === 'paint' ? '像素手绘' : '图像工坊')),
+        typeLabel: typeLabelMap[type] || '墨水屏作品',
         rawBitmap: packed
       });
       this.renderPresetsUI();
@@ -367,9 +382,14 @@ const App = {
 
     // Tab Change Hook
     window.addEventListener('tabchange', async (e) => {
-      if (e.detail.tabId === 'presets') {
+      const tabId = e.detail.tabId;
+      if (tabId === 'itabag' && window.ItaBagStudio) {
+        window.ItaBagStudio.renderPreview();
+      } else if (tabId === 'scenes' && window.ScenesStudio) {
+        window.ScenesStudio.renderPreview();
+      } else if (tabId === 'presets') {
         PresetHub.syncWithDevice().then(() => this.renderPresetsUI());
-      } else if (e.detail.tabId === 'system' && DeviceManager.isLanConnected) {
+      } else if (tabId === 'system' && DeviceManager.isLanConnected) {
         const status = await DeviceManager.fetchStatus();
         if (status) {
           const heapEl = document.getElementById('diagFreeHeap');

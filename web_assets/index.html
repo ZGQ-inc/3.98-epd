@@ -44,7 +44,7 @@
     <p style="font-size:12px; opacity:0.9; margin-bottom:12px; line-height:1.5;">
       支持智能工牌、痛卡角色挂饰、相册 4 色微粒量化、手绘画板、预设库与多设备形态自适应。无需消耗单片机内存，秒级畅快操作！
     </p>
-    <a href="https://398epd.zgqinc.gq" target="_blank" class="btn btn-primary" style="font-weight:700;">🚀 立即启动随身工坊 (PWA)</a>
+    <a id="pwaLaunchBtn" href="https://398epd.zgqinc.gq" target="_blank" class="btn btn-primary" style="font-weight:700;">🚀 立即启动随身工坊 (PWA)</a>
   </div>
 
   <!-- Hardware Status Card -->
@@ -162,7 +162,33 @@
       }
     }
 
-    window.onload = loadStatus;
+    function updatePwaLaunchLink() {
+      const host = window.location.hostname || '192.168.10.203';
+      const targetUrl = `https://398epd.zgqinc.gq/?ip=${host}`;
+      const btn = document.getElementById('pwaLaunchBtn') || document.querySelector('.pwa-card a');
+      if (btn) {
+        btn.href = targetUrl;
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updatePwaLaunchLink);
+    } else {
+      updatePwaLaunchLink();
+    }
+
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('#pwaLaunchBtn, .pwa-card a');
+      if (btn) {
+        const host = window.location.hostname || '192.168.10.203';
+        btn.href = `https://398epd.zgqinc.gq/?ip=${host}`;
+      }
+    });
+
+    window.onload = function() {
+      updatePwaLaunchLink();
+      loadStatus();
+    };
   </script>
 </body>
 </html>

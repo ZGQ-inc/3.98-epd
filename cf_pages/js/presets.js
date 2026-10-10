@@ -1,12 +1,14 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
- * Preset Hub Engine (Bidirectional PWA Local & ESP32-C3 1.5MB SPIFFS)
+ * Preset Hub Engine (Bidirectional PWA IndexedDB/Local & ESP32-C3 1.5MB SPIFFS)
  * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
  */
 
 const PresetHub = {
-  // Local storage cache key
+  // Local storage & IndexedDB keys
   STORAGE_KEY: 'epd_presets_v2',
+  DB_NAME: 'epd_presets_db',
+  STORE_NAME: 'presets',
 
   // Current loaded presets
   presets: [],
@@ -17,27 +19,127 @@ const PresetHub = {
     free_bytes: 1528841
   },
 
-  init() {
-    this.loadLocalPresets();
+  db: null,
+
+  async init() {
+    await this.loadLocalPresets();
+    this.updateStorageUI();
   },
 
-  loadLocalPresets() {
+  /* ================= IndexedDB Storage Engine ================= */
+  async _openDb() {
+    if (this.db) return this.db;
+    if (!window.indexedDB) return null;
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(this.DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+            db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = (e) => {
+          this.db = e.target.result;
+          resolve(this.db);
+        };
+        req.onerror = () => resolve(null);
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  },
+
+  async _loadFromIndexedDb() {
+    const db = await this._openDb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(this.STORE_NAME, 'readonly');
+        const store = tx.objectStore(this.STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve(null);
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  },
+
+  async _saveToIndexedDb(presets) {
+    const db = await this._openDb();
+    if (!db) return false;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(this.STORE_NAME, 'readwrite');
+        const store = tx.objectStore(this.STORE_NAME);
+        store.clear();
+        for (const item of presets) {
+          store.put(item);
+        }
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  },
+
+  /* ================= Local Storage & IndexedDB Hybrid Cache ================= */
+  async loadLocalPresets() {
+    let localPresets = [];
+    // 1. Synchronous localStorage fallback
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
-      this.presets = raw ? JSON.parse(raw) : [];
-      this.recalculateStorage();
+      if (raw) localPresets = JSON.parse(raw);
     } catch (e) {
-      this.presets = [];
+      localPresets = [];
     }
+
+    // 2. Load from IndexedDB (preserves raw binary arrays without 5MB quota limit)
+    try {
+      const idbPresets = await this._loadFromIndexedDb();
+      if (idbPresets && idbPresets.length > 0) {
+        const map = new Map();
+        for (const p of localPresets) map.set(p.id, p);
+        for (const p of idbPresets) map.set(p.id, p);
+        localPresets = Array.from(map.values());
+      }
+    } catch (e) {
+      console.warn('[Presets] IndexedDB load notice:', e);
+    }
+
+    this.presets = localPresets;
+    this.recalculateStorage();
+    this.updateStorageUI();
   },
 
-  saveLocalPresets() {
+  async saveLocalPresets() {
+    this.recalculateStorage();
+
+    // 1. Save to IndexedDB
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.presets));
-      this.recalculateStorage();
+      await this._saveToIndexedDb(this.presets);
+    } catch (e) {
+      console.warn('[Presets] IndexedDB save notice:', e);
+    }
+
+    // 2. Save to localStorage with quota protection
+    try {
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.presets));
+      } catch (quotaErr) {
+        const lightPresets = this.presets.map(p => {
+          const { raw_bitmap, ...rest } = p;
+          return rest;
+        });
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(lightPresets));
+      }
     } catch (e) {
       console.error('[Presets] Local storage save failed:', e);
     }
+
+    this.updateStorageUI();
   },
 
   recalculateStorage() {
@@ -49,33 +151,72 @@ const PresetHub = {
     this.storageStats.free_bytes = Math.max(0, this.storageStats.total_bytes - used);
   },
 
+  updateStorageUI() {
+    const total = this.storageStats.total_bytes || 1528841;
+    const used = this.storageStats.used_bytes || 0;
+    const free = this.storageStats.free_bytes !== undefined ? this.storageStats.free_bytes : Math.max(0, total - used);
+    const pct = Math.min(100, Math.round((used / total) * 100));
+
+    const usedText = document.getElementById('storageUsedText');
+    const freeText = document.getElementById('storageFreeText');
+    const progressFill = document.getElementById('storageProgressFill');
+
+    if (usedText) usedText.textContent = this.formatBytes(used);
+    if (freeText) freeText.textContent = this.formatBytes(free);
+    if (progressFill) progressFill.style.width = `${pct}%`;
+  },
+
+  /* ================= Bidirectional Sync with Hardware SPIFFS ================= */
   async syncWithDevice() {
-    if (DeviceManager.isLanConnected) {
+    let synced = false;
+    if (DeviceManager.isLanConnected || DeviceManager.lanIp) {
       try {
-        const res = await DeviceManager.fetchPresets();
-        if (res && res.status === 'ok') {
+        let res = null;
+        if (DeviceManager.fetchPresets) {
+          res = await DeviceManager.fetchPresets();
+        } else if (DeviceManager.lanIp) {
+          const resp = await fetch(`http://${DeviceManager.lanIp}/api/presets`);
+          res = await resp.json();
+        }
+
+        if (res && (res.status === 'ok' || Array.isArray(res.presets))) {
           if (res.storage) {
             this.storageStats = res.storage;
           }
           if (res.presets && Array.isArray(res.presets)) {
-            // Merge device presets with local presets
-            const devIds = new Set(res.presets.map(p => p.id));
-            const merged = [...res.presets];
-            for (const local of this.presets) {
-              if (!devIds.has(local.id)) {
-                merged.push(local);
+            // Merge device presets with local IndexedDB/localStorage presets
+            const localMap = new Map(this.presets.map(p => [p.id, p]));
+            const merged = [];
+            for (const devPreset of res.presets) {
+              const local = localMap.get(devPreset.id);
+              if (local) {
+                // Keep local high-resolution raw_bitmap if device returned light summary
+                merged.push({ ...local, ...devPreset, raw_bitmap: local.raw_bitmap || devPreset.raw_bitmap });
+                localMap.delete(devPreset.id);
+              } else {
+                merged.push(devPreset);
               }
             }
+            // Keep local-only presets
+            for (const [, localOnly] of localMap) {
+              merged.push(localOnly);
+            }
             this.presets = merged;
-            this.saveLocalPresets();
+            await this.saveLocalPresets();
           }
-          return true;
+          synced = true;
         }
       } catch (e) {
         console.warn('[Presets] Sync with device failed:', e);
       }
     }
-    return false;
+
+    this.recalculateStorage();
+    this.updateStorageUI();
+    if (typeof App !== 'undefined' && App.renderPresetsUI) {
+      App.renderPresetsUI();
+    }
+    return synced;
   },
 
   formatBytes(bytes) {
@@ -107,9 +248,9 @@ const PresetHub = {
       raw_bitmap: rawBitmap ? Array.from(rawBitmap) : null
     };
 
-    // Save to local cache
+    // Save to local cache & IndexedDB
     this.presets.unshift(newPreset);
-    this.saveLocalPresets();
+    await this.saveLocalPresets();
 
     // If connected to hardware, sync to SPIFFS
     if (DeviceManager.isLanConnected) {
@@ -130,6 +271,7 @@ const PresetHub = {
       }
     }
 
+    this.updateStorageUI();
     return newPreset;
   },
 
@@ -139,7 +281,7 @@ const PresetHub = {
 
     this.presets = this.presets.filter(p => !this.selectedIds.has(p.id));
     this.selectedIds.clear();
-    this.saveLocalPresets();
+    await this.saveLocalPresets();
 
     if (DeviceManager.isLanConnected) {
       try {
@@ -147,6 +289,12 @@ const PresetHub = {
       } catch (e) {
         console.warn('[Presets] Device delete sync failed:', e);
       }
+    }
+
+    this.recalculateStorage();
+    this.updateStorageUI();
+    if (typeof App !== 'undefined' && App.renderPresetsUI) {
+      App.renderPresetsUI();
     }
 
     return idsToDelete.length;
@@ -170,4 +318,3 @@ const PresetHub = {
 };
 
 window.PresetHub = PresetHub;
-

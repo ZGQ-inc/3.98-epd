@@ -23,8 +23,48 @@ const DeviceManager = {
   onProgress: null,
 
   init() {
-    if (this.lanIp) {
-      this.testLanConnection();
+    const params = new URLSearchParams(window.location.search);
+    const queryIp = (params.get('ip') || params.get('host') || '').trim();
+    if (queryIp) {
+      this.lanIp = queryIp;
+      localStorage.setItem('epd_lan_ip', queryIp);
+      const lanInput = document.getElementById('lanIpInput');
+      if (lanInput) {
+        lanInput.value = queryIp;
+      }
+      const showBindToast = () => {
+        if (typeof UI !== 'undefined' && UI.showToast) {
+          UI.showToast(`已通过链接自动绑定设备: ${queryIp}`, 'success');
+        } else {
+          setTimeout(() => {
+            if (typeof UI !== 'undefined' && UI.showToast) {
+              UI.showToast(`已通过链接自动绑定设备: ${queryIp}`, 'success');
+            }
+          }, 150);
+        }
+      };
+      showBindToast();
+
+      this.testConnection().then((connected) => {
+        if (connected && typeof PresetHub !== 'undefined' && PresetHub.syncWithDevice) {
+          PresetHub.syncWithDevice();
+        }
+      });
+    } else if (this.lanIp) {
+      const lanInput = document.getElementById('lanIpInput');
+      if (lanInput && !lanInput.value) {
+        lanInput.value = this.lanIp;
+      }
+      this.testConnection();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const lanInput = document.getElementById('lanIpInput');
+        if (lanInput && this.lanIp) {
+          lanInput.value = this.lanIp;
+        }
+      });
     }
   },
 
@@ -100,6 +140,15 @@ const DeviceManager = {
   setLanIp(ip) {
     this.lanIp = ip.trim();
     localStorage.setItem('epd_lan_ip', this.lanIp);
+    return this.testLanConnection();
+  },
+
+  connectLan(ip) {
+    if (ip) return this.setLanIp(ip);
+    return this.testLanConnection();
+  },
+
+  testConnection() {
     return this.testLanConnection();
   },
 
@@ -253,6 +302,102 @@ const DeviceManager = {
       return res.json();
     }
     return null;
+  },
+
+  /* ================= Remote Hardware Control Commands ================= */
+  async sendRefresh() {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    try {
+      const res = await fetch(`http://${this.lanIp}/api/refresh`, { method: 'POST' });
+      if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      const fallback = await fetch(`http://${this.lanIp}/api/display/refresh`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    } catch (e) {
+      const fallback = await fetch(`http://${this.lanIp}/api/display/refresh`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    }
+  },
+
+  async sendClearWhite() {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    try {
+      const res = await fetch(`http://${this.lanIp}/api/clear`, { method: 'POST' });
+      if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      const fallback = await fetch(`http://${this.lanIp}/api/display/clear`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    } catch (e) {
+      const fallback = await fetch(`http://${this.lanIp}/api/display/clear`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    }
+  },
+
+  async sendRestart() {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    try {
+      const res = await fetch(`http://${this.lanIp}/api/restart`, { method: 'POST' });
+      if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      const fallback = await fetch(`http://${this.lanIp}/api/system/reboot`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    } catch (e) {
+      const fallback = await fetch(`http://${this.lanIp}/api/system/reboot`, { method: 'POST' });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    }
+  },
+
+  sendReboot() {
+    return this.sendRestart();
+  },
+
+  async setWirelessMode(mode) {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    try {
+      const res = await fetch(`http://${this.lanIp}/api/wireless_mode?mode=${encodeURIComponent(mode)}`, { method: 'POST' });
+      if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      const fallback = await fetch(`http://${this.lanIp}/api/wireless/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    } catch (e) {
+      const fallback = await fetch(`http://${this.lanIp}/api/wireless/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    }
+  },
+
+  async scanWifi() {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    const res = await fetch(`http://${this.lanIp}/api/wifi/scan`, { method: 'POST' });
+    return await res.json();
+  },
+
+  async configWifi(ssid, pass) {
+    if (!this.lanIp) throw new Error('未连接局域网设备');
+    try {
+      const res = await fetch(`http://${this.lanIp}/api/wifi/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid, pass })
+      });
+      if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      const fallback = await fetch(`http://${this.lanIp}/api/wifi/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid, pass })
+      });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    } catch (e) {
+      const fallback = await fetch(`http://${this.lanIp}/api/wifi/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid, pass })
+      });
+      return await fallback.json().catch(() => ({ status: 'ok' }));
+    }
   }
 };
 
