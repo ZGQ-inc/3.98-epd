@@ -109,18 +109,9 @@
         <tr><td>最近系统复位原因</td><td id="dResetReason">Power-on / Normal</td></tr>
       </tbody>
     </table>
-  </div>
-
-  <!-- Quick Mode Switcher -->
-  <div class="card">
-    <div class="card-title">🔄 快速切换内置功能模式</div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-      <button class="btn btn-tonal" onclick="setMode('demo')">演示轮播</button>
-      <button class="btn btn-tonal" onclick="setMode('clock')">极简时钟</button>
-      <button class="btn btn-tonal" onclick="setMode('calendar')">效率日历</button>
-      <button class="btn btn-tonal" onclick="setMode('fridge')">冰箱留言板</button>
-      <button class="btn btn-tonal" onclick="setMode('memo')">待办便签</button>
-      <button class="btn btn-tonal" onclick="setMode('weather')">实时天气</button>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button class="btn btn-tonal" onclick="reboot()">软重启设备</button>
+      <button class="btn btn-danger" onclick="factoryReset()">恢复出厂设置 (清空WiFi)</button>
     </div>
   </div>
 
@@ -160,15 +151,6 @@
     <button class="btn btn-primary" style="width:100%; margin-top:4px;" onclick="saveConfig()">💾 保存网络与 MQTT 配置</button>
   </div>
 
-  <!-- Device Maintenance -->
-  <div class="card">
-    <div class="card-title">⚙️ 系统维护与重置</div>
-    <div style="display:flex; gap:8px;">
-      <button class="btn btn-tonal" onclick="reboot()">软重启设备</button>
-      <button class="btn btn-danger" onclick="factoryReset()">恢复出厂设置 (清空WiFi)</button>
-    </div>
-  </div>
-
   <!-- Footer -->
   <footer>
     <div style="margin-bottom:6px;">
@@ -181,11 +163,16 @@
 
   <script>
     let gBleEnabled = true;
+    let currentDeviceIp = '';
 
     async function loadStatus() {
       try {
         const r = await fetch('/api/system/status');
         const d = await r.json();
+        if (d.ip_address && d.ip_address !== '0.0.0.0') {
+          currentDeviceIp = d.ip_address;
+          updatePwaLaunchLink();
+        }
         if (document.getElementById('dChip')) document.getElementById('dChip').textContent = d.chip_model || 'ESP32-C3 RISC-V 160MHz';
         if (document.getElementById('dMac')) document.getElementById('dMac').textContent = d.mac_address || '--';
         if (document.getElementById('dWifi')) document.getElementById('dWifi').textContent = `${d.wifi_mode} (${d.wifi_rssi} dBm)`;
@@ -334,11 +321,6 @@
       }
     }
 
-    async function setMode(mode) {
-      await fetch('/api/display/mode', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({mode}) });
-      alert(`已切换至「${mode}」模式`);
-    }
-
     async function loadConfig() {
       try {
         const r = await fetch('/api/config');
@@ -397,10 +379,17 @@
     }
 
     function updatePwaLaunchLink() {
-      const host = window.location.hostname || '192.168.10.203';
-      const targetUrl = `https://398epd.zgqinc.gq/?ip=${host}`;
+      const host = currentDeviceIp || window.location.hostname || '192.168.10.203';
+      const targetUrl = `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}`;
       const btn = document.getElementById('pwaLaunchBtn') || document.querySelector('.pwa-card a');
-      if (btn) btn.href = targetUrl;
+      if (btn) {
+        btn.href = targetUrl;
+        btn.onclick = function(e) {
+          const freshHost = currentDeviceIp || window.location.hostname || '192.168.10.203';
+          window.open(`https://398epd.zgqinc.gq/?ip=${encodeURIComponent(freshHost)}`, '_blank');
+          return false;
+        };
+      }
     }
 
     window.onload = function() {

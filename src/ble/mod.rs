@@ -133,10 +133,12 @@ impl BleManager {
             .set_io_cap(SecurityIOCap::NoInputNoOutput);
 
         let server = device.get_server();
-        server.on_connect(|_server, desc| {
+        server.on_connect(|server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
+            // Crucial: Negotiate fast & stable connection parameters for Windows/WebBLE (interval: 30~60ms, timeout: 600ms)
+            server.update_conn_params(desc.conn_handle(), 24, 48, 0, 60).ok();
             BleManager::global().on_ble_client_connected("WebBLE Client", &peer_mac, 0);
             if crate::display::is_unconfigured() {
                 println!("  [ble-hardware] Unconfigured device detected: requesting PWA guidance screen display...");
@@ -463,13 +465,8 @@ impl BleManager {
         *self.status.lock().unwrap() = BleStatus::Connected;
         drop(devs);
 
-        // If device was unconfigured on first boot, update e-ink to show PWA guide
-        if crate::display::is_unconfigured() {
-            println!("  [ble-hardware] Unconfigured device paired with BLE: rendering PWA guide on e-ink screen...");
-            crate::display::request_pwa_guide(name.to_string(), mac.to_string());
-        }
-
-        self.notify_status();
+        // Note: Do NOT call self.notify_status() here! The client has not subscribed to CCCD yet.
+        // Status will be notified when the client writes 'status' to rx_char or polls.
         id
     }
 

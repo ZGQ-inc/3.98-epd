@@ -43,12 +43,13 @@ impl WebServer {
             }
         };
 
-        // 0. Global CORS preflight handler for all /api/* routes
+        // 0. Global CORS & Private Network Access preflight handler for all /api/* routes
         server.fn_handler("/api/*", Method::Options, |req| -> anyhow::Result<()> {
             let mut resp = req.into_response(204, None, &[
                 ("Access-Control-Allow-Origin", "*"),
                 ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
                 ("Access-Control-Allow-Headers", "Content-Type, Authorization"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Access-Control-Max-Age", "86400"),
             ])?;
             resp.write_all(b"")?;

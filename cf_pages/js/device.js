@@ -87,7 +87,7 @@ const DeviceManager = {
           }
         } else {
           if (typeof UI !== 'undefined' && UI.showToast) {
-            UI.showToast(`⚠️ 局域网设备 ${queryIp} 未响应，若在 HTTPS 环境请使用蓝牙直连`, 'warning', 4000);
+            UI.showToast(`已自动配置局域网设备: ${queryIp}。若浏览器提示混合内容拦截，可使用蓝牙直连或在地址栏允许不安全内容`, 'info', 4500);
           }
         }
       });
@@ -175,19 +175,37 @@ const DeviceManager = {
         throw new Error('GATT 服务连接未建立或已断开');
       }
 
-      // Crucial: 200ms settling delay for Windows / Android Bluetooth PHY & MTU negotiation!
-      await new Promise(r => setTimeout(r, 200));
+      // Crucial: 250ms settling delay for Windows / Android Bluetooth PHY & MTU negotiation!
+      await new Promise(r => setTimeout(r, 250));
 
-      console.log('[BLE] Discovering 0x00FF Service...');
+      console.log('[BLE] Discovering 0x00FF Service (with auto-reconnect fallback)...');
       let service = null;
-      try {
-        service = await server.getPrimaryService(BLE_SERVICE_UUID_128);
-      } catch (e1) {
+      for (let sAttempt = 1; sAttempt <= 3; sAttempt++) {
         try {
-          service = await server.getPrimaryService(BLE_SERVICE_UUID_16);
-        } catch (e2) {
-          throw new Error('无法获取 0x00FF GATT 服务: ' + (e1.message || e2.message));
+          if (!server || !server.connected) {
+            console.warn(`[BLE] GATT Server disconnected before service discovery, reconnecting (${sAttempt})...`);
+            await new Promise(r => setTimeout(r, 350));
+            server = await device.gatt.connect();
+            await new Promise(r => setTimeout(r, 250));
+          }
+
+          try {
+            service = await server.getPrimaryService(BLE_SERVICE_UUID_128);
+          } catch {
+            service = await server.getPrimaryService(BLE_SERVICE_UUID_16);
+          }
+          if (service) break;
+        } catch (sErr) {
+          console.warn(`[BLE] Service discovery attempt ${sAttempt} failed:`, sErr.message);
+          if (sAttempt === 3) {
+            throw new Error(`无法获取 GATT 服务: ${sErr.message} (若在 Windows 上，建议在系统设置中删除蓝牙设备后重试)`);
+          }
+          await new Promise(r => setTimeout(r, 400));
         }
+      }
+
+      if (!service) {
+        throw new Error('未能发现 0x00FF 自定义 GATT 服务');
       }
 
       console.log('[BLE] Discovering Characteristics RX/TX...');
@@ -276,7 +294,12 @@ const DeviceManager = {
 
     try {
       const url = `http://${this.lanIp}/api/system/status`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      const fetchOpts = {
+        signal: AbortSignal.timeout(3500),
+        headers: { 'Accept': 'application/json' }
+      };
+      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
+      const res = await fetch(url, fetchOpts);
       if (res.ok) {
         this.isLanConnected = true;
         if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
