@@ -1,0 +1,334 @@
+/**
+ * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
+ * Layout & Responsive Multi-Device Styles
+ * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ */
+
+/* Header */
+header {
+  background: var(--md-sys-color-surface-container);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.brand {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Connectivity Banner */
+.conn-banner {
+  background: var(--md-sys-color-surface-container-high);
+  margin: 12px 16px 8px 16px;
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-1);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.conn-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.conn-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  background-color: #888;
+  box-shadow: 0 0 6px rgba(0,0,0,0.2);
+}
+
+.conn-status-dot.connected {
+  background-color: #4caf50;
+  box-shadow: 0 0 8px #4caf50;
+}
+
+.conn-status-dot.connecting {
+  background-color: #ff9800;
+  animation: pulse-dot 1.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.conn-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========================================================
+ * 🚀 Responsive Sliding Tab Bar Navigation with Scroll Hint
+ * ======================================================== */
+.tab-scroll-wrapper {
+  position: relative;
+  margin: 4px 16px 12px 16px;
+}
+
+.tab-scroll-container {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  padding: 4px 2px;
+}
+
+.tab-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fade Masks on Left & Right to indicate more content */
+.tab-scroll-wrapper::before,
+.tab-scroll-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 24px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.tab-scroll-wrapper::before {
+  left: 0;
+  background: linear-gradient(to right, var(--md-sys-color-surface), transparent);
+}
+
+.tab-scroll-wrapper::after {
+  right: 0;
+  background: linear-gradient(to left, var(--md-sys-color-surface), transparent);
+}
+
+.tab-scroll-wrapper.has-scroll-left::before {
+  opacity: 1;
+}
+
+.tab-scroll-wrapper.has-scroll-right::after {
+  opacity: 1;
+}
+
+/* Tab Bar */
+.tab-nav {
+  display: inline-flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  white-space: nowrap;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.tab-btn:hover {
+  background: var(--md-sys-color-surface-container-high);
+}
+
+.tab-btn.active {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: var(--shadow-1);
+}
+
+/* Mobile Slide Hint Tooltip */
+.tab-scroll-hint {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+  animation: fadeIn 0.3s ease;
+}
+
+.tab-scroll-hint span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-scroll-hint .hint-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Main Container */
+main {
+  flex: 1;
+  padding: 0 16px 24px 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tab-pane {
+  display: none;
+  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Footer */
+.app-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface-container);
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--md-sys-color-outline);
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-links a {
+  color: var(--md-sys-color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.2s;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.footer-sep {
+  color: var(--md-sys-color-outline-variant);
+}
+
+.footer-copy {
+  font-size: 12px;
+  color: var(--md-sys-color-outline);
+}
+
+/* ========================================================
+ * 📱 Multi-Device Adaptive Media Queries & UA Detection
+ * ======================================================== */
+
+/* Mobile Phones (<= 640px) */
+@media (max-width: 640px) {
+  header {
+    padding: 10px 14px;
+  }
+  .brand {
+    font-size: 14px;
+  }
+  .conn-banner {
+    margin: 8px 10px;
+    padding: 10px 12px;
+  }
+  .tab-scroll-wrapper {
+    margin: 4px 10px 10px 10px;
+  }
+  main {
+    padding: 0 10px 20px 10px;
+  }
+  .tab-scroll-hint {
+    display: flex;
+  }
+}
+
+/* Tablets (641px - 1024px) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid-2col {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Desktop (>= 1025px) */
+@media (min-width: 1025px) {
+  .tab-scroll-wrapper::before,
+  .tab-scroll-wrapper::after {
+    display: none;
+  }
+  .tab-nav {
+    display: flex;
+    justify-content: flex-start;
+  }
+}

@@ -24,9 +24,9 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 6144,
+            stack_size: 4096,
             max_open_sockets: 4,
-            max_uri_handlers: 64,
+            max_uri_handlers: 48,
             uri_match_wildcard: true,
             lru_purge_enable: true,
             ..Default::default()
@@ -88,11 +88,12 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
-                ("ETag", "\"398epd-v1\""),
+                ("Cache-Control", "public, max-age=3600"),
+                ("ETag", "\"398epd-v2\""),
             ])?;
             for chunk in INDEX_HTML_GZ.chunks(1024) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+                std::thread::sleep(std::time::Duration::from_millis(2));
             }
             Ok(())
         })?;
@@ -105,11 +106,12 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
-                ("ETag", "\"398epd-v1\""),
+                ("Cache-Control", "public, max-age=3600"),
+                ("ETag", "\"398epd-v2\""),
             ])?;
             for chunk in INDEX_HTML_GZ.chunks(1024) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+                std::thread::sleep(std::time::Duration::from_millis(2));
             }
             Ok(())
         })?;
@@ -1132,7 +1134,10 @@ impl WebServer {
                     ("Access-Control-Allow-Origin", "*"),
                     ("Connection", "close"),
                 ])?;
-                resp.write_all(&bytes)?;
+                for chunk in bytes.chunks(1024) {
+                    resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
                 return Ok(());
             }
 

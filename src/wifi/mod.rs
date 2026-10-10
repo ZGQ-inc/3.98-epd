@@ -164,7 +164,7 @@ impl<'a> WifiManager<'a> {
             let ap_handle = self.wifi.wifi().ap_netif().handle();
             let _ = esp_idf_svc::sys::esp_netif_dhcps_stop(ap_handle);
             let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_STA);
-            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_MIN_MODEM);
+            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_NONE);
         };
 
         IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);

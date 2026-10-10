@@ -12,8 +12,6 @@ mod web;
 mod wifi;
 
 use std::sync::{Arc, Mutex};
-use std::thread::sleep;
-use std::time::Duration;
 
 use esp_idf_hal::gpio::{PinDriver, Pull};
 use esp_idf_hal::peripherals::Peripherals;
@@ -26,7 +24,6 @@ use log::info;
 use crate::config::ConfigManager;
 use crate::display::{EpdDriver, Framebuffer, PanelVersion};
 use crate::modes::ModeContext;
-use crate::scheduler::TaskScheduler;
 use crate::web::WebServer;
 use crate::wifi::{WifiManager, WifiModeStatus};
 
@@ -148,12 +145,15 @@ fn main() -> anyhow::Result<()> {
                 None
             }
         };
-        // Start mDNS responder so http://epd-display.local resolves across local network
+        // Skip dedicated mDNS thread to conserve 5.5KB SRAM for Wi-Fi and BLE coexistence
+        // Users navigate directly via http://<ip_addr>/ or PWA
+        /*
         if !ap && ip != "0.0.0.0" {
             if let Ok(ipv4) = ip.parse::<std::net::Ipv4Addr>() {
                 crate::wifi::mdns::start_mdns("epd-display", ipv4);
             }
         }
+        */
 
         (ip, ap, ap_ssid, srv)
     };

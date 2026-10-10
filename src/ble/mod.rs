@@ -7,7 +7,7 @@ use log::info;
 use esp32_nimble::{
     BLEDevice, BLECharacteristic, BLEAdvertisementData, NimbleProperties,
     utilities::{BleUuid, mutex::Mutex as NimbleMutex},
-    enums::{PowerType, PowerLevel},
+    enums::{PowerType, PowerLevel, AuthReq, SecurityIOCap},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,7 +126,15 @@ impl BleManager {
         device.set_power(PowerType::Default, PowerLevel::P9).ok();
         BLEDevice::set_device_name(name).ok();
 
+        // Configure BLE Security for seamless pairing (supporting both Legacy & Secure Connections)
+        device.security()
+            .set_auth(AuthReq::Bond | AuthReq::Sc)
+            .set_io_cap(SecurityIOCap::NoInputNoOutput)
+            .resolve_rpa();
+
         let server = device.get_server();
+        server.on_confirm_pin(|_pin| true);
+        server.on_passkey_request(|| 0);
         server.on_connect(|_server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
@@ -309,11 +317,20 @@ impl BleManager {
         let mut adv_data = BLEAdvertisementData::new();
         adv_data.name(&name);
         adv_data.add_service_uuid(BleUuid::from_uuid16(0x00FF));
-        // Set fast, coexistence-friendly 100ms~150ms advertising interval (160*0.625ms = 100ms, 240*0.625ms = 150ms)
-        // Highly responsive for mobile discovery while leaving ample RF time for Wi-Fi traffic
+        // Balanced coexistence interval: 100ms~150ms (160*0.625ms = 100ms, 240*0.625ms = 150ms)
+        // High discovery rate while guaranteeing Wi-Fi packet transmission without radio preemption
         adv.min_interval(160);
         adv.max_interval(240);
+        adv.scan_response(true);
         let _ = adv.set_data(&mut adv_data);
+
+        // Also set explicit Complete Local Name in Scan Response so modern active scanners always match
+        let mut scan_rsp = vec![0u8; 2 + name.len()];
+        scan_rsp[0] = (1 + name.len()) as u8;
+        scan_rsp[1] = 0x09; // AD type 0x09: Complete Local Name
+        scan_rsp[2..].copy_from_slice(name.as_bytes());
+        let _ = adv.set_raw_scan_response_data(&scan_rsp);
+
         let _ = adv.start();
 
         *self.status.lock().unwrap() = BleStatus::Advertising;

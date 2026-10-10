@@ -1,0 +1,77 @@
+/**
+ * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
+ * Theme & Color Tokens (Material Design 3)
+ * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ */
+
+:root {
+  --md-sys-color-primary: #005ac1;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d8e2ff;
+  --md-sys-color-on-primary-container: #001a41;
+  --md-sys-color-surface: #fdfcff;
+  --md-sys-color-on-surface: #1a1c1e;
+  --md-sys-color-surface-container: #f1f4f9;
+  --md-sys-color-surface-container-high: #ebeef3;
+  --md-sys-color-surface-container-highest: #e2e7ec;
+  --md-sys-color-outline: #74777f;
+  --md-sys-color-outline-variant: #c4c6d0;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-success: #2e7d32;
+  --md-sys-color-warning: #b26a00;
+
+  /* E-Ink Physical BWRY Colors */
+  --epd-black: #000000;
+  --epd-white: #ffffff;
+  --epd-yellow: #f4c430;
+  --epd-red: #d32f2f;
+
+  /* Elevation Shadows */
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.16), 0 4px 8px rgba(0, 0, 0, 0.1);
+
+  /* Geometry */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+[data-theme="dark"] {
+  --md-sys-color-primary: #a8c7fa;
+  --md-sys-color-on-primary: #002d6f;
+  --md-sys-color-primary-container: #004396;
+  --md-sys-color-on-primary-container: #d8e2ff;
+  --md-sys-color-surface: #121316;
+  --md-sys-color-on-surface: #e2e2e6;
+  --md-sys-color-surface-container: #1e2024;
+  --md-sys-color-surface-container-high: #282a2f;
+  --md-sys-color-surface-container-highest: #33353a;
+  --md-sys-color-outline: #8e9099;
+  --md-sys-color-outline-variant: #44474e;
+  --md-sys-color-error: #ffb4ab;
+  --md-sys-color-success: #81c784;
+  --md-sys-color-warning: #ffb74d;
+
+  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 10px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 8px 20px rgba(0, 0, 0, 0.6);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}

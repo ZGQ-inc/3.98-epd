@@ -72,7 +72,7 @@ pub fn init_spiffs() -> bool {
     let conf = esp_idf_svc::sys::esp_vfs_spiffs_conf_t {
         base_path: b"/spiffs\0".as_ptr() as *const _,
         partition_label: b"storage\0".as_ptr() as *const _,
-        max_files: 5,
+        max_files: 2,
         format_if_mount_failed: true,
     };
 
@@ -92,6 +92,13 @@ pub fn init_spiffs() -> bool {
     if let Ok(stats) = refresh_storage_stats() {
         println!("  [spiffs] Storage partition ready: {} KB used / {} KB total ({} KB free)",
             stats.used_bytes / 1024, stats.total_bytes / 1024, stats.free_bytes / 1024);
+    }
+
+    // Pre-populate CACHED_PRESETS on the main task during boot (7KB stack)
+    let initial_presets = scan_presets_dir();
+    println!("  [spiffs] Loaded {} saved presets into cache", initial_presets.len());
+    if let Ok(mut lock) = CACHED_PRESETS.lock() {
+        *lock = Some(initial_presets);
     }
     true
 }
@@ -132,35 +139,52 @@ pub fn get_storage_stats() -> Result<StorageStats, String> {
     refresh_storage_stats()
 }
 
-/// Lists all saved presets from the SPIFFS storage partition.
-pub fn list_presets() -> PresetListResponse {
-    println!("  [storage] list_presets() started");
-    let _guard = STORAGE_LOCK.lock().unwrap();
-    println!("  [storage] list_presets() lock acquired");
-    let stats = get_storage_stats().unwrap_or(StorageStats {
-        total_bytes: 1632 * 1024,
-        used_bytes: 0,
-        free_bytes: 1632 * 1024,
-    });
-    println!("  [storage] list_presets() stats done: used={}", stats.used_bytes);
+static CACHED_PRESETS: Mutex<Option<Vec<PresetSummary>>> = Mutex::new(None);
 
+fn scan_presets_dir() -> Vec<PresetSummary> {
     let mut presets = Vec::new();
     if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
-        println!("  [storage] list_presets() reading directory {}", PRESETS_DIR);
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(bytes) = fs::read(&path) {
-                    if let Ok(summary) = serde_json::from_slice::<PresetSummary>(&bytes) {
-                        presets.push(summary);
+                if let Ok(mut file) = File::open(&path) {
+                    let mut bytes = Vec::new();
+                    if file.read_to_end(&mut bytes).is_ok() {
+                        if let Ok(summary) = serde_json::from_slice::<PresetSummary>(&bytes) {
+                            presets.push(summary);
+                        }
                     }
                 }
             }
         }
     }
-
-    // Sort by created_at descending (newest first)
     presets.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    presets
+}
+
+/// Lists all saved presets from the SPIFFS storage partition (O(1) memory cached).
+pub fn list_presets() -> PresetListResponse {
+    let _guard = STORAGE_LOCK.lock().unwrap();
+    let stats = get_storage_stats().unwrap_or(StorageStats {
+        total_bytes: 1528 * 1024,
+        used_bytes: 0,
+        free_bytes: 1528 * 1024,
+    });
+
+    let presets = if let Ok(lock) = CACHED_PRESETS.lock() {
+        if let Some(ref list) = *lock {
+            list.clone()
+        } else {
+            let list = scan_presets_dir();
+            drop(lock);
+            if let Ok(mut l) = CACHED_PRESETS.lock() {
+                *l = Some(list.clone());
+            }
+            list
+        }
+    } else {
+        scan_presets_dir()
+    };
 
     PresetListResponse {
         status: "ok".to_string(),
@@ -212,6 +236,25 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
     let mut f = File::create(&json_path).map_err(|e| format!("Failed to create preset json: {:?}", e))?;
     f.write_all(json_str.as_bytes()).map_err(|e| format!("Failed to write preset json: {:?}", e))?;
 
+    let summary = PresetSummary {
+        id: meta.id.clone(),
+        name: meta.name.clone(),
+        preset_type: meta.preset_type.clone(),
+        type_label: meta.type_label.clone(),
+        size_bytes: meta.size_bytes,
+        size_str: meta.size_str.clone(),
+        created_at: meta.created_at,
+        created_str: meta.created_str.clone(),
+        bitmap_file: meta.bitmap_file.clone(),
+    };
+    if let Ok(mut lock) = CACHED_PRESETS.lock() {
+        if let Some(ref mut list) = *lock {
+            list.insert(0, summary);
+        } else {
+            *lock = Some(vec![summary]);
+        }
+    }
+
     info!("[PRESET] Preset '{}' saved successfully (id: {})", meta.name, meta.id);
     let _ = refresh_storage_stats();
     Ok(meta)
@@ -227,6 +270,11 @@ pub fn delete_presets(ids: &[String]) -> Result<StorageStats, String> {
         let _ = fs::remove_file(&json_path);
         let _ = fs::remove_file(&bitmap_path);
         info!("[PRESET] Deleted preset: {}", id);
+    }
+    if let Ok(mut lock) = CACHED_PRESETS.lock() {
+        if let Some(ref mut list) = *lock {
+            list.retain(|p| !ids.contains(&p.id));
+        }
     }
     refresh_storage_stats()
 }
