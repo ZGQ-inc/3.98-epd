@@ -97,16 +97,18 @@ impl BleManager {
 
         let should_start = if mode_str == "wifi_only" {
             false
-        } else if mode_str == "auto" || mode_str == "dual" || mode_str == "ble_only" {
+        } else if mode_str == "dual" || mode_str == "ble_only" {
             true
+        } else if mode_str == "auto" {
+            !crate::wifi::is_station_connected()
         } else {
             ble_enabled
         };
 
         if !should_start {
             *self.status.lock().unwrap() = BleStatus::Off;
-            println!("  [ble-hardware] Wireless mode is '{}', BLE hardware standing by (OFF).", mode_str);
-            info!("[BLE] Wireless mode is '{}', BLE hardware not started.", mode_str);
+            println!("  [ble-hardware] Smart Coexistence: Wireless mode '{}', BLE advertising suppressed (Wi-Fi station active or Wi-Fi only).", mode_str);
+            info!("[BLE] Wireless mode is '{}', BLE advertising not started.", mode_str);
             return;
         }
 
@@ -372,8 +374,19 @@ impl BleManager {
             "wifi_only" => {
                 self.set_enabled(false);
             }
-            "ble_only" | "dual" | "auto" => {
+            "ble_only" => {
+                crate::wifi::stop_softap();
                 self.set_enabled(true);
+            }
+            "dual" => {
+                self.set_enabled(true);
+            }
+            "auto" => {
+                if crate::wifi::is_station_connected() {
+                    self.stop_advertising();
+                } else {
+                    self.set_enabled(true);
+                }
             }
             _ => {}
         }
@@ -390,10 +403,11 @@ impl BleManager {
     }
 
     /// Called when Wi-Fi is successfully configured/connected to router.
-    /// Only in 'wifi_only' does it shut down BLE.
+    /// In 'auto' or 'wifi_only', shuts down BLE advertising to save power & RF contention.
     pub fn on_wifi_configured(&self) {
         let mode = self.wireless_mode.lock().unwrap().clone();
-        if mode == "wifi_only" {
+        if mode == "auto" || mode == "wifi_only" {
+            println!("  [ble-hardware] Smart Coexistence: Wi-Fi Station connected. Stopping BLE advertising...");
             self.stop_advertising();
         }
     }
@@ -437,6 +451,20 @@ impl BleManager {
         });
         *self.status.lock().unwrap() = BleStatus::Connected;
         drop(devs);
+
+        // Smart Coexistence: BLE connected, shut down SoftAP hotspot if running
+        let mode = self.get_wireless_mode();
+        if mode == "auto" {
+            println!("  [ble-hardware] Smart Coexistence: BLE Client connected. Stopping Wi-Fi SoftAP hotspot...");
+            crate::wifi::stop_softap();
+        }
+
+        // If device was unconfigured on first boot, update e-ink to show PWA guide
+        if crate::display::is_unconfigured() {
+            println!("  [ble-hardware] Unconfigured device paired with BLE: rendering PWA guide on e-ink screen...");
+            crate::display::request_pwa_guide(name.to_string(), mac.to_string());
+        }
+
         self.notify_status();
         id
     }
@@ -444,7 +472,15 @@ impl BleManager {
     pub fn on_ble_client_disconnected_all(&self) {
         self.devices.lock().unwrap().clear();
         let mode = self.wireless_mode.lock().unwrap().clone();
-        if mode != "wifi_only" {
+        if mode == "auto" {
+            if !crate::wifi::is_station_connected() {
+                println!("  [ble-hardware] Smart Coexistence: BLE disconnected and Wi-Fi station not connected. Resuming SoftAP & BLE broadcast...");
+                crate::wifi::restart_softap_if_needed();
+                self.start_advertising();
+            } else {
+                println!("  [ble-hardware] Smart Coexistence: Wi-Fi station active, BLE remaining quiet.");
+            }
+        } else if mode != "wifi_only" {
             println!("  [ble-hardware] WebBLE Host disconnected: restarting RF advertising...");
             self.start_advertising();
         } else {
@@ -458,7 +494,15 @@ impl BleManager {
         if devs.is_empty() {
             drop(devs);
             let mode = self.wireless_mode.lock().unwrap().clone();
-            if mode != "wifi_only" {
+            if mode == "auto" {
+                if !crate::wifi::is_station_connected() {
+                    println!("  [ble-hardware] Smart Coexistence: Client '{}' disconnected. Resuming SoftAP & BLE broadcast...", id);
+                    crate::wifi::restart_softap_if_needed();
+                    self.start_advertising();
+                } else {
+                    println!("  [ble-hardware] Smart Coexistence: Wi-Fi station active, BLE remaining quiet.");
+                }
+            } else if mode != "wifi_only" {
                 println!("  [ble-hardware] WebBLE Client '{}' disconnected: restarting RF advertising...", id);
                 self.start_advertising();
             } else {

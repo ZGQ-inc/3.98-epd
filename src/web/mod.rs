@@ -25,7 +25,7 @@ impl WebServer {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
             stack_size: 4096,
-            max_open_sockets: 4,
+            max_open_sockets: 7,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
@@ -55,6 +55,16 @@ impl WebServer {
             Ok(())
         })?;
 
+        // Fast favicon handler to prevent browser connection hogging
+        server.fn_handler("/favicon.ico", Method::Get, |req| -> anyhow::Result<()> {
+            let mut resp = req.into_response(204, None, &[
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(b"")?;
+            Ok(())
+        })?;
+
         // 1. Root '/' handler:
         // In AP mode -> serves Captive Portal
         // In Station mode -> serves full Material Web Console & Layout Studio!
@@ -79,7 +89,7 @@ impl WebServer {
                 ("Connection", "close"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
+            for chunk in INDEX_HTML_GZ.chunks(2048) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())
@@ -95,7 +105,7 @@ impl WebServer {
                 ("Connection", "close"),
                 ("Cache-Control", "no-cache, no-store, must-revalidate"),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
+            for chunk in INDEX_HTML_GZ.chunks(2048) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())

@@ -1,12 +1,20 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('epd_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+      } catch(e) {}
+    })();
+  </script>
   <title>3.98" 墨水屏随身伴侣 · Open E-Badge & Ita-Bag</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/svg+xml" href="./icon-192.svg">
-  <meta name="theme-color" content="#005ac1">
+  <meta name="theme-color" content="#121316">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="墨水屏伴侣">
@@ -1007,14 +1015,10 @@ var QRCodeLib = (function () {
   }
 
   function initTheme() {
-    const saved = localStorage.getItem('epd_theme');
-    if (saved) {
-      document.documentElement.setAttribute('data-theme', saved);
-      document.getElementById('themeToggleBtn').innerText = saved === 'dark' ? '☀️' : '🌙';
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      document.getElementById('themeToggleBtn').innerText = '☀️';
-    }
+    const saved = localStorage.getItem('epd_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerText = saved === 'dark' ? '☀️' : '🌙';
   }
 
   // 2. Modal Helper

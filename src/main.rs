@@ -149,6 +149,9 @@ fn main() -> anyhow::Result<()> {
             Some(app_config.clone()),
         );
         crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
+        if !is_ap && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
+            crate::ble::BleManager::global().on_wifi_configured();
+        }
     }
 
     // 6. Start MQTT client (in Station mode only, and not in ble_only mode)

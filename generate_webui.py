@@ -4,24 +4,23 @@ import os
 import gzip
 
 html_content = '''<!DOCTYPE html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('epd_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+      } catch(e) {}
+    })();
+  </script>
   <title>3.98" 4色墨水屏 · 智能控制台与专业画板</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
   <!-- High-Speed CDNs for Fabric.js v5.3 and QRCode -->
-  <script src="https://registry.npmmirror.com/fabric/5.3.0/files/dist/fabric.min.js"></script>
-  <script>
-    if (typeof fabric === 'undefined') {
-      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/fabric.js/5.3.0/fabric.min.js"><\/script>');
-    }
-  </script>
-  <script src="https://registry.npmmirror.com/qrcodejs/1.0.0/files/qrcode.min.js"></script>
-  <script>
-    if (typeof QRCode === 'undefined') {
-      document.write('<script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
-    }
-  </script>
+  <script defer src="https://registry.npmmirror.com/fabric/5.3.0/files/dist/fabric.min.js"></script>
+  <script defer src="https://registry.npmmirror.com/qrcodejs/1.0.0/files/qrcode.min.js"></script>
 
   <style>
     /* Google Material Design 3 (M3) Complete Color & Surface Tokens */
@@ -722,16 +721,14 @@ html_content = '''<!DOCTYPE html>
   function promptCustomPwaUrl() {
     const current = getPwaUrl();
     const input = prompt(
-      '【自定义离线蓝牙 PWA 专页地址】\n' +
-      '请输入您部署在 Cloudflare Pages 的专属网址（例如: https://my-badge.pages.dev）：\n' +
-      '(若输入为空则恢复默认设备内置 /pwa 地址)',
+      '【自定义离线蓝牙 PWA 专页地址】\\n请输入您部署在 Cloudflare Pages 的专属网址（例如: https://my-badge.pages.dev）：\\n(若输入为空则恢复默认设备内置 /pwa 地址)',
       current === '/pwa' ? '' : current
     );
     if (input !== null) {
       const trimmed = input.trim();
       if (trimmed) {
         localStorage.setItem('user_custom_pwa_url', trimmed);
-        alert('✅ 已成功设置自定义离线 PWA 地址为:\n' + trimmed + '\n\n点击“离线蓝牙 PWA 专页”按钮即可直接跳转访问！');
+        alert('✅ 已成功设置自定义离线 PWA 地址为:\\n' + trimmed + '\\n\\n点击“离线蓝牙 PWA 专页”按钮即可直接跳转访问！');
       } else {
         localStorage.removeItem('user_custom_pwa_url');
         alert('ℹ️ 已恢复为默认设备内置 PWA 地址 (/pwa)');
@@ -744,7 +741,7 @@ html_content = '''<!DOCTYPE html>
   // 1. Material Design 3 Dark Mode Theme Manager
   // ─────────────────────────────────────────────────────────────────────────────
   function initTheme() {
-    const saved = localStorage.getItem('epd_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const saved = localStorage.getItem('epd_theme') || 'dark';
     setTheme(saved);
   }
 

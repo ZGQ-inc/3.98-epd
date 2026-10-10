@@ -12,8 +12,43 @@ use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::wifi::{BlockingWifi, EspWifi, WifiDeviceId};
 use log::{error, info, warn};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use crate::config::AppConfig;
 use crate::wifi::captive::CaptivePortalDns;
+
+static IS_SOFTAP_RUNNING: AtomicBool = AtomicBool::new(false);
+static IS_STATION_CONNECTED: AtomicBool = AtomicBool::new(false);
+
+pub fn is_softap_active() -> bool {
+    IS_SOFTAP_RUNNING.load(Ordering::SeqCst)
+}
+
+pub fn is_station_connected() -> bool {
+    IS_STATION_CONNECTED.load(Ordering::SeqCst)
+}
+
+pub fn stop_softap() {
+    if IS_SOFTAP_RUNNING.swap(false, Ordering::SeqCst) {
+        println!("[WIFI] Smart Coexistence: Shutting down SoftAP hotspot beacon...");
+        unsafe {
+            let _ = esp_idf_svc::sys::esp_wifi_stop();
+            let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_NULL);
+        }
+        println!("[WIFI] SoftAP hotspot terminated. Wi-Fi radio quiet.");
+    }
+}
+
+pub fn restart_softap_if_needed() {
+    if !IS_STATION_CONNECTED.load(Ordering::SeqCst) && !IS_SOFTAP_RUNNING.load(Ordering::SeqCst) {
+        println!("[WIFI] Smart Coexistence: Resuming SoftAP hotspot broadcast...");
+        unsafe {
+            let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_AP);
+            let _ = esp_idf_svc::sys::esp_wifi_start();
+        }
+        IS_SOFTAP_RUNNING.store(true, Ordering::SeqCst);
+        println!("[WIFI] SoftAP hotspot broadcast resumed.");
+    }
+}
 
 pub enum WifiModeStatus {
     StationConnected(String), // IP Address
@@ -105,6 +140,8 @@ impl<'a> WifiManager<'a> {
             Err(e) => error!("[WIFI] Failed to start captive portal DNS: {:?}", e),
         }
 
+        IS_SOFTAP_RUNNING.store(true, Ordering::SeqCst);
+        IS_STATION_CONNECTED.store(false, Ordering::SeqCst);
         Ok(WifiModeStatus::AccessPointActive(ap_ssid))
     }
 
@@ -122,10 +159,16 @@ impl<'a> WifiManager<'a> {
         self.wifi.connect()?;
         self.wifi.wait_netif_up()?;
 
-        // Disable modem power save to ensure instant network responsiveness
+        // Disable modem power save to ensure instant network responsiveness & explicitly force STA mode
         unsafe {
+            let ap_handle = self.wifi.wifi().ap_netif().handle();
+            let _ = esp_idf_svc::sys::esp_netif_dhcps_stop(ap_handle);
+            let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_STA);
             let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_NONE);
         };
+
+        IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);
+        IS_STATION_CONNECTED.store(true, Ordering::SeqCst);
 
         let ip_info = self.wifi.wifi().sta_netif().get_ip_info()?;
         let ip_str = ip_info.ip.to_string();
