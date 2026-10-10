@@ -238,7 +238,7 @@ pub fn render_welcome_screen(
     draw_chinese_text(fb, 38, 346, "2. 自动弹出或在浏览器打开配置页", BwryColor::Black, 1);
     draw_chinese_text(fb, 38, 372, "3. 填入路由器 Wi-Fi 密码保存", BwryColor::Black, 1);
     draw_chinese_text(fb, 38, 398, "4. 配网成功自动切换局域网控制台", BwryColor::Black, 1);
-    draw_chinese_text(fb, 38, 432, "适用: 接入家庭/办公室智能看板", BwryColor::Yellow, 1);
+    draw_chinese_text(fb, 38, 432, "适用: 接入家庭/办公室智能看板", BwryColor::Red, 1);
 
     // 右栏：蓝牙随身配对 (X: 388..744, W: 356)
     fb.rect(388, 120, 356, 374, BwryColor::Black);

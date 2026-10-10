@@ -328,20 +328,20 @@ html_content = '''<!DOCTYPE html>
         </div>
         <div>
           <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
-            <span>固件代码分区 (ota_0 1.5MB)</span>
-            <span id="statOtaUsage">1436 KB (已用 93%)</span>
+            <span>固件代码分区 (factory 3.0 MB)</span>
+            <span id="statOtaUsage">1700 KB (已用 54%)</span>
           </div>
           <div class="m3-progress-track">
-            <div class="m3-progress-bar warning" style="width: 93%;"></div>
+            <div class="m3-progress-bar success" style="width: 54%;"></div>
           </div>
         </div>
         <div>
           <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
-            <span>内部存储分区 (storage 896KB)</span>
-            <span id="statStorageFree">剩余 848 KB (94% 可用)</span>
+            <span>中文字库存储分区 (storage 896KB)</span>
+            <span id="statStorageFree">已存 GB2312 汉字库 264 KB (可用 70%)</span>
           </div>
           <div class="m3-progress-track">
-            <div class="m3-progress-bar success" style="width: 6%;"></div>
+            <div class="m3-progress-bar success" style="width: 30%;"></div>
           </div>
         </div>
         <div>
