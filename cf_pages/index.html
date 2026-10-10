@@ -1062,16 +1062,28 @@ var QRCodeLib = (function () {
       statusText.innerText = '正在搜寻墨水屏...';
       btn.disabled = true;
 
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [
-          { services: [0x00FF] },
-          { services: [BLE_SERVICE_UUID] },
-          { namePrefix: 'EPD' },
-          { namePrefix: 'SmartEPD' },
-          { namePrefix: 'InkBadge' }
-        ],
-        optionalServices: [0x00FF, BLE_SERVICE_UUID, 0x180A]
-      });
+      let device;
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { namePrefix: 'EPD' },
+            { namePrefix: 'SmartEPD' },
+            { namePrefix: 'InkBadge' },
+            { services: [0x00FF] },
+            { services: [BLE_SERVICE_UUID] }
+          ],
+          optionalServices: [0x00FF, BLE_SERVICE_UUID, 0x180A]
+        });
+      } catch (fErr) {
+        if (fErr.name === 'NotFoundError' || fErr.message?.includes('User cancelled') || fErr.message?.includes('cancelled')) {
+          throw fErr;
+        }
+        console.warn('Filter scan failed, falling back to acceptAllDevices:', fErr);
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [0x00FF, BLE_SERVICE_UUID, 0x180A]
+        });
+      }
 
       if (!device) {
         throw new Error('未选择任何蓝牙设备');

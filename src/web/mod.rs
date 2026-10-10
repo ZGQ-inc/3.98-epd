@@ -26,7 +26,7 @@ impl WebServer {
         let server_cfg = Configuration {
             stack_size: 4096,
             max_open_sockets: 4,
-            max_uri_handlers: 36,
+            max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
             ..Default::default()

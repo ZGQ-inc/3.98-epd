@@ -325,11 +325,15 @@ impl BleManager {
         let mut adv_data = BLEAdvertisementData::new();
         adv_data.name(&name);
         adv_data.add_service_uuid(BleUuid::from_uuid16(0x00FF));
+        // Set fast 50ms~100ms advertising interval (80*0.625ms = 50ms, 160*0.625ms = 100ms)
+        // Guarantees modern Bluetooth 5.4/6.0 scanners with tight scan windows catch packets instantly!
+        adv.min_interval(80);
+        adv.max_interval(160);
         let _ = adv.set_data(&mut adv_data);
         let _ = adv.start();
 
         *self.status.lock().unwrap() = BleStatus::Advertising;
-        println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF)", name);
+        println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF, interval: 50~100ms)", name);
         info!("[BLE] Started RF advertising as '{}'", name);
     }
 
@@ -441,7 +445,8 @@ impl BleManager {
         self.devices.lock().unwrap().clear();
         let mode = self.wireless_mode.lock().unwrap().clone();
         if mode != "wifi_only" {
-            *self.status.lock().unwrap() = BleStatus::Advertising;
+            println!("  [ble-hardware] WebBLE Host disconnected: restarting RF advertising...");
+            self.start_advertising();
         } else {
             *self.status.lock().unwrap() = BleStatus::Off;
         }
@@ -451,9 +456,11 @@ impl BleManager {
         let mut devs = self.devices.lock().unwrap();
         devs.retain(|d| d.id != id);
         if devs.is_empty() {
+            drop(devs);
             let mode = self.wireless_mode.lock().unwrap().clone();
             if mode != "wifi_only" {
-                *self.status.lock().unwrap() = BleStatus::Advertising;
+                println!("  [ble-hardware] WebBLE Client '{}' disconnected: restarting RF advertising...", id);
+                self.start_advertising();
             } else {
                 *self.status.lock().unwrap() = BleStatus::Off;
             }
