@@ -164,3 +164,6 @@ const PaintCanvas = {
     return BWRY.ditherCanvasTo2bpp(this.canvas, 'floyd');
   }
 };
+
+window.PaintCanvas = PaintCanvas;
+

@@ -13,10 +13,10 @@
   <meta name="description" content="专为 3.98 英寸四色墨水屏打造的蓝牙与局域网双模独立控制端 PWA。">
 
   <!-- Modular Stylesheets -->
-  <link rel="stylesheet" href="./css/theme.css">
-  <link rel="stylesheet" href="./css/layout.css">
-  <link rel="stylesheet" href="./css/components.css">
-  <link rel="stylesheet" href="./css/studios.css">
+  <link rel="stylesheet" href="./css/theme.css?v=2.1">
+  <link rel="stylesheet" href="./css/layout.css?v=2.1">
+  <link rel="stylesheet" href="./css/components.css?v=2.1">
+  <link rel="stylesheet" href="./css/studios.css?v=2.1">
 </head>
 <body>
 
@@ -57,12 +57,12 @@
 
     <div class="tab-scroll-container">
       <nav class="tab-nav">
-        <button class="tab-btn active" data-tab="badge">📇 智能工牌</button>
-        <button class="tab-btn" data-tab="memo">📝 随身便签</button>
-        <button class="tab-btn" data-tab="paint">🎨 像素手绘</button>
-        <button class="tab-btn" data-tab="image">🖼️ 图像工坊</button>
-        <button class="tab-btn" data-tab="presets">🗂️ 预设效果库</button>
-        <button class="tab-btn" data-tab="system">⚙️ 硬件诊断</button>
+        <button class="tab-btn active" data-tab="badge" onclick="UI.switchTab('badge', this)">📇 智能工牌</button>
+        <button class="tab-btn" data-tab="memo" onclick="UI.switchTab('memo', this)">📝 随身便签</button>
+        <button class="tab-btn" data-tab="paint" onclick="UI.switchTab('paint', this)">🎨 像素手绘</button>
+        <button class="tab-btn" data-tab="image" onclick="UI.switchTab('image', this)">🖼️ 图像工坊</button>
+        <button class="tab-btn" data-tab="presets" onclick="UI.switchTab('presets', this)">🗂️ 预设效果库</button>
+        <button class="tab-btn" data-tab="system" onclick="UI.switchTab('system', this)">⚙️ 硬件诊断</button>
       </nav>
     </div>
   </div>
@@ -79,8 +79,8 @@
             <canvas id="badgePreviewCanvas" class="preview-canvas"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="badgePushBtn">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="badgeSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn" id="badgePushBtn" onclick="App.pushCanvas(App.badgeCanvas, '工牌')">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="badgeSavePresetBtn" onclick="App.promptSavePreset(App.badgeCanvas, 'badge', '个性工牌预设')">💾 保存为预设</button>
           </div>
         </div>
 
@@ -127,8 +127,8 @@
             <canvas id="memoPreviewCanvas" class="preview-canvas"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="memoPushBtn">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="memoSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn" id="memoPushBtn" onclick="App.pushCanvas(App.memoCanvas, '便签')">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="memoSavePresetBtn" onclick="App.promptSavePreset(App.memoCanvas, 'memo', '待办便签预设')">💾 保存为预设</button>
           </div>
         </div>
 
@@ -170,9 +170,9 @@
             <button class="m3-btn small outlined tool-btn" data-tool="circle">⚪ 圆形</button>
             <button class="m3-btn small outlined tool-btn" data-tool="eraser">🧹 橡皮</button>
             <input type="range" id="paintLineWidth" min="1" max="20" value="4" style="width:70px;" title="笔触粗细">
-            <button class="m3-btn small outlined" id="paintUndoBtn">↩️ 撤销</button>
-            <button class="m3-btn small outlined" id="paintRedoBtn">↪️ 重做</button>
-            <button class="m3-btn small danger" id="paintClearBtn">清空</button>
+            <button class="m3-btn small outlined" id="paintUndoBtn" onclick="PaintCanvas.undo()">↩️ 撤销</button>
+            <button class="m3-btn small outlined" id="paintRedoBtn" onclick="PaintCanvas.redo()">↪️ 重做</button>
+            <button class="m3-btn small danger" id="paintClearBtn" onclick="PaintCanvas.clear()">清空</button>
           </div>
         </div>
 
@@ -181,8 +181,8 @@
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-          <button class="m3-btn" id="paintPushBtn">🚀 推送画板至墨水屏</button>
-          <button class="m3-btn tonal" id="paintSavePresetBtn">💾 保存为预设</button>
+          <button class="m3-btn" id="paintPushBtn" onclick="App.pushCanvas(App.paintCanvas, '画板')">🚀 推送画板至墨水屏</button>
+          <button class="m3-btn tonal" id="paintSavePresetBtn" onclick="App.promptSavePreset(App.paintCanvas, 'paint', '像素手绘预设')">💾 保存为预设</button>
         </div>
       </div>
     </div>
@@ -196,8 +196,8 @@
             <canvas id="imageLabCanvas" class="preview-canvas"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="m3-btn" id="imagePushBtn">🚀 推送至墨水屏</button>
-            <button class="m3-btn tonal" id="imageSavePresetBtn">💾 保存为预设</button>
+            <button class="m3-btn" id="imagePushBtn" onclick="App.pushCanvas(App.imageLabCanvas, '图片')">🚀 推送至墨水屏</button>
+            <button class="m3-btn tonal" id="imageSavePresetBtn" onclick="App.promptSavePreset(App.imageLabCanvas, 'image', '图像作品预设')">💾 保存为预设</button>
           </div>
         </div>
 
@@ -296,13 +296,13 @@
   </footer>
 
   <!-- Modular Scripts -->
-  <script src="./js/qrcode.js"></script>
-  <script src="./js/dither.js"></script>
-  <script src="./js/device.js"></script>
-  <script src="./js/presets.js"></script>
-  <script src="./js/canvas.js"></script>
-  <script src="./js/studio.js"></script>
-  <script src="./js/ui.js"></script>
-  <script src="./js/app.js"></script>
+  <script src="./js/qrcode.js?v=2.1"></script>
+  <script src="./js/dither.js?v=2.1"></script>
+  <script src="./js/device.js?v=2.1"></script>
+  <script src="./js/presets.js?v=2.1"></script>
+  <script src="./js/canvas.js?v=2.1"></script>
+  <script src="./js/studio.js?v=2.1"></script>
+  <script src="./js/ui.js?v=2.1"></script>
+  <script src="./js/app.js?v=2.1"></script>
 </body>
 </html>

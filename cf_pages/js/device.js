@@ -255,3 +255,6 @@ const DeviceManager = {
     return null;
   }
 };
+
+window.DeviceManager = DeviceManager;
+

@@ -161,3 +161,6 @@ const BWRY = {
     ctx.putImageData(imgData, 0, 0);
   }
 };
+
+window.BWRY = BWRY;
+

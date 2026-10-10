@@ -109,7 +109,6 @@ header {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  scroll-snap-type: x proximity;
   padding: 4px 2px;
 }
 
@@ -174,7 +173,8 @@ header {
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  scroll-snap-align: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.2);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
 }

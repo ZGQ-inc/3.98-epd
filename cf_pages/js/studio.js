@@ -174,3 +174,6 @@ const Studios = {
     ctx.fillText(line, x, y);
   }
 };
+
+window.Studios = Studios;
+

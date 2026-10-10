@@ -168,3 +168,6 @@ const PresetHub = {
     this.selectedIds.clear();
   }
 };
+
+window.PresetHub = PresetHub;
+

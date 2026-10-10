@@ -208,3 +208,6 @@ const UI = {
     }, duration);
   }
 };
+
+window.UI = UI;
+
