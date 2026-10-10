@@ -172,6 +172,7 @@ impl BleManager {
                 || data.starts_with(b"clear:")
                 || data.starts_with(b"status")
                 || data.starts_with(b"get_")
+                || data.starts_with(b"preset:")
             );
 
             if is_text_cmd {
@@ -239,6 +240,95 @@ impl BleManager {
                         BleManager::global().notify_status();
                     } else if text == "clear:white" {
                         crate::display::request_clear_white();
+                    } else if text.starts_with("preset:push:") {
+                        let id = text[12..].trim();
+                        println!("  [ble-rx] Pushing preset '{}' directly from SPIFFS...", id);
+                        let mut ok = false;
+                        if let Ok(bytes) = crate::storage::get_preset_bitmap(id) {
+                            if bytes.len() == crate::display::TOTAL_BUFFER_SIZE {
+                                let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
+                                raw_fb.copy_from_slice(&bytes);
+                                ok = crate::display::request_direct_bitmap();
+                            }
+                        }
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let resp = if ok {
+                                format!("PRESET_PUSHED:OK:{}", id)
+                            } else {
+                                format!("ERROR:PRESET_PUSH_FAILED:{}", id)
+                            };
+                            tx.lock().set_value(resp.as_bytes());
+                            tx.lock().notify();
+                        }
+                    } else if text.starts_with("preset:save:") {
+                        let parts: Vec<&str> = text[12..].splitn(2, ':').collect();
+                        let name = parts[0].trim();
+                        let p_type = if parts.len() > 1 { parts[1].trim() } else { "bitmap" };
+                        let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                        let preset_id = format!("preset_{}", now_ts);
+                        let preset_name = if name.is_empty() { format!("预设效果_{}", now_ts) } else { name.to_string() };
+                        let meta = crate::storage::PresetMeta {
+                            id: preset_id.clone(),
+                            name: preset_name,
+                            preset_type: p_type.to_string(),
+                            type_label: match p_type {
+                                "badge" => "个性工牌".to_string(),
+                                "itabag" => "兽聚痛卡".to_string(),
+                                "memo" => "待办便签".to_string(),
+                                "paint" => "像素手绘".to_string(),
+                                "image" => "图像作品".to_string(),
+                                "scenes" => "场景模式".to_string(),
+                                _ => "位图图像".to_string(),
+                            },
+                            size_bytes: 0,
+                            size_str: "106 KB".to_string(),
+                            created_at: now_ts,
+                            created_str: format!("{}", now_ts),
+                            mode_id: None,
+                            mode_params: None,
+                            svg_data: None,
+                            fabric_json: None,
+                            text_content: None,
+                            preview_thumb: None,
+                            bitmap_file: None,
+                        };
+                        let raw_fb = Some(crate::display::framebuffer::get_raw_slice());
+                        let res = crate::storage::save_preset(meta, raw_fb);
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let resp = match res {
+                                Ok(saved) => format!("PRESET_SAVED:OK:{}", saved.id),
+                                Err(e) => format!("ERROR:PRESET_SAVE_FAILED:{}", e),
+                            };
+                            tx.lock().set_value(resp.as_bytes());
+                            tx.lock().notify();
+                        }
+                    } else if text == "preset:list" || text == "get_presets" {
+                        let list = crate::storage::list_presets();
+                        let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
+                        });
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let header = format!("PRESETS_START:{}:{}:{}:{}", list.presets.len(), stats.used_bytes, stats.free_bytes, stats.total_bytes);
+                            tx.lock().set_value(header.as_bytes());
+                            tx.lock().notify();
+                            for p in &list.presets {
+                                std::thread::sleep(std::time::Duration::from_millis(15));
+                                let item = format!("PRESET_ITEM:{}|{}|{}|{}|{}", p.id, p.preset_type, p.size_bytes, p.created_at, p.name);
+                                tx.lock().set_value(item.as_bytes());
+                                tx.lock().notify();
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(15));
+                            tx.lock().set_value(b"PRESETS_END");
+                            tx.lock().notify();
+                        }
+                    } else if text.starts_with("preset:delete:") {
+                        let id = text[14..].trim();
+                        let _ = crate::storage::delete_presets(&[id.to_string()]);
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let resp = format!("PRESET_DELETED:{}", id);
+                            tx.lock().set_value(resp.as_bytes());
+                            tx.lock().notify();
+                        }
                     } else if text.starts_with('{') {
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
                             if val.get("cmd").and_then(|v| v.as_str()) == Some("wifi_setup") {

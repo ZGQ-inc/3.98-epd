@@ -169,7 +169,10 @@ const PresetHub = {
   /* ================= Bidirectional Sync with Hardware SPIFFS ================= */
   async syncWithDevice() {
     let synced = false;
-    if (DeviceManager.isLanConnected || DeviceManager.lanIp) {
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    if (isHardwareConnected || DeviceManager.lanIp) {
       try {
         let res = null;
         if (DeviceManager.fetchPresets) {
@@ -197,9 +200,11 @@ const PresetHub = {
                 merged.push(devPreset);
               }
             }
-            // Keep local-only presets
+            // Keep local offline-only presets
             for (const [, localOnly] of localMap) {
-              merged.push(localOnly);
+              if (localOnly.is_offline) {
+                merged.push(localOnly);
+              }
             }
             this.presets = merged;
             await this.saveLocalPresets();
@@ -209,6 +214,10 @@ const PresetHub = {
       } catch (e) {
         console.warn('[Presets] Sync with device failed:', e);
       }
+    }
+
+    if (!synced) {
+      await this.loadLocalPresets();
     }
 
     this.recalculateStorage();
@@ -225,11 +234,11 @@ const PresetHub = {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   },
 
-  async savePreset({ name, type, typeLabel, data, rawBitmap }) {
+  async savePreset({ name, type, typeLabel, data, rawBitmap }, progressCb) {
     // Check available space
-    const estimatedSize = (rawBitmap ? rawBitmap.length : JSON.stringify(data).length) + 200;
-    if (this.storageStats.free_bytes < estimatedSize) {
-      throw new Error(`存储空间不足！当前仅剩 ${this.formatBytes(this.storageStats.free_bytes)} 可用空间。`);
+    const estimatedSize = (rawBitmap ? rawBitmap.length : JSON.stringify(data || {}).length) + 512;
+    if (this.storageStats.free_bytes && this.storageStats.free_bytes < estimatedSize) {
+      throw new Error(`单片机 Flash 存储空间不足！当前仅剩 ${this.formatBytes(this.storageStats.free_bytes)} 可用空间。`);
     }
 
     const id = 'preset_' + Date.now();
@@ -238,7 +247,7 @@ const PresetHub = {
     const newPreset = {
       id,
       name: presetName,
-      preset_type: type, // 'badge' | 'charm' | 'memo' | 'paint' | 'image' | 'mode'
+      preset_type: type, // 'badge' | 'itabag' | 'memo' | 'paint' | 'image' | 'scenes'
       type_label: typeLabel || '综合效果',
       size_bytes: estimatedSize,
       size_str: this.formatBytes(estimatedSize),
@@ -248,28 +257,31 @@ const PresetHub = {
       raw_bitmap: rawBitmap ? Array.from(rawBitmap) : null
     };
 
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    if (isHardwareConnected) {
+      progressCb?.(10, '正在写入单片机 Flash (SPIFFS)...');
+      await DeviceManager.savePresetToDevice({
+        id: newPreset.id,
+        name: newPreset.name,
+        preset_type: newPreset.preset_type,
+        type_label: newPreset.type_label,
+        size_bytes: newPreset.size_bytes,
+        size_str: newPreset.size_str,
+        created_at: newPreset.created_at,
+        created_str: newPreset.created_str,
+        data_json: JSON.stringify(newPreset.data)
+      }, rawBitmap, (pct) => progressCb?.(pct, `正在向单片机 Flash 写入显存点阵 (${pct}%)...`));
+      newPreset.is_offline = false;
+    } else {
+      newPreset.is_offline = true;
+    }
+
     // Save to local cache & IndexedDB
     this.presets.unshift(newPreset);
     await this.saveLocalPresets();
-
-    // If connected to hardware, sync to SPIFFS
-    if (DeviceManager.isLanConnected) {
-      try {
-        await DeviceManager.savePresetToDevice({
-          id: newPreset.id,
-          name: newPreset.name,
-          preset_type: newPreset.preset_type,
-          type_label: newPreset.type_label,
-          size_bytes: newPreset.size_bytes,
-          size_str: newPreset.size_str,
-          created_at: newPreset.created_at,
-          created_str: newPreset.created_str,
-          data_json: JSON.stringify(newPreset.data)
-        }, rawBitmap);
-      } catch (e) {
-        console.warn('[Presets] Cloud/SPIFFS sync background notice:', e);
-      }
-    }
+    await this.syncWithDevice();
 
     this.updateStorageUI();
     return newPreset;
@@ -283,9 +295,13 @@ const PresetHub = {
     this.selectedIds.clear();
     await this.saveLocalPresets();
 
-    if (DeviceManager.isLanConnected) {
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    if (isHardwareConnected) {
       try {
         await DeviceManager.deletePresetsFromDevice(idsToDelete);
+        await this.syncWithDevice();
       } catch (e) {
         console.warn('[Presets] Device delete sync failed:', e);
       }

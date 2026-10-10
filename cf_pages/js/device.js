@@ -235,8 +235,76 @@ const DeviceManager = {
               if (typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('🎉 墨水屏硬件已收到全部点阵，正在执行物理全刷！', 'success', 5000);
               }
+            } else if (text.startsWith('STATUS:')) {
+              try {
+                const s = JSON.parse(text.slice(7));
+                if (s.ip && s.ip !== '0.0.0.0') {
+                  this.lanIp = s.ip;
+                  localStorage.setItem('epd_lan_ip', s.ip);
+                  const netLanStatus = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
+                  if (netLanStatus) netLanStatus.textContent = `局域网: ${s.ip}`;
+                }
+              } catch (e) {}
+            } else if (text.startsWith('PRESET_SAVED:OK:')) {
+              if (this._onPresetSavedResolver) {
+                this._onPresetSavedResolver(text.slice(16));
+                this._onPresetSavedResolver = null;
+              }
+            } else if (text.startsWith('PRESET_PUSHED:OK:')) {
+              if (this._onPresetPushedResolver) {
+                this._onPresetPushedResolver(text.slice(17));
+                this._onPresetPushedResolver = null;
+              }
+            } else if (text.startsWith('PRESETS_START:')) {
+              const parts = text.slice(14).split(':');
+              this._blePresetBuffer = {
+                count: parseInt(parts[0] || '0', 10),
+                used_bytes: parseInt(parts[1] || '0', 10),
+                free_bytes: parseInt(parts[2] || '0', 10),
+                total_bytes: parseInt(parts[3] || '1528841', 10),
+                presets: []
+              };
+            } else if (text.startsWith('PRESET_ITEM:')) {
+              const parts = text.slice(12).split('|');
+              if (this._blePresetBuffer) {
+                const size = parseInt(parts[2] || '105984', 10);
+                const ts = parseInt(parts[3] || '0', 10) * 1000;
+                this._blePresetBuffer.presets.push({
+                  id: parts[0],
+                  preset_type: parts[1],
+                  type_label: parts[1] === 'badge' ? '个性工牌' : (parts[1] === 'itabag' ? '兽聚痛卡' : (parts[1] === 'memo' ? '待办便签' : '墨水屏作品')),
+                  size_bytes: size,
+                  size_str: (size / 1024).toFixed(1) + ' KB',
+                  created_at: ts || Date.now(),
+                  created_str: ts ? new Date(ts).toLocaleString('zh-CN') : new Date().toLocaleString('zh-CN'),
+                  name: parts[4] || parts[0]
+                });
+              }
+            } else if (text === 'PRESETS_END') {
+              if (this._onPresetsListResolver && this._blePresetBuffer) {
+                this._onPresetsListResolver({
+                  status: 'ok',
+                  storage: {
+                    used_bytes: this._blePresetBuffer.used_bytes,
+                    free_bytes: this._blePresetBuffer.free_bytes,
+                    total_bytes: this._blePresetBuffer.total_bytes
+                  },
+                  presets: this._blePresetBuffer.presets
+                });
+                this._onPresetsListResolver = null;
+                this._blePresetBuffer = null;
+              }
             }
           });
+
+          // Query hardware status (IP, mode, etc.) after brief stabilization
+          setTimeout(async () => {
+            try {
+              if (this.rxChar) {
+                await this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('status'));
+              }
+            } catch (e) {}
+          }, 250);
         } catch (notifErr) {
           console.warn('[BLE] startNotifications skipped:', notifErr);
         }
@@ -756,24 +824,112 @@ const DeviceManager = {
     return null;
   },
 
+  async pushPreset(id) {
+    if (this.isLanConnected && this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/presets/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+        signal: AbortSignal.timeout(6000)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '单片机内部加载预设失败');
+      return data;
+    } else if (this.isBleConnected && this.rxChar) {
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onPresetPushedResolver = null;
+          resolve({ status: 'ok', message: '已通过蓝牙通知单片机读取预设' });
+        }, 4000);
+        this._onPresetPushedResolver = (pushedId) => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', id: pushedId, message: '单片机已内部加载预设并启动刷新' });
+        };
+        const cmd = new TextEncoder().encode(`preset:push:${id}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    }
+    throw new Error('未连接任何单片机设备（请先连接蓝牙或局域网）');
+  },
+
   async fetchPresets() {
     if (this.isLanConnected && this.lanIp) {
-      const res = await fetch(`http://${this.lanIp}/api/presets`);
-      return res.json();
+      try {
+        const res = await fetch(`http://${this.lanIp}/api/presets`, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('[LAN] fetchPresets failed:', e);
+      }
+    }
+    if (this.isBleConnected && this.rxChar) {
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          this._onPresetsListResolver = null;
+          resolve(null);
+        }, 4000);
+        this._onPresetsListResolver = (data) => {
+          clearTimeout(timeout);
+          resolve(data);
+        };
+        const cmd = new TextEncoder().encode('preset:list');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(() => {
+          clearTimeout(timeout);
+          resolve(null);
+        });
+      });
     }
     return null;
   },
 
-  async savePresetToDevice(meta, rawBitmap) {
+  async savePresetToDevice(meta, rawBitmap, progressCb) {
     if (this.isLanConnected && this.lanIp) {
+      if (rawBitmap) {
+        // Stream raw bitmap to display buffer first (80% progress)
+        await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)));
+      }
+      progressCb?.(85);
       const res = await fetch(`http://${this.lanIp}/api/presets/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meta, raw_bitmap: rawBitmap ? Array.from(rawBitmap) : null })
+        body: JSON.stringify({
+          name: meta.name,
+          preset_type: meta.preset_type || meta.type,
+          type_label: meta.type_label || meta.typeLabel,
+          save_current_screen: true
+        }),
+        signal: AbortSignal.timeout(6000)
       });
-      return res.json();
+      progressCb?.(100);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '保存失败');
+      return data;
+    } else if (this.isBleConnected && this.rxChar) {
+      if (rawBitmap) {
+        // Stream 2bpp chunks to MCU SRAM
+        await this._pushBleBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.85)));
+      }
+      progressCb?.(90);
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onPresetSavedResolver = null;
+          resolve({ status: 'ok', preset: { id: meta.id, name: meta.name } });
+        }, 4500);
+        this._onPresetSavedResolver = (savedId) => {
+          clearTimeout(timeout);
+          progressCb?.(100);
+          resolve({ status: 'ok', preset: { id: savedId, name: meta.name } });
+        };
+        const cmd = new TextEncoder().encode(`preset:save:${meta.name}:${meta.preset_type || meta.type || 'bitmap'}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
     }
-    return null;
+    throw new Error('未连接任何单片机设备（请先连接蓝牙或局域网）');
   },
 
   async deletePresetsFromDevice(ids) {
@@ -781,9 +937,17 @@ const DeviceManager = {
       const res = await fetch(`http://${this.lanIp}/api/presets/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids })
+        body: JSON.stringify({ ids }),
+        signal: AbortSignal.timeout(5000)
       });
-      return res.json();
+      return await res.json();
+    } else if (this.isBleConnected && this.rxChar) {
+      for (const id of ids) {
+        const cmd = new TextEncoder().encode(`preset:delete:${id}`);
+        await this.rxChar.writeValueWithoutResponse(cmd);
+        await new Promise(r => setTimeout(r, 60));
+      }
+      return { status: 'ok' };
     }
     return null;
   },

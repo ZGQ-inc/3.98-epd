@@ -165,30 +165,113 @@ const App = {
 
   async promptSavePreset(canvas, type, defaultTitle) {
     if (!canvas) return;
-    const name = prompt('请输入预设名称（留空使用默认名称）:', defaultTitle);
-    if (name === null) return;
+    const typeLabelMap = {
+      badge: '智能工牌',
+      itabag: '兽聚痛卡',
+      memo: '随身便签',
+      paint: '像素手绘',
+      image: '图片调色',
+      scenes: '场景遥控'
+    };
 
-    try {
-      const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
-      const typeLabelMap = {
-        badge: '智能工牌',
-        itabag: '兽聚痛卡',
-        memo: '随身便签',
-        paint: '像素手绘',
-        image: '图片调色',
-        scenes: '场景遥控'
-      };
-      await PresetHub.savePreset({
-        name,
-        type,
-        typeLabel: typeLabelMap[type] || '墨水屏作品',
-        rawBitmap: packed
-      });
-      this.renderPresetsUI();
-      UI.showToast(`已成功保存预设「${name || defaultTitle}」！`, 'success');
-    } catch (e) {
-      UI.showToast(`保存失败: ${e.message}`, 'error', 4000);
+    const typeLabel = typeLabelMap[type] || '墨水屏作品';
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    // Elements
+    const nameInput = document.getElementById('savePresetNameInput');
+    const typeLabelEl = document.getElementById('savePresetTypeLabel');
+    const hwBadge = document.getElementById('savePresetHwBadge');
+    const estSizeEl = document.getElementById('savePresetEstSize');
+    const storageCheck = document.getElementById('savePresetStorageCheck');
+    const progressBox = document.getElementById('savePresetProgressBox');
+    const progressStatus = document.getElementById('savePresetProgressStatus');
+    const progressPct = document.getElementById('savePresetProgressPct');
+    const progressBar = document.getElementById('savePresetProgressBar');
+    const confirmBtn = document.getElementById('btnConfirmWritePreset');
+
+    const defaultName = (defaultTitle || typeLabel) + '_' + new Date().toLocaleTimeString('zh-CN', { hour12: false }).replace(/:/g, '');
+    if (nameInput) nameInput.value = defaultName;
+    if (typeLabelEl) typeLabelEl.textContent = `${typeLabel} · 768×552 BWRY 2bpp`;
+    if (estSizeEl) estSizeEl.textContent = '106.0 KB (显存点阵 + 索引描述)';
+
+    if (hwBadge) {
+      if (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected) {
+        hwBadge.textContent = '🟢 蓝牙 5.0 在线 (WebBLE)';
+        hwBadge.style.background = 'rgba(76, 175, 80, 0.15)';
+        hwBadge.style.color = '#4caf50';
+      } else if (DeviceManager.isLanConnected && DeviceManager.lanIp) {
+        hwBadge.textContent = `🟢 局域网在线 (${DeviceManager.lanIp})`;
+        hwBadge.style.background = 'rgba(76, 175, 80, 0.15)';
+        hwBadge.style.color = '#4caf50';
+      } else {
+        hwBadge.textContent = '🟡 离线模式 (未连通单片机)';
+        hwBadge.style.background = 'rgba(255, 152, 0, 0.15)';
+        hwBadge.style.color = '#ff9800';
+      }
     }
+
+    const freeBytes = PresetHub.storageStats.free_bytes || 1528841;
+    if (storageCheck) {
+      if (freeBytes < 110 * 1024) {
+        storageCheck.innerHTML = `<span style="color:#f44336;">⚠️ 空间告急：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+      } else {
+        storageCheck.innerHTML = `<span style="color:#4caf50;">✓ 空间充裕：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+      }
+    }
+
+    if (progressBox) progressBox.style.display = 'none';
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = isHardwareConnected ? '🚀 写入单片机 Flash 存储' : '💾 暂存至本地离线库';
+    }
+
+    UI.openModal('savePresetModal');
+
+    // Remove old listeners and re-bind confirm button
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener('click', async () => {
+      const name = (nameInput && nameInput.value) ? nameInput.value.trim() : defaultName;
+      if (!name) {
+        UI.showToast('请输入预设名称', 'warning');
+        return;
+      }
+
+      newConfirmBtn.disabled = true;
+      if (progressBox) progressBox.style.display = 'block';
+
+      try {
+        if (progressStatus) progressStatus.textContent = '正在生成 2bpp 硬件显存点阵...';
+        if (progressPct) progressPct.textContent = '10%';
+        if (progressBar) progressBar.style.width = '10%';
+        await new Promise(r => setTimeout(r, 60));
+
+        const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
+
+        await PresetHub.savePreset({
+          name,
+          type,
+          typeLabel,
+          rawBitmap: packed
+        }, (pct, text) => {
+          if (progressStatus && text) progressStatus.textContent = text;
+          if (progressPct) progressPct.textContent = `${pct}%`;
+          if (progressBar) progressBar.style.width = `${pct}%`;
+        });
+
+        this.renderPresetsUI();
+        UI.closeModal('savePresetModal');
+        UI.showToast(isHardwareConnected
+          ? `🎉 预设「${name}」已成功写入单片机 Flash (SPIFFS) 存储！`
+          : `已暂存预设「${name}」至本地离线库，连接单片机后可同步写入！`, 'success', 4500);
+      } catch (e) {
+        if (progressBox) progressBox.style.display = 'none';
+        newConfirmBtn.disabled = false;
+        UI.showToast(`写入失败: ${e.message}`, 'error', 4500);
+      }
+    });
   },
 
   renderPresetsUI() {
@@ -269,12 +352,31 @@ const App = {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         const preset = PresetHub.presets.find(p => p.id === id);
-        if (preset && preset.raw_bitmap) {
-          try {
-            UI.showToast(`正在推送预设「${preset.name}」至墨水屏...`, 'info', 4000);
-            await DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
-            UI.showToast(`🎉 预设「${preset.name}」推送成功！`, 'success', 4000);
-          } catch (e) {
+        if (!preset) return;
+
+        const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+          || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+        if (!isHardwareConnected) {
+          UI.showToast('⚠️ 未连通单片机硬件，无法执行内部直推！请先在顶部连接蓝牙或局域网', 'warning', 4000);
+          return;
+        }
+
+        try {
+          UI.showToast(`正在通知单片机内部读取预设「${preset.name}」...`, 'info', 3000);
+          await DeviceManager.pushPreset(preset.id);
+          UI.showToast(`🎉 单片机已内部加载 Flash 预设「${preset.name}」并启动墨水屏全屏物理刷新！`, 'success', 5000);
+        } catch (e) {
+          console.warn('[Presets] Internal push notice, falling back:', e);
+          if (preset.raw_bitmap) {
+            try {
+              UI.showToast(`硬件内部未建立索引，正在通过链路回退推送「${preset.name}」...`, 'info', 3500);
+              await DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
+              UI.showToast(`🎉 预设「${preset.name}」推送成功！`, 'success', 4000);
+            } catch (fallbackErr) {
+              UI.showToast(`推送失败: ${fallbackErr.message}`, 'error', 4000);
+            }
+          } else {
             UI.showToast(`推送失败: ${e.message}`, 'error', 4000);
           }
         }
@@ -509,11 +611,22 @@ const App = {
     });
 
     document.getElementById('presetSyncBtn')?.addEventListener('click', async () => {
-      UI.showToast('正在同步预设...', 'info');
+      const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+        || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+      if (!isHardwareConnected) {
+        UI.showToast('⚠️ 未连通单片机硬件，请先在顶部连接蓝牙或局域网', 'warning', 4000);
+        return;
+      }
+
+      UI.showToast('正在从单片机 Flash 存储同步预设列表与空间配额...', 'info', 2500);
       const ok = await PresetHub.syncWithDevice();
       this.renderPresetsUI();
-      if (ok) UI.showToast('预设列表已与单片机同步', 'success');
-      else UI.showToast('未连通单片机，已加载本地预设', 'warning');
+      if (ok) {
+        UI.showToast('🎉 预设列表已与单片机 Flash 内部存储同步完成！', 'success', 3500);
+      } else {
+        UI.showToast('⚠️ 单片机同步响应超时，已保留本地预设缓存', 'warning', 4000);
+      }
     });
 
     // 11. Modal Push Dither

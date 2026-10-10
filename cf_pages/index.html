@@ -824,6 +824,59 @@
     </div>
   </div>
 
+  <!-- Modal 5: 💾 写入单片机内部预设存储 (savePresetModal) -->
+  <div class="modal-backdrop" id="savePresetModal">
+    <div class="modal-sheet" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 class="modal-title">💾 写入单片机 Flash 预设库</h3>
+        <button class="modal-close" onclick="UI.closeModal('savePresetModal')">&times;</button>
+      </div>
+      <div class="card-subtitle" style="margin-bottom:14px;">
+        将当前设计直接写入 ESP32-C3 内部 1.5MB SPIFFS 独立存储分区 (/spiffs/presets/)
+      </div>
+
+      <div style="background:var(--surface-container-high); border-radius:12px; padding:14px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--on-surface-variant);">硬件通信链路</span>
+          <span id="savePresetHwBadge" class="m3-badge" style="font-weight:700;">检测中...</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--on-surface-variant);">预设归属类型</span>
+          <span id="savePresetTypeLabel" style="font-size:13px; font-weight:700; color:var(--primary);">--</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--on-surface-variant);">预估写入体积</span>
+          <span id="savePresetEstSize" style="font-size:13px; font-weight:600;">约 106.0 KB (2bpp显存点阵)</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--on-surface-variant);">单片机 Flash 余量</span>
+          <span id="savePresetStorageCheck" style="font-size:13px; font-weight:600;">--</span>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="savePresetNameInput" style="display:block; font-size:13px; font-weight:600; margin-bottom:6px;">预设名称：</label>
+        <input type="text" id="savePresetNameInput" class="m3-input" placeholder="请输入预设名称" maxlength="32" style="width:100%;">
+      </div>
+
+      <!-- Writing Progress (hidden by default) -->
+      <div id="savePresetProgressBox" style="display:none; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px;">
+          <span id="savePresetProgressStatus" style="color:var(--primary); font-weight:600;">正在向单片机写入数据...</span>
+          <span id="savePresetProgressPct" style="font-weight:700;">0%</span>
+        </div>
+        <div style="height:6px; background:var(--surface-container-highest); border-radius:3px; overflow:hidden;">
+          <div id="savePresetProgressBar" style="height:100%; width:0%; background:var(--primary); transition:width 0.2s ease;"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="m3-btn" id="btnConfirmWritePreset">🚀 写入单片机 Flash 存储</button>
+        <button class="m3-btn outlined" onclick="UI.closeModal('savePresetModal')">取消</button>
+      </div>
+    </div>
+  </div>
+
   <!-- App Footer -->
   <footer class="app-footer">
     <div class="footer-links">
