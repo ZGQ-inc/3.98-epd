@@ -24,8 +24,8 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 4608,
-            max_open_sockets: 7,
+            stack_size: 6144,
+            max_open_sockets: 4,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
@@ -81,6 +81,7 @@ impl WebServer {
                 return Ok(());
             }
 
+            println!("  [web] Serving / (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
             let len_str = INDEX_HTML_GZ.len().to_string();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "text/html; charset=utf-8"),
@@ -90,8 +91,11 @@ impl WebServer {
                 ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
                 ("ETag", "\"398epd-v1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(2048) {
-                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            for chunk in INDEX_HTML_GZ.chunks(1400) {
+                resp.write_all(chunk).map_err(|e| {
+                    eprintln!("  [web] write_all chunk error: {:?}", e);
+                    anyhow::anyhow!("{e:?}")
+                })?;
             }
             Ok(())
         })?;
@@ -107,7 +111,7 @@ impl WebServer {
                 ("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800"),
                 ("ETag", "\"398epd-v1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(2048) {
+            for chunk in INDEX_HTML_GZ.chunks(1400) {
                 resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
             Ok(())

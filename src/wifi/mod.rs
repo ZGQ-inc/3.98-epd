@@ -159,12 +159,12 @@ impl<'a> WifiManager<'a> {
         self.wifi.connect()?;
         self.wifi.wait_netif_up()?;
 
-        // Disable modem power save to ensure instant network responsiveness & explicitly force STA mode
+        // Enable light modem sleep (MIN_MODEM) to allow hardware RF coexistence between Wi-Fi and NimBLE
         unsafe {
             let ap_handle = self.wifi.wifi().ap_netif().handle();
             let _ = esp_idf_svc::sys::esp_netif_dhcps_stop(ap_handle);
             let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_STA);
-            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_NONE);
+            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_MIN_MODEM);
         };
 
         IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);

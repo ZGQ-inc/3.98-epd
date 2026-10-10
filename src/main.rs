@@ -118,6 +118,25 @@ fn main() -> anyhow::Result<()> {
             }
         };
 
+        // 4b. Initialize Bluetooth BLE 5.0 NimBLE subsystem & RF Coexistence (early to guarantee contiguous RAM)
+        {
+            let (w_mode, b_name, b_enabled) = {
+                let cfg = app_config.lock().unwrap();
+                (cfg.wireless_mode.clone(), cfg.ble_device_name.clone(), cfg.ble_enabled)
+            };
+            crate::ble::BleManager::global().init(
+                &w_mode,
+                &b_name,
+                b_enabled,
+                Some(config_mgr.clone()),
+                Some(app_config.clone()),
+            );
+            crate::ble::BleManager::global().set_ip_info(&ip, ap);
+            if !ap && !ip.is_empty() && ip != "0.0.0.0" {
+                crate::ble::BleManager::global().on_wifi_configured();
+            }
+        }
+
         println!("[INIT] Starting Embedded Web Server & REST API on port 80 (IP: {})...", ip);
         let srv = match WebServer::start(config_mgr.clone(), app_config.clone(), ip.clone(), ap) {
             Ok(s) => {
@@ -138,25 +157,6 @@ fn main() -> anyhow::Result<()> {
 
         (ip, ap, ap_ssid, srv)
     };
-
-    // 5b. Initialize Bluetooth BLE 5.0 NimBLE subsystem & RF Coexistence (after Wi-Fi to preserve PHY coexistence)
-    {
-        let (w_mode, b_name, b_enabled) = {
-            let cfg = app_config.lock().unwrap();
-            (cfg.wireless_mode.clone(), cfg.ble_device_name.clone(), cfg.ble_enabled)
-        };
-        crate::ble::BleManager::global().init(
-            &w_mode,
-            &b_name,
-            b_enabled,
-            Some(config_mgr.clone()),
-            Some(app_config.clone()),
-        );
-        crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
-        if !is_ap && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
-            crate::ble::BleManager::global().on_wifi_configured();
-        }
-    }
 
     // 6. Start MQTT client (in Station mode only, and not in ble_only mode)
     if !is_ap && wireless_mode != "ble_only" {

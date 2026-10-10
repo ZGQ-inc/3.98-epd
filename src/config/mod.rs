@@ -103,7 +103,7 @@ impl ConfigManager {
 
     /// Check whether a persistent configuration exists in NVS (e.g. Wi-Fi configured or BLE-only set).
     pub fn is_configured(&self) -> bool {
-        let mut buf = vec![0u8; 4096];
+        let mut buf = [0u8; 1024];
         match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => {
                 if let Ok(cfg) = serde_json::from_slice::<AppConfig>(slice) {
@@ -118,7 +118,7 @@ impl ConfigManager {
 
     /// Load config from NVS, or fallback to default if not yet provisioned.
     pub fn load(&self) -> AppConfig {
-        let mut buf = vec![0u8; 4096];
+        let mut buf = [0u8; 1024];
         let mut cfg = match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => match serde_json::from_slice::<AppConfig>(slice) {
                 Ok(mut c) => {

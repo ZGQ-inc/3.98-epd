@@ -126,25 +126,11 @@ impl BleManager {
         let free_heap = unsafe { esp_idf_sys::esp_get_free_heap_size() };
         println!("  [ble-hardware] Free Heap before BLE: {} bytes", free_heap);
 
-        let ret = unsafe { esp_idf_sys::nimble_port_init() };
-        if ret != 0 {
-            println!("  [ble-hardware] ERROR: nimble_port_init failed (ret={}), skipping BLEDevice::take()", ret);
-            return;
-        }
-
         let device = BLEDevice::take();
         device.set_power(PowerType::Default, PowerLevel::P9).ok();
         BLEDevice::set_device_name(name).ok();
 
-        // Configure BLE Security for seamless pairing (supporting both Legacy & Secure Connections)
-        device.security()
-            .set_auth(esp32_nimble::enums::AuthReq::Bond | esp32_nimble::enums::AuthReq::Sc)
-            .set_io_cap(esp32_nimble::enums::SecurityIOCap::NoInputNoOutput)
-            .resolve_rpa();
-
         let server = device.get_server();
-        server.on_confirm_pin(|_pin| true);
-        server.on_passkey_request(|| 0);
         server.on_connect(|_server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
@@ -327,15 +313,15 @@ impl BleManager {
         let mut adv_data = BLEAdvertisementData::new();
         adv_data.name(&name);
         adv_data.add_service_uuid(BleUuid::from_uuid16(0x00FF));
-        // Set fast 50ms~100ms advertising interval (80*0.625ms = 50ms, 160*0.625ms = 100ms)
-        // Guarantees modern Bluetooth 5.4/6.0 scanners with tight scan windows catch packets instantly!
-        adv.min_interval(80);
-        adv.max_interval(160);
+        // Set fast, coexistence-friendly 100ms~150ms advertising interval (160*0.625ms = 100ms, 240*0.625ms = 150ms)
+        // Highly responsive for mobile discovery while leaving ample RF time for Wi-Fi traffic
+        adv.min_interval(160);
+        adv.max_interval(240);
         let _ = adv.set_data(&mut adv_data);
         let _ = adv.start();
 
         *self.status.lock().unwrap() = BleStatus::Advertising;
-        println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF, interval: 50~100ms)", name);
+        println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF, interval: 100~150ms)", name);
         info!("[BLE] Started RF advertising as '{}'", name);
     }
 
@@ -451,6 +437,10 @@ impl BleManager {
         });
         *self.status.lock().unwrap() = BleStatus::Connected;
         drop(devs);
+
+        // Stop advertising during active connection to avoid RF contention
+        self.stop_advertising();
+        *self.status.lock().unwrap() = BleStatus::Connected;
 
         // Smart Coexistence: BLE connected, shut down SoftAP hotspot if running
         let mode = self.get_wireless_mode();
