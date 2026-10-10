@@ -196,6 +196,7 @@ impl WebServer {
                     let mut cfg = config_save.lock().unwrap();
                     cfg.wifi_ssid = p.ssid;
                     cfg.wifi_pass = p.password.unwrap_or_default();
+                    cfg.last_screen_crc = 0; // Force initial demo refresh upon rebooting into STA mode!
                     if let Err(e) = mgr.save(&cfg) {
                         println!("  [wifi-api] ERROR saving config: {:?}", e);
                     } else {
@@ -428,6 +429,28 @@ impl WebServer {
             let ok = crate::display::request_refresh(true);
             let resp_msg = if ok {
                 "全屏擦写指令已下发，正在执行16秒波形刷新..."
+            } else {
+                "屏幕正在刷新中，请勿重复触发"
+            };
+            let json = serde_json::to_vec(&serde_json::json!({
+                "status": if ok { "ok" } else { "busy" },
+                "message": resp_msg
+            }))?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 9b. POST /api/display/clear — Clear display to 100% pure white
+        server.fn_handler("/api/display/clear", Method::Post, move |req| -> anyhow::Result<()> {
+            println!("  [web-api] POST /api/display/clear triggered (all-white full refresh)");
+            let ok = crate::display::request_clear_white();
+            let resp_msg = if ok {
+                "全白清屏指令已下发，正在执行16秒纯白刷新..."
             } else {
                 "屏幕正在刷新中，请勿重复触发"
             };

@@ -148,6 +148,10 @@ impl BleManager {
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
             BleManager::global().on_ble_client_connected("WebBLE Client", &peer_mac, 0);
+            if crate::display::is_unconfigured() {
+                println!("  [ble-hardware] Unconfigured device detected: requesting PWA guidance screen display...");
+                crate::display::request_pwa_guide("WebBLE Client".to_string(), peer_mac);
+            }
         }).on_disconnect(|_desc, reason| {
             println!("  [ble-hardware] WebBLE Host disconnected: {:?}", reason);
             info!("[BLE] WebBLE Host disconnected: {:?}", reason);
@@ -232,7 +236,7 @@ impl BleManager {
                     } else if text == "status" || text == "get_ip" || text == "get_status" {
                         BleManager::global().notify_status();
                     } else if text == "clear:white" {
-                        crate::display::request_refresh(true);
+                        crate::display::request_clear_white();
                     } else if text.starts_with('{') {
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
                             if val.get("cmd").and_then(|v| v.as_str()) == Some("wifi_setup") {
@@ -245,6 +249,7 @@ impl BleManager {
                                         let mut cfg = ac.lock().unwrap();
                                         cfg.wifi_ssid = ssid.to_string();
                                         cfg.wifi_pass = pass.to_string();
+                                        cfg.last_screen_crc = 0; // Reset CRC so next boot displays Wi-Fi demo layout!
                                         if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
                                             let mut mgr = cm.lock().unwrap();
                                             if let Err(e) = mgr.save(&cfg) {

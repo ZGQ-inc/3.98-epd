@@ -177,12 +177,23 @@ fn main() -> anyhow::Result<()> {
     // Never refresh on boot unless:
     // a) Chip booted from brownout (undervoltage detected: must overlay low battery warning!)
     // b) Unconfigured (first boot)
-    // c) In SoftAP mode
+    // c) Unconfigured (first boot): show Welcome Screen with project repo & dual Wi-Fi/BLE guides
+    // d) In SoftAP mode (configured previously, but fell back to AP)
     let is_brownout = crate::power::PowerManager::check_undervoltage_on_boot();
+    let is_configured = config_mgr.lock().unwrap().is_configured();
+    crate::display::set_unconfigured(!is_configured);
+    println!("[CONFIG] Device is_configured: {}", is_configured);
+
     let saved_screen_crc = app_config.lock().unwrap().last_screen_crc;
+    let ble_name = app_config.lock().unwrap().ble_device_name.clone();
+
     let initial_check_crc = if is_brownout {
         println!("⚠️ [DISPLAY] BROWNOUT DETECTED! Overlaying low battery warning card on current screen...");
         crate::display::overlay_low_battery_warning(&mut fb);
+        true
+    } else if !is_configured {
+        println!("[DISPLAY] Unconfigured device detected: rendering Welcome Screen with dual Wi-Fi/BLE guidance...");
+        crate::modes::provisioning::render_welcome_screen(&mut fb, &ap_name, "192.168.4.1", &ble_name);
         true
     } else if is_ap {
         println!("[DISPLAY] Rendering SoftAP Chinese guidance screen (SSID: {})...", ap_name);
@@ -191,10 +202,11 @@ fn main() -> anyhow::Result<()> {
     } else {
         let mut ctx = ModeContext::default();
         ctx.ip_str = ip_addr.clone();
+        ctx.wifi_ssid = app_config.lock().unwrap().wifi_ssid.clone();
 
         if saved_screen_crc == 0 {
-            // First boot ever: render clean modern MicroPython demo layout with WebUI URL
-            println!("[DISPLAY] First boot detected (no previous screen). Rendering initial demo layout...");
+            // Wi-Fi provisioned / first boot: render clean modern MicroPython demo layout with WebUI URL
+            println!("[DISPLAY] Wi-Fi provisioned / First boot: rendering initial demo layout...");
             crate::modes::demo_layout::render_demo_layout(&mut fb, &ctx);
             true
         } else {

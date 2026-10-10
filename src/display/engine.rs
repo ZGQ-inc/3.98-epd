@@ -6,6 +6,7 @@
 //   unnecessary physical flashing on boot or duplicate requests.
 // - Safely executes SPI transmission in a dedicated worker thread.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, Mutex};
 
@@ -151,15 +152,74 @@ pub enum DisplayCommand {
     DirectBitmap,
     /// Overlay low battery warning card and trigger full refresh
     LowBatteryWarning,
+    /// Clear the entire screen to 100% pure white
+    ClearWhite,
+    /// Render first boot welcome screen with project URL & dual guides
+    ShowWelcome { ap_ssid: String, ap_ip: String, ble_name: String },
+    /// Render Wi-Fi connected guide demo layout
+    ShowWifiDemo { ip: String, ssid: String },
+    /// Render PWA studio guidance screen after BLE connection
+    ShowPwaGuide { client_name: String, client_mac: String },
 }
 
 static DISPLAY_SENDER: Mutex<Option<SyncSender<DisplayCommand>>> = Mutex::new(None);
+static IS_UNCONFIGURED: AtomicBool = AtomicBool::new(false);
+
+/// Returns true if the device is currently in the unconfigured / first boot state.
+pub fn is_unconfigured() -> bool {
+    IS_UNCONFIGURED.load(Ordering::SeqCst)
+}
+
+/// Sets whether the device is in the unconfigured / first boot state.
+pub fn set_unconfigured(v: bool) {
+    IS_UNCONFIGURED.store(v, Ordering::SeqCst);
+}
 
 /// Submits a request to refresh the current display mode (non-blocking).
 pub fn request_refresh(force: bool) -> bool {
     if let Ok(guard) = DISPLAY_SENDER.lock() {
         if let Some(ref tx) = *guard {
             return tx.try_send(DisplayCommand::RefreshCurrent { force }).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to clear the entire screen to 100% pure white (non-blocking).
+pub fn request_clear_white() -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ClearWhite).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to render the first boot welcome screen (non-blocking).
+pub fn request_welcome(ap_ssid: String, ap_ip: String, ble_name: String) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ShowWelcome { ap_ssid, ap_ip, ble_name }).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to render the Wi-Fi connected guide demo screen (non-blocking).
+pub fn request_wifi_demo(ip: String, ssid: String) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ShowWifiDemo { ip, ssid }).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to render the PWA studio guidance screen after BLE connection (non-blocking).
+pub fn request_pwa_guide(client_name: String, client_mac: String) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ShowPwaGuide { client_name, client_mac }).is_ok();
         }
     }
     false
@@ -305,6 +365,29 @@ pub fn run_display_loop(
                     DisplayCommand::LowBatteryWarning => {
                         println!("  [epd-worker] Command: LowBatteryWarning (Overlaying alert card in screen center)");
                         overlay_low_battery_warning(&mut fb);
+                        true
+                    }
+                    DisplayCommand::ClearWhite => {
+                        println!("  [epd-worker] Command: ClearWhite (100% pure white full refresh)");
+                        fb.clear_color(BwryColor::White);
+                        true
+                    }
+                    DisplayCommand::ShowWelcome { ap_ssid, ap_ip, ble_name } => {
+                        println!("  [epd-worker] Command: ShowWelcome (First boot welcome screen: AP={}, BLE={})", ap_ssid, ble_name);
+                        crate::modes::provisioning::render_welcome_screen(&mut fb, &ap_ssid, &ap_ip, &ble_name);
+                        true
+                    }
+                    DisplayCommand::ShowWifiDemo { ip, ssid } => {
+                        println!("  [epd-worker] Command: ShowWifiDemo (Wi-Fi connected demo screen: IP={}, SSID={})", ip, ssid);
+                        let mut c = ModeContext::default();
+                        c.ip_str = ip;
+                        c.wifi_ssid = ssid;
+                        crate::modes::demo_layout::render_demo_layout(&mut fb, &c);
+                        true
+                    }
+                    DisplayCommand::ShowPwaGuide { client_name, client_mac } => {
+                        println!("  [epd-worker] Command: ShowPwaGuide (BLE client connected: {} [{}])", client_name, client_mac);
+                        crate::modes::provisioning::render_pwa_connected_screen(&mut fb, &client_name, &client_mac);
                         true
                     }
                 };
