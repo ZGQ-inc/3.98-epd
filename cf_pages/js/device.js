@@ -247,8 +247,16 @@ const DeviceManager = {
               } catch (e) {}
             } else if (text.startsWith('PRESET_SAVED:OK:')) {
               if (this._onPresetSavedResolver) {
-                this._onPresetSavedResolver(text.slice(16));
+                const parts = text.slice(16).split(':');
+                this._onPresetSavedResolver(parts[0], parts[1], parts[2]);
                 this._onPresetSavedResolver = null;
+                this._onPresetSavedRejecter = null;
+              }
+            } else if (text.startsWith('ERROR:PRESET_SAVE_FAILED:')) {
+              if (this._onPresetSavedRejecter) {
+                this._onPresetSavedRejecter(new Error(text.slice(25)));
+                this._onPresetSavedResolver = null;
+                this._onPresetSavedRejecter = null;
               }
             } else if (text.startsWith('PRESET_PUSHED:OK:')) {
               if (this._onPresetPushedResolver) {
@@ -441,20 +449,27 @@ const DeviceManager = {
     return { status: 'ok', mode: 'ble', message: '已成功向墨水屏推送 105KB 点阵，硬件正在刷新！' };
   },
 
-  async _pushLanBitmap(packed2bpp, progressCb) {
+  async _pushLanBitmap(packed2bpp, progressCb, triggerRefresh = true) {
     if (!this.lanIp) {
       throw new Error('未设置局域网设备 IP');
     }
-    console.log(`[LAN] Pushing ${packed2bpp.length} bytes to http://${this.lanIp}/api/display/raw ...`);
+    console.log(`[LAN] Pushing ${packed2bpp.length} bytes to http://${this.lanIp}/api/display/raw (refresh=${triggerRefresh}) ...`);
     if (progressCb) progressCb(15);
 
-    const url = `http://${this.lanIp}/api/display/raw`;
+    const url = triggerRefresh
+      ? `http://${this.lanIp}/api/display/raw`
+      : `http://${this.lanIp}/api/display/raw?refresh=false`;
     let res;
     try {
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: packed2bpp
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Connection': 'close',
+          'X-Refresh': triggerRefresh ? 'true' : 'false'
+        },
+        body: packed2bpp,
+        signal: AbortSignal.timeout(20000)
       });
     } catch (netErr) {
       this.isLanConnected = false;
@@ -858,7 +873,10 @@ const DeviceManager = {
   async fetchPresets() {
     if (this.isLanConnected && this.lanIp) {
       try {
-        const res = await fetch(`http://${this.lanIp}/api/presets`, { signal: AbortSignal.timeout(4000) });
+        const res = await fetch(`http://${this.lanIp}/api/presets`, {
+          headers: { 'Connection': 'close' },
+          signal: AbortSignal.timeout(8000)
+        });
         if (res.ok) return await res.json();
       } catch (e) {
         console.warn('[LAN] fetchPresets failed:', e);
@@ -869,7 +887,7 @@ const DeviceManager = {
         const timeout = setTimeout(() => {
           this._onPresetsListResolver = null;
           resolve(null);
-        }, 4000);
+        }, 6000);
         this._onPresetsListResolver = (data) => {
           clearTimeout(timeout);
           resolve(data);
@@ -887,20 +905,23 @@ const DeviceManager = {
   async savePresetToDevice(meta, rawBitmap, progressCb) {
     if (this.isLanConnected && this.lanIp) {
       if (rawBitmap) {
-        // Stream raw bitmap to display buffer first (80% progress)
-        await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)));
+        // Stream raw bitmap to display buffer first (80% progress) without physical refresh
+        await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)), false);
       }
       progressCb?.(85);
       const res = await fetch(`http://${this.lanIp}/api/presets/save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Connection': 'close'
+        },
         body: JSON.stringify({
           name: meta.name,
           preset_type: meta.preset_type || meta.type,
           type_label: meta.type_label || meta.typeLabel,
           save_current_screen: true
         }),
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(20000)
       });
       progressCb?.(100);
       const data = await res.json();
@@ -908,6 +929,12 @@ const DeviceManager = {
       return data;
     } else if (this.isBleConnected && this.rxChar) {
       if (rawBitmap) {
+        // First inform firmware not to auto-refresh upon stream complete
+        try {
+          const cfgCmd = new TextEncoder().encode('stream:auto_refresh:0');
+          await this.rxChar.writeValueWithoutResponse(cfgCmd);
+          await new Promise(r => setTimeout(r, 40));
+        } catch (e) {}
         // Stream 2bpp chunks to MCU SRAM
         await this._pushBleBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.85)));
       }
@@ -915,12 +942,25 @@ const DeviceManager = {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           this._onPresetSavedResolver = null;
-          resolve({ status: 'ok', preset: { id: meta.id, name: meta.name } });
-        }, 4500);
-        this._onPresetSavedResolver = (savedId) => {
+          this._onPresetSavedRejecter = null;
+          reject(new Error('单片机保存预设响应超时'));
+        }, 10000);
+        this._onPresetSavedResolver = (savedId, usedBytes, freeBytes) => {
           clearTimeout(timeout);
           progressCb?.(100);
-          resolve({ status: 'ok', preset: { id: savedId, name: meta.name } });
+          resolve({
+            status: 'ok',
+            preset: { id: savedId, name: meta.name },
+            storage: usedBytes && freeBytes ? {
+              total_bytes: 1528841,
+              used_bytes: parseInt(usedBytes, 10),
+              free_bytes: parseInt(freeBytes, 10)
+            } : null
+          });
+        };
+        this._onPresetSavedRejecter = (err) => {
+          clearTimeout(timeout);
+          reject(err);
         };
         const cmd = new TextEncoder().encode(`preset:save:${meta.name}:${meta.preset_type || meta.type || 'bitmap'}`);
         this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
@@ -936,9 +976,12 @@ const DeviceManager = {
     if (this.isLanConnected && this.lanIp) {
       const res = await fetch(`http://${this.lanIp}/api/presets/delete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Connection': 'close'
+        },
         body: JSON.stringify({ ids }),
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(10000)
       });
       return await res.json();
     } else if (this.isBleConnected && this.rxChar) {

@@ -223,14 +223,15 @@ const App = {
         if (destLocalBtn) destLocalBtn.className = 'm3-btn small outlined save-dest-tab';
         if (targetLabel) targetLabel.textContent = '单片机 Flash (SPIFFS)';
         if (checkTitle) checkTitle.textContent = '单片机 Flash 余量';
-        const freeBytes = PresetHub.storageStats.free_bytes || 1528841;
         if (storageCheck) {
           if (!isHardwareConnected) {
             storageCheck.innerHTML = `<span style="color:#ff9800;">⚠️ 硬件未连接 (写入可能失败)</span>`;
-          } else if (freeBytes < 110 * 1024) {
-            storageCheck.innerHTML = `<span style="color:#f44336;">⚠️ 空间告急：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+          } else if (PresetHub._hasRemoteStorageStats && PresetHub.storageStats.free_bytes < 110 * 1024) {
+            storageCheck.innerHTML = `<span style="color:#f44336;">⚠️ 空间告急：剩余 ${PresetHub.formatBytes(PresetHub.storageStats.free_bytes)}</span>`;
+          } else if (PresetHub._hasRemoteStorageStats) {
+            storageCheck.innerHTML = `<span style="color:#4caf50;">✓ 空间充裕：剩余 ${PresetHub.formatBytes(PresetHub.storageStats.free_bytes)}</span>`;
           } else {
-            storageCheck.innerHTML = `<span style="color:#4caf50;">✓ 空间充裕：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+            storageCheck.innerHTML = `<span style="color:#2196f3;">ℹ️ 单片机在线 (就绪写入)</span>`;
           }
         }
         if (confirmBtn) confirmBtn.textContent = '🚀 写入单片机 Flash 存储';
@@ -552,15 +553,19 @@ const App = {
         if (bleSubText) bleSubText.textContent = 'Web Bluetooth 5.0 · 物理低延迟点阵直推中';
         if (bleConnectBtn) bleConnectBtn.textContent = '断开蓝牙';
         UI.rememberDevice(DeviceManager.bleDevice?.id, status.name);
+        PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
       } else if (status.type === 'lan') {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
         if (bleStatusText) bleStatusText.textContent = `● 局域网已连接: ${status.name}`;
         if (bleSubText) bleSubText.textContent = 'REST API 高速全双工信道已连通';
+        PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
       } else {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot';
         if (bleStatusText) bleStatusText.textContent = '● 已断开连接';
         if (bleSubText) bleSubText.textContent = '无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推';
         if (bleConnectBtn) bleConnectBtn.textContent = '🔍 扫描连接';
+        PresetHub._hasRemoteStorageStats = false;
+        PresetHub.updateStorageUI();
       }
     };
     DeviceManager.onStatusChange = updateConnUI;

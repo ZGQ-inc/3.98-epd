@@ -787,6 +787,8 @@ impl WebServer {
         // 13. POST /api/display/bitmap & /api/display/raw — Direct 1:1 Pixel Bitmap from Web Studio / PWA (105,984 bytes)
         for path in &["/api/display/bitmap", "/api/display/raw"] {
             server.fn_handler(path, Method::Post, move |mut req| -> anyhow::Result<()> {
+                let should_refresh = !req.uri().contains("refresh=false")
+                    && req.header("X-Refresh").unwrap_or("true") != "false";
                 let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
                 let mut total_read = 0usize;
 
@@ -799,13 +801,23 @@ impl WebServer {
                 }
 
                 if total_read == crate::display::TOTAL_BUFFER_SIZE {
-                    let ok = crate::display::request_direct_bitmap();
+                    let ok = if should_refresh {
+                        crate::display::request_direct_bitmap()
+                    } else {
+                        true
+                    };
                     let json = serde_json::to_vec(&serde_json::json!({
                         "status": if ok { "ok" } else { "busy" },
-                        "message": "1:1 高保真画板点阵已推送成功，正在执行16秒硬件波形刷新..."
+                        "message": if should_refresh {
+                            "1:1 高保真画板点阵已推送成功，正在执行16秒硬件波形刷新..."
+                        } else {
+                            "1:1 点阵已写入显存缓冲区 (未触发硬件刷新)"
+                        }
                     }))?;
+                    let len_str = json.len().to_string();
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
+                        ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
                         ("Connection", "close"),
                     ])?;
@@ -815,8 +827,10 @@ impl WebServer {
                         "status": "error",
                         "message": format!("数据长度不匹配：预期 105984 字节，实际接收 {} 字节", total_read)
                     }))?;
+                    let len_str = json.len().to_string();
                     let mut resp = req.into_response(400, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
+                        ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
                         ("Connection", "close"),
                     ])?;

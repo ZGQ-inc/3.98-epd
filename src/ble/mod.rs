@@ -52,6 +52,7 @@ pub struct BleManager {
 
 static GLOBAL_BLE: Mutex<Option<Arc<BleManager>>> = Mutex::new(None);
 static STREAM_OFFSET: AtomicUsize = AtomicUsize::new(0);
+static STREAM_AUTO_REFRESH: AtomicBool = AtomicBool::new(true);
 
 impl BleManager {
     pub fn global() -> Arc<Self> {
@@ -295,13 +296,22 @@ impl BleManager {
                         let raw_fb = Some(crate::display::framebuffer::get_raw_slice());
                         let res = crate::storage::save_preset(meta, raw_fb);
                         if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                                total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
+                            });
                             let resp = match res {
-                                Ok(saved) => format!("PRESET_SAVED:OK:{}", saved.id),
+                                Ok(saved) => format!("PRESET_SAVED:OK:{}:{}:{}", saved.id, stats.used_bytes, stats.free_bytes),
                                 Err(e) => format!("ERROR:PRESET_SAVE_FAILED:{}", e),
                             };
                             tx.lock().set_value(resp.as_bytes());
                             tx.lock().notify();
                         }
+                    } else if text == "stream:auto_refresh:0" {
+                        STREAM_AUTO_REFRESH.store(false, Ordering::Relaxed);
+                        println!("  [ble-rx] Stream auto-refresh disabled (buffered only)");
+                    } else if text == "stream:auto_refresh:1" {
+                        STREAM_AUTO_REFRESH.store(true, Ordering::Relaxed);
+                        println!("  [ble-rx] Stream auto-refresh enabled");
                     } else if text == "preset:list" || text == "get_presets" {
                         let list = crate::storage::list_presets();
                         let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
@@ -377,12 +387,21 @@ impl BleManager {
             let next = curr + written;
             STREAM_OFFSET.store(next, Ordering::Relaxed);
             if next >= crate::display::TOTAL_BUFFER_SIZE {
-                println!("  [ble-rx] 2bpp Framebuffer complete ({} bytes)! Triggering physical refresh...", next);
                 STREAM_OFFSET.store(0, Ordering::Relaxed);
-                crate::display::request_direct_bitmap();
-                if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
-                    tx.lock().set_value(b"REFRESH_TRIGGERED");
-                    tx.lock().notify();
+                let auto = STREAM_AUTO_REFRESH.swap(true, Ordering::Relaxed);
+                if auto {
+                    println!("  [ble-rx] 2bpp Framebuffer complete ({} bytes)! Triggering physical refresh...", next);
+                    crate::display::request_direct_bitmap();
+                    if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                        tx.lock().set_value(b"REFRESH_TRIGGERED");
+                        tx.lock().notify();
+                    }
+                } else {
+                    println!("  [ble-rx] 2bpp Framebuffer complete ({} bytes) buffered without refresh.", next);
+                    if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                        tx.lock().set_value(b"BUFFER_COMPLETE");
+                        tx.lock().notify();
+                    }
                 }
             }
         });

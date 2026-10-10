@@ -170,18 +170,7 @@ const PresetHub = {
   },
 
   recalculateStorage() {
-    // 1. Hardware presets: only !p.is_offline
-    const hwPresets = this.presets.filter(p => !p.is_offline);
-    let hwUsed = 0;
-    for (const p of hwPresets) {
-      hwUsed += p.size_bytes || 105984;
-    }
-    if (!this._hasRemoteStorageStats) {
-      this.storageStats.used_bytes = hwUsed;
-      this.storageStats.free_bytes = Math.max(0, this.storageStats.total_bytes - hwUsed);
-    }
-
-    // 2. Local offline presets: p.is_offline
+    // Local offline draft presets (browser-only draft quota estimation)
     const localPresets = this.presets.filter(p => p.is_offline);
     let localUsed = 0;
     for (const p of localPresets) {
@@ -191,6 +180,8 @@ const PresetHub = {
       count: localPresets.length,
       used_bytes: localUsed
     };
+    // Microcontroller Flash space is strictly read from physical SPIFFS (esp_spiffs_info),
+    // NEVER artificially synthesized or calculated in JavaScript!
   },
 
   updateStorageUI() {
@@ -211,18 +202,24 @@ const PresetHub = {
       if (localContainer) localContainer.style.display = 'none';
       if (batchUploadBtn) batchUploadBtn.style.display = 'none';
 
-      const total = this.storageStats.total_bytes || 1528841;
-      const used = this.storageStats.used_bytes || 0;
-      const free = this.storageStats.free_bytes !== undefined ? this.storageStats.free_bytes : Math.max(0, total - used);
-      const pct = Math.min(100, Math.round((used / total) * 100));
-
       const usedText = document.getElementById('storageUsedText');
       const freeText = document.getElementById('storageFreeText');
       const progressFill = document.getElementById('storageProgressFill');
 
-      if (usedText) usedText.textContent = this.formatBytes(used);
-      if (freeText) freeText.textContent = this.formatBytes(free);
-      if (progressFill) progressFill.style.width = `${pct}%`;
+      if (!this._hasRemoteStorageStats) {
+        if (usedText) usedText.textContent = '未连通单片机';
+        if (freeText) freeText.textContent = '--';
+        if (progressFill) progressFill.style.width = '0%';
+      } else {
+        const total = this.storageStats.total_bytes || 1528841;
+        const used = this.storageStats.used_bytes || 0;
+        const free = this.storageStats.free_bytes !== undefined ? this.storageStats.free_bytes : Math.max(0, total - used);
+        const pct = Math.min(100, Math.round((used / total) * 100));
+
+        if (usedText) usedText.textContent = this.formatBytes(used);
+        if (freeText) freeText.textContent = this.formatBytes(free);
+        if (progressFill) progressFill.style.width = `${pct}%`;
+      }
     } else {
       if (hwContainer) hwContainer.style.display = 'none';
       if (localContainer) localContainer.style.display = 'flex';
@@ -247,7 +244,10 @@ const PresetHub = {
         if (DeviceManager.fetchPresets) {
           res = await DeviceManager.fetchPresets();
         } else if (DeviceManager.lanIp) {
-          const resp = await fetch(`http://${DeviceManager.lanIp}/api/presets`);
+          const resp = await fetch(`http://${DeviceManager.lanIp}/api/presets`, {
+            headers: { 'Connection': 'close' },
+            signal: AbortSignal.timeout(8000)
+          });
           res = await resp.json();
         }
 
@@ -287,6 +287,7 @@ const PresetHub = {
     }
 
     if (!synced) {
+      this._hasRemoteStorageStats = false;
       await this.loadLocalPresets();
     }
 
@@ -311,7 +312,7 @@ const PresetHub = {
     const isTargetHardware = (targetLocation !== 'local') && isHardwareConnected;
     const estimatedSize = (rawBitmap ? rawBitmap.length : JSON.stringify(data || {}).length) + 512;
 
-    if (isTargetHardware && this.storageStats.free_bytes && this.storageStats.free_bytes < estimatedSize) {
+    if (isTargetHardware && this._hasRemoteStorageStats && this.storageStats.free_bytes < estimatedSize) {
       throw new Error(`单片机 Flash 存储空间不足！当前仅剩 ${this.formatBytes(this.storageStats.free_bytes)} 可用空间。`);
     }
 
@@ -334,17 +335,28 @@ const PresetHub = {
 
     if (isTargetHardware) {
       progressCb?.(10, '正在写入单片机 Flash (SPIFFS)...');
-      await DeviceManager.savePresetToDevice({
-        id: newPreset.id,
-        name: newPreset.name,
-        preset_type: newPreset.preset_type,
-        type_label: newPreset.type_label,
-        size_bytes: newPreset.size_bytes,
-        size_str: newPreset.size_str,
-        created_at: newPreset.created_at,
-        created_str: newPreset.created_str,
-        data_json: JSON.stringify(newPreset.data)
-      }, rawBitmap, (pct) => progressCb?.(pct, `正在向单片机 Flash 写入显存点阵 (${pct}%)...`));
+      let saveRes;
+      try {
+        saveRes = await DeviceManager.savePresetToDevice({
+          id: newPreset.id,
+          name: newPreset.name,
+          preset_type: newPreset.preset_type,
+          type_label: newPreset.type_label,
+          size_bytes: newPreset.size_bytes,
+          size_str: newPreset.size_str,
+          created_at: newPreset.created_at,
+          created_str: newPreset.created_str,
+          data_json: JSON.stringify(newPreset.data)
+        }, rawBitmap, (pct) => progressCb?.(pct, `正在向单片机 Flash 写入显存点阵 (${pct}%)...`));
+      } catch (err) {
+        console.error('[Presets] Save to hardware failed:', err);
+        throw err;
+      }
+
+      if (saveRes && saveRes.storage) {
+        this.storageStats = saveRes.storage;
+        this._hasRemoteStorageStats = true;
+      }
       newPreset.is_offline = false;
       this.currentTab = 'hardware';
     } else {
@@ -352,7 +364,7 @@ const PresetHub = {
       this.currentTab = 'local';
     }
 
-    // Save to local cache & IndexedDB
+    // Only add to presets list if saved successfully!
     this.presets.unshift(newPreset);
     await this.saveLocalPresets();
     if (isTargetHardware) {
@@ -375,13 +387,17 @@ const PresetHub = {
     if (!isHardwareConnected) throw new Error('未连通单片机硬件，请先在顶部连接蓝牙或局域网！');
 
     progressCb?.(15, `正在向单片机写入「${preset.name}」...`);
-    await DeviceManager.savePresetToDevice({
+    const saveRes = await DeviceManager.savePresetToDevice({
       id: preset.id,
       name: preset.name,
       preset_type: preset.preset_type,
       type_label: preset.type_label
     }, new Uint8Array(preset.raw_bitmap), (pct) => progressCb?.(pct, `正在写入单片机 Flash (${pct}%)...`));
 
+    if (saveRes && saveRes.storage) {
+      this.storageStats = saveRes.storage;
+      this._hasRemoteStorageStats = true;
+    }
     preset.is_offline = false;
     await this.saveLocalPresets();
     await this.syncWithDevice();
@@ -414,21 +430,25 @@ const PresetHub = {
     if (this.selectedIds.size === 0) return 0;
     const idsToDelete = Array.from(this.selectedIds);
 
-    this.presets = this.presets.filter(p => !this.selectedIds.has(p.id));
-    this.selectedIds.clear();
-    await this.saveLocalPresets();
-
     const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
       || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
 
     if (isHardwareConnected) {
       try {
-        await DeviceManager.deletePresetsFromDevice(idsToDelete);
+        const delRes = await DeviceManager.deletePresetsFromDevice(idsToDelete);
+        if (delRes && delRes.storage) {
+          this.storageStats = delRes.storage;
+          this._hasRemoteStorageStats = true;
+        }
         await this.syncWithDevice();
       } catch (e) {
         console.warn('[Presets] Device delete sync failed:', e);
       }
     }
+
+    this.presets = this.presets.filter(p => !this.selectedIds.has(p.id));
+    this.selectedIds.clear();
+    await this.saveLocalPresets();
 
     this.recalculateStorage();
     this.updateStorageUI();
