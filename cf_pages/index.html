@@ -570,22 +570,42 @@
           <div class="card-title" style="margin:0;">
             <span>🗂️ 墨水屏预设效果库</span>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <button class="m3-btn small outlined" id="presetSelectAllBtn">全选</button>
             <button class="m3-btn small danger" id="presetDeleteSelectedBtn" disabled>删除选中</button>
+            <button class="m3-btn small tonal" id="presetBatchUploadBtn" style="display:none;">⬆️ 全部写入单片机</button>
             <button class="m3-btn small tonal" id="presetSyncBtn">🔄 同步硬件 SPIFFS</button>
           </div>
         </div>
 
-        <div style="margin-top:14px; font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
-          <span>已占用空间: <strong id="storageUsedText">0 KB</strong></span>
-          <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
-        </div>
-        <div class="storage-progress-bar">
-          <div class="storage-progress-fill" id="storageProgressFill"></div>
+        <!-- Storage Location Switcher Tabs -->
+        <div class="preset-storage-tabs" style="display:flex; gap:8px; margin-top:14px; border-bottom:1px solid var(--outline-variant); padding-bottom:10px;">
+          <button class="m3-btn small tonal preset-location-tab active" data-storage-tab="hardware" id="tabHwStorageBtn" onclick="PresetHub.switchTab('hardware')">
+            📟 单片机 Flash 存储 (<span id="hwPresetCount">0</span>)
+          </button>
+          <button class="m3-btn small outlined preset-location-tab" data-storage-tab="local" id="tabLocalStorageBtn" onclick="PresetHub.switchTab('local')">
+            📱 本地离线预设库 (<span id="localPresetCount">0</span>)
+          </button>
         </div>
 
-        <div class="preset-list" id="presetList"></div>
+        <!-- Hardware Storage Bar (Visible on 'hardware' tab) -->
+        <div id="hwStorageBarContainer">
+          <div style="margin-top:12px; font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
+            <span>单片机 Flash 已占用: <strong id="storageUsedText">0 KB</strong></span>
+            <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
+          </div>
+          <div class="storage-progress-bar">
+            <div class="storage-progress-fill" id="storageProgressFill"></div>
+          </div>
+        </div>
+
+        <!-- Local Offline Storage Info (Visible on 'local' tab) -->
+        <div id="localStorageBarContainer" style="display:none; margin-top:12px; padding:10px 14px; background:var(--surface-container-high); border-radius:10px; font-size:12px; color:var(--on-surface-variant); justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <span>📱 浏览器本地 IndexedDB 存储 · <strong style="color:var(--primary);">不占用单片机 Flash 空间</strong></span>
+          <span>离线预设草稿: <strong id="localCountText">0</strong> 个 · 占用浏览器空间: <strong id="localSizeText">0 KB</strong></span>
+        </div>
+
+        <div class="preset-list" id="presetList" style="margin-top:14px;"></div>
       </div>
     </div>
 
@@ -835,7 +855,24 @@
         将当前设计直接写入 ESP32-C3 内部 1.5MB SPIFFS 独立存储分区 (/spiffs/presets/)
       </div>
 
+      <!-- Storage Location Destination Selector -->
+      <div style="margin-bottom:14px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:var(--on-surface-variant); margin-bottom:6px;">选择存储位置：</label>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="m3-btn small tonal save-dest-tab" id="saveDestHwBtn" style="flex:1;">
+            📟 写入单片机 Flash
+          </button>
+          <button type="button" class="m3-btn small outlined save-dest-tab" id="saveDestLocalBtn" style="flex:1;">
+            📱 存入本地离线草稿库
+          </button>
+        </div>
+      </div>
+
       <div style="background:var(--surface-container-high); border-radius:12px; padding:14px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--on-surface-variant);">目标存储分区</span>
+          <span id="savePresetTargetLabel" style="font-size:12px; font-weight:700; color:var(--primary);">单片机 Flash (SPIFFS)</span>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <span style="font-size:12px; color:var(--on-surface-variant);">硬件通信链路</span>
           <span id="savePresetHwBadge" class="m3-badge" style="font-weight:700;">检测中...</span>
@@ -849,7 +886,7 @@
           <span id="savePresetEstSize" style="font-size:13px; font-weight:600;">约 106.0 KB (2bpp显存点阵)</span>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:12px; color:var(--on-surface-variant);">单片机 Flash 余量</span>
+          <span style="font-size:12px; color:var(--on-surface-variant);" id="savePresetStorageCheckTitle">单片机 Flash 余量</span>
           <span id="savePresetStorageCheck" style="font-size:13px; font-weight:600;">--</span>
         </div>
       </div>

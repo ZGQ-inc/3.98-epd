@@ -211,21 +211,54 @@ const App = {
       }
     }
 
-    const freeBytes = PresetHub.storageStats.free_bytes || 1528841;
-    if (storageCheck) {
-      if (freeBytes < 110 * 1024) {
-        storageCheck.innerHTML = `<span style="color:#f44336;">⚠️ 空间告急：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+    let selectedDest = isHardwareConnected ? 'hardware' : 'local';
+    const destHwBtn = document.getElementById('saveDestHwBtn');
+    const destLocalBtn = document.getElementById('saveDestLocalBtn');
+    const targetLabel = document.getElementById('savePresetTargetLabel');
+    const checkTitle = document.getElementById('savePresetStorageCheckTitle');
+
+    const updateDestUI = () => {
+      if (selectedDest === 'hardware') {
+        if (destHwBtn) destHwBtn.className = 'm3-btn small tonal save-dest-tab active';
+        if (destLocalBtn) destLocalBtn.className = 'm3-btn small outlined save-dest-tab';
+        if (targetLabel) targetLabel.textContent = '单片机 Flash (SPIFFS)';
+        if (checkTitle) checkTitle.textContent = '单片机 Flash 余量';
+        const freeBytes = PresetHub.storageStats.free_bytes || 1528841;
+        if (storageCheck) {
+          if (!isHardwareConnected) {
+            storageCheck.innerHTML = `<span style="color:#ff9800;">⚠️ 硬件未连接 (写入可能失败)</span>`;
+          } else if (freeBytes < 110 * 1024) {
+            storageCheck.innerHTML = `<span style="color:#f44336;">⚠️ 空间告急：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+          } else {
+            storageCheck.innerHTML = `<span style="color:#4caf50;">✓ 空间充裕：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+          }
+        }
+        if (confirmBtn) confirmBtn.textContent = '🚀 写入单片机 Flash 存储';
       } else {
-        storageCheck.innerHTML = `<span style="color:#4caf50;">✓ 空间充裕：剩余 ${PresetHub.formatBytes(freeBytes)}</span>`;
+        if (destHwBtn) destHwBtn.className = 'm3-btn small outlined save-dest-tab';
+        if (destLocalBtn) destLocalBtn.className = 'm3-btn small tonal save-dest-tab active';
+        if (targetLabel) targetLabel.textContent = '📱 浏览器本地草稿库 (IndexedDB)';
+        if (checkTitle) checkTitle.textContent = '单片机 Flash 影响';
+        if (storageCheck) storageCheck.innerHTML = `<span style="color:#2196f3; font-weight:700;">✓ 0 字节 (完全不占用单片机 Flash)</span>`;
+        if (confirmBtn) confirmBtn.textContent = '💾 暂存至本地离线草稿库';
       }
+    };
+
+    if (destHwBtn) {
+      destHwBtn.onclick = () => {
+        selectedDest = 'hardware';
+        updateDestUI();
+      };
     }
+    if (destLocalBtn) {
+      destLocalBtn.onclick = () => {
+        selectedDest = 'local';
+        updateDestUI();
+      };
+    }
+    updateDestUI();
 
     if (progressBox) progressBox.style.display = 'none';
-    if (confirmBtn) {
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = isHardwareConnected ? '🚀 写入单片机 Flash 存储' : '💾 暂存至本地离线库';
-    }
-
     UI.openModal('savePresetModal');
 
     // Remove old listeners and re-bind confirm button
@@ -254,7 +287,8 @@ const App = {
           name,
           type,
           typeLabel,
-          rawBitmap: packed
+          rawBitmap: packed,
+          targetLocation: selectedDest
         }, (pct, text) => {
           if (progressStatus && text) progressStatus.textContent = text;
           if (progressPct) progressPct.textContent = `${pct}%`;
@@ -263,9 +297,9 @@ const App = {
 
         this.renderPresetsUI();
         UI.closeModal('savePresetModal');
-        UI.showToast(isHardwareConnected
+        UI.showToast(selectedDest === 'hardware'
           ? `🎉 预设「${name}」已成功写入单片机 Flash (SPIFFS) 存储！`
-          : `已暂存预设「${name}」至本地离线库，连接单片机后可同步写入！`, 'success', 4500);
+          : `已成功保存预设「${name}」至本地草稿库（完全不占用单片机空间）！`, 'success', 4500);
       } catch (e) {
         if (progressBox) progressBox.style.display = 'none';
         newConfirmBtn.disabled = false;
@@ -276,26 +310,24 @@ const App = {
 
   renderPresetsUI() {
     const listEl = document.getElementById('presetList');
-    const usedText = document.getElementById('storageUsedText');
-    const freeText = document.getElementById('storageFreeText');
-    const progressFill = document.getElementById('storageProgressFill');
     const deleteBtn = document.getElementById('presetDeleteSelectedBtn');
-
     if (!listEl) return;
 
-    const total = PresetHub.storageStats.total_bytes || 1528841;
-    const used = PresetHub.storageStats.used_bytes || 0;
-    const free = PresetHub.storageStats.free_bytes || 0;
-    const pct = Math.min(100, Math.round((used / total) * 100));
+    PresetHub.updateStorageUI();
 
-    if (usedText) usedText.textContent = PresetHub.formatBytes(used);
-    if (freeText) freeText.textContent = PresetHub.formatBytes(free);
-    if (progressFill) progressFill.style.width = `${pct}%`;
+    const isHwTab = PresetHub.currentTab === 'hardware';
+    const displayedPresets = PresetHub.presets.filter(p => isHwTab ? !p.is_offline : p.is_offline);
 
-    if (PresetHub.presets.length === 0) {
-      listEl.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:32px; color:var(--md-sys-color-outline);">
-        📂 暂无已保存预设。您可以在工牌、痛卡、便签、画板中点击「保存为预设」，随时一键直推！
-      </div>`;
+    if (displayedPresets.length === 0) {
+      if (isHwTab) {
+        listEl.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:32px; color:var(--md-sys-color-outline);">
+          📂 单片机 Flash 暂无预设。<br>可在工牌、痛卡、便签等设计中点击「保存为预设」写入硬件，或在「本地离线预设库」一键同步写入！
+        </div>`;
+      } else {
+        listEl.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:32px; color:var(--md-sys-color-outline);">
+          📂 本地离线预设草稿库为空。<br>离线状态保存的草稿将保存在此，完全不占用单片机 Flash 空间，连上硬件后可一键烧录写入！
+        </div>`;
+      }
       if (deleteBtn) deleteBtn.disabled = true;
       return;
     }
@@ -305,7 +337,7 @@ const App = {
       deleteBtn.textContent = `删除选中 (${PresetHub.selectedIds.size})`;
     }
 
-    listEl.innerHTML = PresetHub.presets.map(p => {
+    listEl.innerHTML = displayedPresets.map(p => {
       const isSelected = PresetHub.selectedIds.has(p.id);
       return `
         <div class="preset-card ${isSelected ? 'selected' : ''}" data-id="${p.id}">
@@ -314,15 +346,21 @@ const App = {
               <input type="checkbox" class="preset-check" data-id="${p.id}" ${isSelected ? 'checked' : ''}>
               <strong style="font-size:14px;">${p.name}</strong>
             </div>
-            <span class="preset-type-badge">${p.type_label}</span>
+            <span class="preset-type-badge" style="${p.is_offline ? 'background:rgba(33, 150, 243, 0.15); color:#2196f3;' : 'background:rgba(76, 175, 80, 0.15); color:#4caf50;'}">
+              ${p.is_offline ? '📱 本地草稿' : '📟 Flash 存储'} · ${p.type_label}
+            </span>
           </div>
           <div style="font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
             <span>大小: ${p.size_str || '104 KB'}</span>
             <span>${p.created_str || ''}</span>
           </div>
-          <div class="preset-actions">
+          <div class="preset-actions" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
             <button class="m3-btn small outlined preset-preview-btn" data-id="${p.id}">👁️ 预览</button>
-            <button class="m3-btn small preset-push-btn" data-id="${p.id}">🚀 推送</button>
+            ${p.is_offline
+              ? `<button class="m3-btn small tonal preset-push-btn" data-id="${p.id}">🚀 屏幕推送</button>
+                 <button class="m3-btn small preset-upload-hw-btn" data-id="${p.id}" style="background:var(--primary); color:var(--on-primary);">⬆️ 写入硬件</button>`
+              : `<button class="m3-btn small preset-push-btn" data-id="${p.id}">🚀 内部直推</button>`
+            }
           </div>
         </div>
       `;
@@ -348,6 +386,26 @@ const App = {
       });
     });
 
+    listEl.querySelectorAll('.preset-upload-hw-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const isConn = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+          || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+        if (!isConn) {
+          UI.showToast('⚠️ 未连通单片机硬件，请先在顶部连接蓝牙或局域网！', 'warning', 4000);
+          return;
+        }
+        try {
+          UI.showToast('正在写入单片机 Flash 存储...', 'info', 3000);
+          await PresetHub.uploadLocalPresetToHardware(id);
+          this.renderPresetsUI();
+          UI.showToast('🎉 该预设已成功烧录写入单片机 Flash！已转入硬件存储库', 'success', 4500);
+        } catch (e) {
+          UI.showToast(`写入硬件失败: ${e.message}`, 'error', 4000);
+        }
+      });
+    });
+
     listEl.querySelectorAll('.preset-push-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
@@ -363,22 +421,20 @@ const App = {
         }
 
         try {
-          UI.showToast(`正在通知单片机内部读取预设「${preset.name}」...`, 'info', 3000);
-          await DeviceManager.pushPreset(preset.id);
-          UI.showToast(`🎉 单片机已内部加载 Flash 预设「${preset.name}」并启动墨水屏全屏物理刷新！`, 'success', 5000);
-        } catch (e) {
-          console.warn('[Presets] Internal push notice, falling back:', e);
-          if (preset.raw_bitmap) {
-            try {
-              UI.showToast(`硬件内部未建立索引，正在通过链路回退推送「${preset.name}」...`, 'info', 3500);
-              await DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
-              UI.showToast(`🎉 预设「${preset.name}」推送成功！`, 'success', 4000);
-            } catch (fallbackErr) {
-              UI.showToast(`推送失败: ${fallbackErr.message}`, 'error', 4000);
-            }
+          if (!preset.is_offline) {
+            UI.showToast(`正在通知单片机内部读取预设「${preset.name}」...`, 'info', 3000);
+            await DeviceManager.pushPreset(preset.id);
+            UI.showToast(`🎉 单片机已内部加载 Flash 预设「${preset.name}」并启动墨水屏全屏物理刷新！`, 'success', 5000);
           } else {
-            UI.showToast(`推送失败: ${e.message}`, 'error', 4000);
+            // Local preset streaming
+            if (preset.raw_bitmap) {
+              UI.showToast(`正在点对点推送本地离线草稿「${preset.name}」至墨水屏...`, 'info', 4000);
+              await DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
+              UI.showToast(`🎉 离线预设「${preset.name}」推送成功！`, 'success', 4000);
+            }
           }
+        } catch (e) {
+          UI.showToast(`推送失败: ${e.message}`, 'error', 4000);
         }
       });
     });
@@ -608,6 +664,21 @@ const App = {
         this.renderPresetsUI();
         UI.showToast(`已删除 ${count} 项预设`, 'success');
       }
+    });
+
+    document.getElementById('presetBatchUploadBtn')?.addEventListener('click', async () => {
+      const isConn = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+        || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+      if (!isConn) {
+        UI.showToast('⚠️ 未连通单片机硬件，请先在顶部连接蓝牙或局域网！', 'warning', 4000);
+        return;
+      }
+      UI.showToast('正在批量向单片机写入所有本地离线预设...', 'info', 4000);
+      const count = await PresetHub.uploadAllLocalPresetsToHardware((pct, msg) => {
+        UI.showToast(msg, 'info', 2000);
+      });
+      this.renderPresetsUI();
+      UI.showToast(`🎉 已成功将 ${count} 项离线预设全部烧录写入单片机 Flash 存储！`, 'success', 4500);
     });
 
     document.getElementById('presetSyncBtn')?.addEventListener('click', async () => {

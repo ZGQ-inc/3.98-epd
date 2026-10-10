@@ -13,10 +13,16 @@ const PresetHub = {
   // Current loaded presets
   presets: [],
   selectedIds: new Set(),
+  currentTab: 'hardware', // 'hardware' | 'local'
+  _hasRemoteStorageStats: false,
   storageStats: {
     total_bytes: 1528841, // 1.5MB partition
     used_bytes: 0,
     free_bytes: 1528841
+  },
+  localStats: {
+    count: 0,
+    used_bytes: 0
   },
 
   db: null,
@@ -24,6 +30,27 @@ const PresetHub = {
   async init() {
     await this.loadLocalPresets();
     this.updateStorageUI();
+  },
+
+  switchTab(tab) {
+    this.currentTab = tab || 'hardware';
+    const hwBtn = document.getElementById('tabHwStorageBtn');
+    const localBtn = document.getElementById('tabLocalStorageBtn');
+    if (hwBtn && localBtn) {
+      if (this.currentTab === 'hardware') {
+        hwBtn.className = 'm3-btn small tonal preset-location-tab active';
+        localBtn.className = 'm3-btn small outlined preset-location-tab';
+      } else {
+        hwBtn.className = 'm3-btn small outlined preset-location-tab';
+        localBtn.className = 'm3-btn small tonal preset-location-tab active';
+      }
+    }
+    this.selectedIds.clear();
+    this.recalculateStorage();
+    this.updateStorageUI();
+    if (typeof App !== 'undefined' && App.renderPresetsUI) {
+      App.renderPresetsUI();
+    }
   },
 
   /* ================= IndexedDB Storage Engine ================= */
@@ -143,27 +170,69 @@ const PresetHub = {
   },
 
   recalculateStorage() {
-    let used = 0;
-    for (const p of this.presets) {
-      used += p.size_bytes || 1024;
+    // 1. Hardware presets: only !p.is_offline
+    const hwPresets = this.presets.filter(p => !p.is_offline);
+    let hwUsed = 0;
+    for (const p of hwPresets) {
+      hwUsed += p.size_bytes || 105984;
     }
-    this.storageStats.used_bytes = used;
-    this.storageStats.free_bytes = Math.max(0, this.storageStats.total_bytes - used);
+    if (!this._hasRemoteStorageStats) {
+      this.storageStats.used_bytes = hwUsed;
+      this.storageStats.free_bytes = Math.max(0, this.storageStats.total_bytes - hwUsed);
+    }
+
+    // 2. Local offline presets: p.is_offline
+    const localPresets = this.presets.filter(p => p.is_offline);
+    let localUsed = 0;
+    for (const p of localPresets) {
+      localUsed += p.size_bytes || 105984;
+    }
+    this.localStats = {
+      count: localPresets.length,
+      used_bytes: localUsed
+    };
   },
 
   updateStorageUI() {
-    const total = this.storageStats.total_bytes || 1528841;
-    const used = this.storageStats.used_bytes || 0;
-    const free = this.storageStats.free_bytes !== undefined ? this.storageStats.free_bytes : Math.max(0, total - used);
-    const pct = Math.min(100, Math.round((used / total) * 100));
+    const hwPresets = this.presets.filter(p => !p.is_offline);
+    const localPresets = this.presets.filter(p => p.is_offline);
 
-    const usedText = document.getElementById('storageUsedText');
-    const freeText = document.getElementById('storageFreeText');
-    const progressFill = document.getElementById('storageProgressFill');
+    const hwCountEl = document.getElementById('hwPresetCount');
+    const localCountEl = document.getElementById('localPresetCount');
+    if (hwCountEl) hwCountEl.textContent = hwPresets.length;
+    if (localCountEl) localCountEl.textContent = localPresets.length;
 
-    if (usedText) usedText.textContent = this.formatBytes(used);
-    if (freeText) freeText.textContent = this.formatBytes(free);
-    if (progressFill) progressFill.style.width = `${pct}%`;
+    const hwContainer = document.getElementById('hwStorageBarContainer');
+    const localContainer = document.getElementById('localStorageBarContainer');
+    const batchUploadBtn = document.getElementById('presetBatchUploadBtn');
+
+    if (this.currentTab === 'hardware') {
+      if (hwContainer) hwContainer.style.display = 'block';
+      if (localContainer) localContainer.style.display = 'none';
+      if (batchUploadBtn) batchUploadBtn.style.display = 'none';
+
+      const total = this.storageStats.total_bytes || 1528841;
+      const used = this.storageStats.used_bytes || 0;
+      const free = this.storageStats.free_bytes !== undefined ? this.storageStats.free_bytes : Math.max(0, total - used);
+      const pct = Math.min(100, Math.round((used / total) * 100));
+
+      const usedText = document.getElementById('storageUsedText');
+      const freeText = document.getElementById('storageFreeText');
+      const progressFill = document.getElementById('storageProgressFill');
+
+      if (usedText) usedText.textContent = this.formatBytes(used);
+      if (freeText) freeText.textContent = this.formatBytes(free);
+      if (progressFill) progressFill.style.width = `${pct}%`;
+    } else {
+      if (hwContainer) hwContainer.style.display = 'none';
+      if (localContainer) localContainer.style.display = 'flex';
+      if (batchUploadBtn) batchUploadBtn.style.display = localPresets.length > 0 ? 'inline-block' : 'none';
+
+      const localCountText = document.getElementById('localCountText');
+      const localSizeText = document.getElementById('localSizeText');
+      if (localCountText) localCountText.textContent = localPresets.length;
+      if (localSizeText) localSizeText.textContent = this.formatBytes(this.localStats.used_bytes);
+    }
   },
 
   /* ================= Bidirectional Sync with Hardware SPIFFS ================= */
@@ -185,6 +254,7 @@ const PresetHub = {
         if (res && (res.status === 'ok' || Array.isArray(res.presets))) {
           if (res.storage) {
             this.storageStats = res.storage;
+            this._hasRemoteStorageStats = true;
           }
           if (res.presets && Array.isArray(res.presets)) {
             // Merge device presets with local IndexedDB/localStorage presets
@@ -192,13 +262,13 @@ const PresetHub = {
             const merged = [];
             for (const devPreset of res.presets) {
               const local = localMap.get(devPreset.id);
-              if (local) {
-                // Keep local high-resolution raw_bitmap if device returned light summary
-                merged.push({ ...local, ...devPreset, raw_bitmap: local.raw_bitmap || devPreset.raw_bitmap });
-                localMap.delete(devPreset.id);
-              } else {
-                merged.push(devPreset);
-              }
+              merged.push({
+                ...local,
+                ...devPreset,
+                is_offline: false, // Confirmed on hardware!
+                raw_bitmap: local?.raw_bitmap || devPreset.raw_bitmap
+              });
+              localMap.delete(devPreset.id);
             }
             // Keep local offline-only presets
             for (const [, localOnly] of localMap) {
@@ -234,10 +304,14 @@ const PresetHub = {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   },
 
-  async savePreset({ name, type, typeLabel, data, rawBitmap }, progressCb) {
-    // Check available space
+  async savePreset({ name, type, typeLabel, data, rawBitmap, targetLocation }, progressCb) {
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    const isTargetHardware = (targetLocation !== 'local') && isHardwareConnected;
     const estimatedSize = (rawBitmap ? rawBitmap.length : JSON.stringify(data || {}).length) + 512;
-    if (this.storageStats.free_bytes && this.storageStats.free_bytes < estimatedSize) {
+
+    if (isTargetHardware && this.storageStats.free_bytes && this.storageStats.free_bytes < estimatedSize) {
       throw new Error(`单片机 Flash 存储空间不足！当前仅剩 ${this.formatBytes(this.storageStats.free_bytes)} 可用空间。`);
     }
 
@@ -254,13 +328,11 @@ const PresetHub = {
       created_at: Date.now(),
       created_str: new Date().toLocaleDateString('zh-CN') + ' ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }),
       data: data || {},
-      raw_bitmap: rawBitmap ? Array.from(rawBitmap) : null
+      raw_bitmap: rawBitmap ? Array.from(rawBitmap) : null,
+      is_offline: !isTargetHardware
     };
 
-    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
-      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
-
-    if (isHardwareConnected) {
+    if (isTargetHardware) {
       progressCb?.(10, '正在写入单片机 Flash (SPIFFS)...');
       await DeviceManager.savePresetToDevice({
         id: newPreset.id,
@@ -274,17 +346,68 @@ const PresetHub = {
         data_json: JSON.stringify(newPreset.data)
       }, rawBitmap, (pct) => progressCb?.(pct, `正在向单片机 Flash 写入显存点阵 (${pct}%)...`));
       newPreset.is_offline = false;
+      this.currentTab = 'hardware';
     } else {
       newPreset.is_offline = true;
+      this.currentTab = 'local';
     }
 
     // Save to local cache & IndexedDB
     this.presets.unshift(newPreset);
     await this.saveLocalPresets();
-    await this.syncWithDevice();
+    if (isTargetHardware) {
+      await this.syncWithDevice();
+    } else {
+      this.recalculateStorage();
+      this.updateStorageUI();
+    }
 
-    this.updateStorageUI();
     return newPreset;
+  },
+
+  async uploadLocalPresetToHardware(id, progressCb) {
+    const preset = this.presets.find(p => p.id === id);
+    if (!preset) throw new Error('未找到预设');
+    if (!preset.raw_bitmap) throw new Error('该预设未包含 2bpp 点阵数据');
+
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+    if (!isHardwareConnected) throw new Error('未连通单片机硬件，请先在顶部连接蓝牙或局域网！');
+
+    progressCb?.(15, `正在向单片机写入「${preset.name}」...`);
+    await DeviceManager.savePresetToDevice({
+      id: preset.id,
+      name: preset.name,
+      preset_type: preset.preset_type,
+      type_label: preset.type_label
+    }, new Uint8Array(preset.raw_bitmap), (pct) => progressCb?.(pct, `正在写入单片机 Flash (${pct}%)...`));
+
+    preset.is_offline = false;
+    await this.saveLocalPresets();
+    await this.syncWithDevice();
+    return preset;
+  },
+
+  async uploadAllLocalPresetsToHardware(progressCb) {
+    const localPresets = this.presets.filter(p => p.is_offline);
+    if (localPresets.length === 0) return 0;
+    let successCount = 0;
+    for (let i = 0; i < localPresets.length; i++) {
+      const p = localPresets[i];
+      const basePct = Math.round((i / localPresets.length) * 100);
+      try {
+        await this.uploadLocalPresetToHardware(p.id, (stepPct, msg) => {
+          const overallPct = Math.round(basePct + (stepPct / localPresets.length));
+          progressCb?.(overallPct, msg);
+        });
+        successCount++;
+      } catch (e) {
+        console.warn('Batch upload item error:', e);
+      }
+    }
+    this.currentTab = 'hardware';
+    await this.syncWithDevice();
+    return successCount;
   },
 
   async deleteSelected() {
