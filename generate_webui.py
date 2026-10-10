@@ -2130,8 +2130,18 @@ html_content = '''<!DOCTYPE html>
       if (data.flash_chip_size && document.getElementById('statFlashTotal')) {
         document.getElementById('statFlashTotal').innerText = Math.round(data.flash_chip_size / 1024) + ' KB';
       }
-      if (data.storage_free_bytes && document.getElementById('statStorageFree')) {
-        document.getElementById('statStorageFree').innerText = `剩余 ${Math.round(data.storage_free_bytes / 1024)} KB (可用 94%)`;
+      if (data.factory_partition_size && document.getElementById('statOtaUsage')) {
+        const usedKb = Math.round((data.factory_used_bytes || 1736704) / 1024);
+        const totalKb = Math.round(data.factory_partition_size / 1024);
+        const pct = Math.round((usedKb / totalKb) * 100);
+        document.getElementById('statOtaUsage').innerText = `${usedKb} KB (已用 ${pct}%)`;
+      }
+      if (data.storage_partition_size && document.getElementById('statStorageFree')) {
+        const freeKb = Math.round((data.storage_free_bytes || 647168) / 1024);
+        const totalKb = Math.round(data.storage_partition_size / 1024);
+        const usedKb = totalKb - freeKb;
+        const pct = Math.round((freeKb / totalKb) * 100);
+        document.getElementById('statStorageFree').innerText = `已存字库 ${usedKb} KB (可用 ${pct}%)`;
       }
       if (data.nvs_size && document.getElementById('statNvsFree')) {
         const freeNvs = Math.round((data.nvs_size - (data.nvs_used_bytes || 6144)) / 1024);

@@ -17,6 +17,8 @@ pub struct SystemStatusResponse {
     pub resolution: &'static str,
     // Storage partition statistics
     pub flash_chip_size: usize,
+    pub factory_partition_size: usize,
+    pub factory_used_bytes: usize,
     pub storage_partition_size: usize,
     pub storage_free_bytes: usize,
     pub nvs_size: usize,
