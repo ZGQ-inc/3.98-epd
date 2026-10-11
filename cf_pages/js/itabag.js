@@ -16,7 +16,6 @@
     // Config parameters
     config: {
       scale: 1.0,           // 0.5 ~ 2.5
-      rotate: 0,            // 0, 90, 180, 270 deg
       offsetX: 0,           // -300 ~ +300 px
       offsetY: 0,           // -300 ~ +300 px
       title: '初音未来 / Hatsune Miku',
@@ -104,30 +103,7 @@
         });
       });
 
-      // 4. Rotate dropdown / buttons (0, 90, 180, 270 deg)
-      const rotateSelects = [
-        document.getElementById('itaRotateSelect'),
-        document.getElementById('itaRotateInput'),
-        document.getElementById('itaRotate')
-      ].filter(Boolean);
-
-      rotateSelects.forEach(sel => {
-        sel.addEventListener('change', (e) => {
-          this.config.rotate = parseInt(e.target.value, 10) || 0;
-          this.renderPreview();
-        });
-      });
-
-      document.querySelectorAll('[data-ita-rotate]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const delta = parseInt(btn.getAttribute('data-ita-rotate'), 10) || 90;
-          this.config.rotate = (this.config.rotate + delta + 360) % 360;
-          rotateSelects.forEach(sel => { sel.value = String(this.config.rotate); });
-          this.renderPreview();
-        });
-      });
-
-      // 5. Title / Character Name input
+      // 4. Title / Character Name input
       const titleInputs = [
         document.getElementById('itaTitleInput'),
         document.getElementById('itaCharName'),
@@ -142,7 +118,7 @@
         });
       });
 
-      // 6. Source / Work title input
+      // 5. Source / Work title input
       const sourceInputs = [
         document.getElementById('itaSourceInput'),
         document.getElementById('itaWorkInput'),
@@ -156,7 +132,7 @@
         });
       });
 
-      // 7. Quote / Dialogue input
+      // 6. Quote / Dialogue input
       const quoteInputs = [
         document.getElementById('itaQuoteInput'),
         document.getElementById('itaDialogueInput'),
@@ -170,7 +146,7 @@
         });
       });
 
-      // 8. Style selection (bubble vs banner)
+      // 7. Style selection (bubble vs banner)
       const styleSelects = [
         document.getElementById('itaBubbleSelect'),
         document.getElementById('itaStyleSelect'),
@@ -184,7 +160,7 @@
         });
       });
 
-      // 9. Border style selection
+      // 8. Border style selection
       const borderSelects = [
         document.getElementById('itaBorderSelect'),
         document.getElementById('itaBorderStyle')
@@ -197,21 +173,20 @@
         });
       });
 
-      // 10. Sync initial DOM values if preset in HTML
+      // 9. Sync initial DOM values if preset in HTML
       if (document.getElementById('itaTitle')?.value) this.config.title = document.getElementById('itaTitle').value;
       if (document.getElementById('itaSource')?.value) this.config.source = document.getElementById('itaSource').value;
       if (document.getElementById('itaQuote')?.value) this.config.quote = document.getElementById('itaQuote').value;
       if (document.getElementById('itaScaleInput')?.value) this.config.scale = parseFloat(document.getElementById('itaScaleInput').value) || 1.0;
-      if (document.getElementById('itaRotateSelect')?.value) this.config.rotate = parseInt(document.getElementById('itaRotateSelect').value, 10) || 0;
       if (document.getElementById('itaStyleSelect')?.value) this.config.style = document.getElementById('itaStyleSelect').value;
       if (document.getElementById('itaBorderSelect')?.value) this.config.borderStyle = document.getElementById('itaBorderSelect').value;
 
-      // 11. Reset button
+      // 10. Reset button
       document.getElementById('itaResetBtn')?.addEventListener('click', () => {
         this.reset();
       });
 
-      // 12. Listen to tabchange
+      // 11. Listen to tabchange
       window.addEventListener('tabchange', (e) => {
         if (e.detail && e.detail.tabId === 'itabag') {
           this.renderPreview();
@@ -279,7 +254,7 @@
       canvas.height = h;
 
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
-      const { scale, rotate, offsetX, offsetY, title, source, quote, style } = this.config;
+      const { scale, offsetX, offsetY, title, source, quote, style } = this.config;
 
       // 1. Fill clean White base
       ctx.fillStyle = WHITE;
@@ -297,7 +272,6 @@
         const cx = (w / 2) + (offsetX || 0);
         const cy = (isPortrait ? 340 : 275) + (offsetY || 0);
         ctx.translate(cx, cy);
-        ctx.rotate(((rotate || 0) * Math.PI) / 180);
         ctx.scale(scale || 1.0, scale || 1.0);
         ctx.drawImage(this.userImage, -this.userImage.width / 2, -this.userImage.height / 2);
         ctx.restore();
@@ -758,7 +732,6 @@
     reset() {
       this.userImage = null;
       this.config.scale = 1.0;
-      this.config.rotate = 0;
       this.config.offsetX = 0;
       this.config.offsetY = 0;
       this.config.title = '初音未来 / Hatsune Miku';
