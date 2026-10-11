@@ -706,6 +706,14 @@ const App = {
       }
     });
 
+    document.getElementById('hwClearFlashBtn')?.addEventListener('click', () => {
+      PresetHub.clearHardwareFlash();
+    });
+
+    document.getElementById('localClearDraftsBtn')?.addEventListener('click', () => {
+      PresetHub.clearLocalPresets();
+    });
+
     // 11. Modal Push Dither
     document.getElementById('modalPushDitherBtn')?.addEventListener('click', () => UI.pushModalDither());
 

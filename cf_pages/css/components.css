@@ -4,9 +4,9 @@
  * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
  */
 
-/* ========================================================
+/* 
  * 1. Cards (M3 Elevated & Filled Surface Containers)
- * ======================================================== */
+ *  */
 .m3-card,
 .pwa-card {
   background: var(--md-sys-color-surface-container);
@@ -39,9 +39,9 @@
   line-height: 1.4;
 }
 
-/* ========================================================
+/* 
  * 2. Buttons (Tactile Touch Feedback & M3 Variants)
- * ======================================================== */
+ *  */
 .m3-btn,
 .btn {
   display: inline-flex;
@@ -146,9 +146,9 @@
   transform: scale(0.92);
 }
 
-/* ========================================================
+/* 
  * 3. Chips & Chip Groups (M3 Selection Chips)
- * ======================================================== */
+ *  */
 .chip-group {
   display: flex;
   gap: 8px;
@@ -196,9 +196,9 @@
   box-shadow: var(--shadow-1);
 }
 
-/* ========================================================
+/* 
  * 4. Form Controls & Inputs
- * ======================================================== */
+ *  */
 .form-group {
   margin-bottom: 12px;
 }
@@ -297,9 +297,9 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* ========================================================
+/* 
  * 5. Palette Swatches & Native Color Picker
- * ======================================================== */
+ *  */
 .swatch-row {
   display: flex;
   gap: 8px;
@@ -341,8 +341,8 @@ input[type="range"]::-moz-range-thumb {
 #nativeColorPicker {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
-  border: 2px solid var(--md-sys-color-outline-variant);
+  border-radius: 25%;
+  border: 4px solid var(--md-sys-color-outline-variant);
   padding: 0;
   cursor: pointer;
   background: transparent;
@@ -360,12 +360,12 @@ input[type="range"]::-moz-range-thumb {
 .native-color-picker::-webkit-color-swatch,
 #nativeColorPicker::-webkit-color-swatch {
   border: none;
-  border-radius: 50%;
+  border-radius: 10%;
 }
 
-/* ========================================================
+/* 
  * 6. Modal Dialogs (Full Compatibility: Overlay & Backdrop)
- * ======================================================== */
+ *  */
 .modal-overlay,
 .modal-backdrop {
   position: fixed;
@@ -448,9 +448,9 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 20px;
 }
 
-/* ========================================================
+/* 
  * 6b. 4-Color Dither Physical Preview Modal Fit & Layout
- * ======================================================== */
+ *  */
 #ditherPreviewModal .modal-sheet {
   max-width: 840px;
   max-height: 90vh;
@@ -504,9 +504,9 @@ input[type="range"]::-moz-range-thumb {
   margin-top: 4px;
 }
 
-/* ========================================================
+/* 
  * 7. Storage Capacity Bar
- * ======================================================== */
+ *  */
 .storage-progress-bar {
   height: 8px;
   background: var(--md-sys-color-surface-container-highest);
@@ -522,9 +522,9 @@ input[type="range"]::-moz-range-thumb {
   transition: width 0.3s ease;
 }
 
-/* ========================================================
+/* 
  * 8. Toast Notifications
- * ======================================================== */
+ *  */
 .toast-container {
   position: fixed;
   bottom: 24px;

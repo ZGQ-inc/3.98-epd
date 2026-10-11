@@ -663,6 +663,28 @@ const DeviceManager = {
   },
 
   /**
+   * 5. Clear screen to 100% pure yellow (0b10 = 0xAA)
+   */
+  async sendClearYellow() {
+    if (this.isBleConnected && this.rxChar) {
+      try {
+        const cmd = new TextEncoder().encode('clear:yellow');
+        await this.rxChar.writeValueWithoutResponse(cmd);
+        return { status: 'ok', message: '全黄清屏指令已发送' };
+      } catch (e) {}
+    } else if (this.isLanConnected && this.lanIp) {
+      try {
+        const res = await fetch(`http://${this.lanIp}/api/display/clear_yellow`, { method: 'POST', signal: AbortSignal.timeout(6000) });
+        if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
+      } catch (e) {}
+    }
+    // High-precision physical fallback: push all-yellow 2bpp bitmap (0xAA)
+    const buf = new Uint8Array(FRAMEBUFFER_SIZE);
+    buf.fill(0xAA); // 0b10101010 = 4 yellow pixels per byte
+    return await this.pushBitmap2bpp(buf);
+  },
+
+  /**
    * Quick scene switcher (12+ built-in MCU scenes)
    * @param {string} modeName
    */
@@ -1021,6 +1043,58 @@ const DeviceManager = {
       return { status: 'ok' };
     }
     return null;
+  },
+
+  /**
+   * Completely format & clear all Flash/SPIFFS storage on the microcontroller,
+   * removing all presets, orphan .2bpp bitmaps, temporary files, and corrupted data.
+   */
+  async clearDeviceStorage() {
+    let handled = false;
+    let result = null;
+
+    if (this.isLanConnected && this.lanIp) {
+      try {
+        const res = await fetch(`http://${this.lanIp}/api/storage/clear`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(10000)
+        });
+        if (res.ok) {
+          result = await res.json().catch(() => ({ status: 'ok' }));
+          handled = true;
+        }
+      } catch (e) {
+        // Fallback to /api/presets/clear
+        try {
+          const res2 = await fetch(`http://${this.lanIp}/api/presets/clear`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(8000)
+          });
+          if (res2.ok) {
+            result = await res2.json().catch(() => ({ status: 'ok' }));
+            handled = true;
+          }
+        } catch (e2) {}
+      }
+    }
+
+    if (this.isBleConnected && this.rxChar) {
+      // 1. Send dedicated storage:clear command
+      const cmd = new TextEncoder().encode('storage:clear');
+      await this.rxChar.writeValueWithoutResponse(cmd);
+      await new Promise(r => setTimeout(r, 80));
+
+      // 2. Also send preset:clear_all for maximum compatibility
+      const cmd2 = new TextEncoder().encode('preset:clear_all');
+      await this.rxChar.writeValueWithoutResponse(cmd2);
+      handled = true;
+      result = { status: 'ok', message: '已向单片机发送清空 Flash 指令' };
+    }
+
+    if (!handled) {
+      throw new Error('未连接任何单片机设备（请先在顶部连接蓝牙或配置局域网 IP）');
+    }
+    return result || { status: 'ok' };
   },
 
   async scanWifi() {

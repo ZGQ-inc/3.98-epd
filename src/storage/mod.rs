@@ -291,3 +291,42 @@ pub fn get_preset_bitmap(id: &str) -> Result<Vec<u8>, String> {
     f.read_to_end(&mut buf).map_err(|e| format!("Read error: {:?}", e))?;
     Ok(buf)
 }
+
+/// Completely formats and cleans all files in the SPIFFS storage partition,
+/// removing all presets, orphan .2bpp bitmaps, temporary swap files, and invalid data.
+pub fn clear_all_storage() -> Result<StorageStats, String> {
+    let _guard = STORAGE_LOCK.lock().unwrap();
+
+    // 1. Delete all files inside /spiffs/presets
+    if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let _ = fs::remove_file(&path);
+            println!("  [spiffs] Removed file: {:?}", path);
+        }
+    }
+    let _ = fs::remove_dir_all(PRESETS_DIR);
+    let _ = fs::create_dir_all(PRESETS_DIR);
+
+    // 2. Remove swap file if present
+    let _ = fs::remove_file(SWAP_FB_PATH);
+
+    // 3. Delete any other orphan files directly under /spiffs
+    if let Ok(entries) = fs::read_dir("/spiffs") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let _ = fs::remove_file(&path);
+                println!("  [spiffs] Removed root file: {:?}", path);
+            }
+        }
+    }
+
+    // 4. Reset cached presets in memory
+    if let Ok(mut lock) = CACHED_PRESETS.lock() {
+        *lock = Some(Vec::new());
+    }
+
+    info!("[SPIFFS] Storage partition completely cleared and reset!");
+    refresh_storage_stats()
+}

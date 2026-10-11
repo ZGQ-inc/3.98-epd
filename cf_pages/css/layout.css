@@ -4,9 +4,9 @@
  * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
  */
 
-/* ========================================================
+/* 
  * 1. Global Header
- * ======================================================== */
+ *  */
 header {
   background: var(--md-sys-color-surface-container);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
@@ -46,9 +46,9 @@ header {
   gap: 10px;
 }
 
-/* ========================================================
+/* 
  * 2. Top Connectivity & Status Bar Cards
- * ======================================================== */
+ *  */
 /* Primary Connection Card (WebBLE) */
 .conn-banner,
 .ble-banner {
@@ -236,9 +236,9 @@ header {
   min-height: 16px;
 }
 
-/* ========================================================
+/* 
  * 3. Responsive Sliding Tab Bar Navigation with Scroll Hint
- * ======================================================== */
+ *  */
 .tab-scroll-wrapper {
   position: relative;
   margin: 4px 16px 14px 16px;
@@ -368,9 +368,9 @@ header {
   line-height: 1;
 }
 
-/* ========================================================
+/* 
  * 4. Main Container & Tab Panes
- * ======================================================== */
+ *  */
 main {
   flex: 1;
   padding: 0 16px 24px 16px;
@@ -395,9 +395,9 @@ main {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ========================================================
+/* 
  * 5. Footer
- * ======================================================== */
+ *  */
 .app-footer {
   margin-top: auto;
   border-top: 1px solid var(--md-sys-color-outline-variant);
@@ -441,9 +441,9 @@ main {
   color: var(--md-sys-color-outline);
 }
 
-/* ========================================================
+/* 
  * 6. Responsive Mobile Navigation (Bottom Fixed Sliding Bar)
- * ======================================================== */
+ *  */
 @media (max-width: 640px) {
   header {
     padding: 10px 14px;

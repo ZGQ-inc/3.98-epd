@@ -154,6 +154,8 @@ pub enum DisplayCommand {
     LowBatteryWarning,
     /// Clear the entire screen to 100% pure white
     ClearWhite,
+    /// Clear the entire screen to designated BWRY color
+    ClearColor(BwryColor),
     /// Render first boot welcome screen with project URL & dual guides
     ShowWelcome { ap_ssid: String, ap_ip: String, ble_name: String },
     /// Render Wi-Fi connected guide demo layout
@@ -193,6 +195,21 @@ pub fn request_clear_white() -> bool {
         }
     }
     false
+}
+
+/// Submits a request to clear the entire screen to designated BWRY color (non-blocking).
+pub fn request_clear_color(color: BwryColor) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ClearColor(color)).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to clear the entire screen to 100% pure yellow (non-blocking).
+pub fn request_clear_yellow() -> bool {
+    request_clear_color(BwryColor::Yellow)
 }
 
 /// Submits a request to render the first boot welcome screen (non-blocking).
@@ -370,6 +387,11 @@ pub fn run_display_loop(
                     DisplayCommand::ClearWhite => {
                         println!("  [epd-worker] Command: ClearWhite (100% pure white full refresh)");
                         fb.clear_color(BwryColor::White);
+                        true
+                    }
+                    DisplayCommand::ClearColor(color) => {
+                        println!("  [epd-worker] Command: ClearColor ({:?} full refresh)", color);
+                        fb.clear_color(color);
                         true
                     }
                     DisplayCommand::ShowWelcome { ap_ssid, ap_ip, ble_name } => {

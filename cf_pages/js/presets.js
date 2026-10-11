@@ -472,6 +472,102 @@ const PresetHub = {
 
   clearSelection() {
     this.selectedIds.clear();
+  },
+
+  /**
+   * Completely clear and format microcontroller Flash/SPIFFS storage,
+   * wiping out all saved presets, orphan .2bpp files, temporary swap data, and releasing all space.
+   */
+  async clearHardwareFlash() {
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    if (!isHardwareConnected && !DeviceManager.lanIp) {
+      if (window.UI?.showToast) {
+        window.UI.showToast('⚠️ 未连通单片机硬件，请先在顶部连接蓝牙或局域网！', 'warning', 4000);
+      }
+      return;
+    }
+
+    const confirmed = confirm(
+      '⚠️ 警告：确定要彻底清空单片机内部 Flash 存储吗？\n\n' +
+      '• 将清空单片机 SPIFFS 分区中的所有预设、残留点阵与无效缓存文件\n' +
+      '• 释放全部物理 Flash 空间 (约 1.5 MB)\n' +
+      '• 此操作不可撤销！'
+    );
+    if (!confirmed) return;
+
+    if (window.UI?.showToast) {
+      window.UI.showToast('正在发送清空 Flash 指令至单片机...', 'info', 3000);
+    }
+
+    try {
+      const res = await DeviceManager.clearDeviceStorage();
+
+      // Clear hardware presets from local memory
+      this.presets = this.presets.filter(p => p.is_offline);
+      this.selectedIds.clear();
+      await this.saveLocalPresets();
+
+      if (res && res.storage) {
+        this.storageStats = res.storage;
+        this._hasRemoteStorageStats = true;
+      } else {
+        // Reset local stats display
+        this.storageStats = {
+          total_bytes: 1528841,
+          used_bytes: 0,
+          free_bytes: 1528841
+        };
+        this._hasRemoteStorageStats = true;
+      }
+
+      this.updateStorageUI();
+      if (typeof App !== 'undefined' && App.renderPresetsUI) {
+        App.renderPresetsUI();
+      }
+
+      if (window.UI?.showToast) {
+        window.UI.showToast('🎉 单片机 Flash 存储清空指令已执行，正在刷新存储状态...', 'success', 4000);
+      }
+
+      // Wait a moment for SPIFFS unlink to settle
+      await new Promise(r => setTimeout(r, 800));
+
+      // Re-sync with device to verify updated physical Flash bytes
+      await this.syncWithDevice();
+      this.updateStorageUI();
+      if (typeof App !== 'undefined' && App.renderPresetsUI) {
+        App.renderPresetsUI();
+      }
+    } catch (e) {
+      console.error('[PresetHub] 清空 Flash 失败:', e);
+      if (window.UI?.showToast) {
+        window.UI.showToast(`清空 Flash 失败: ${e.message}`, 'error', 4500);
+      }
+    }
+  },
+
+  /**
+   * Clear all offline drafts in browser IndexedDB/localStorage.
+   */
+  async clearLocalPresets() {
+    const localCount = this.presets.filter(p => p.is_offline).length;
+    if (localCount === 0) {
+      if (window.UI?.showToast) window.UI.showToast('本地离线预设草稿库已经为空！', 'info', 2500);
+      return;
+    }
+    if (!confirm(`确定要清空全部 ${localCount} 个本地离线预设草稿吗？`)) return;
+
+    this.presets = this.presets.filter(p => !p.is_offline);
+    this.selectedIds.clear();
+    await this.saveLocalPresets();
+    this.recalculateStorage();
+    this.updateStorageUI();
+    if (typeof App !== 'undefined' && App.renderPresetsUI) {
+      App.renderPresetsUI();
+    }
+    if (window.UI?.showToast) window.UI.showToast('已清空本地离线预设草稿！', 'success', 2500);
   }
 };
 

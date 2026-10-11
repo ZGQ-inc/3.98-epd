@@ -480,6 +480,28 @@ impl WebServer {
             Ok(())
         })?;
 
+        // 9c. POST /api/display/clear_yellow — Clear display to 100% pure yellow
+        server.fn_handler("/api/display/clear_yellow", Method::Post, move |req| -> anyhow::Result<()> {
+            println!("  [web-api] POST /api/display/clear_yellow triggered (all-yellow full refresh)");
+            let ok = crate::display::request_clear_yellow();
+            let resp_msg = if ok {
+                "全黄清屏指令已下发，正在执行16秒纯黄刷新..."
+            } else {
+                "屏幕正在刷新中，请勿重复触发"
+            };
+            let json = serde_json::to_vec(&serde_json::json!({
+                "status": if ok { "ok" } else { "busy" },
+                "message": resp_msg
+            }))?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
         // 10. POST /api/config — Save network and MQTT parameters
         let config_set = config.clone();
         let config_mgr_set = config_mgr.clone();
@@ -1098,6 +1120,35 @@ impl WebServer {
             resp.write_all(&json)?;
             Ok(())
         })?;
+
+        // 18b. POST /api/storage/clear & POST /api/presets/clear — Completely format & wipe Flash storage
+        let handle_clear_storage = move |req: esp_idf_svc::http::server::Request<&mut esp_idf_svc::http::server::EspHttpConnection>| -> anyhow::Result<()> {
+            println!("  [web-api] POST storage/clear triggered (formatting SPIFFS partition)");
+            let stats = crate::storage::clear_all_storage().unwrap_or(crate::storage::StorageStats {
+                total_bytes: 1528 * 1024,
+                used_bytes: 0,
+                free_bytes: 1528 * 1024,
+            });
+            let resp_data = serde_json::json!({
+                "status": "ok",
+                "message": "单片机 Flash 存储已彻底清空并重置！",
+                "storage": stats,
+                "presets": []
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        };
+
+        server.fn_handler("/api/storage/clear", Method::Post, handle_clear_storage)?;
+        server.fn_handler("/api/presets/clear", Method::Post, handle_clear_storage)?;
 
         // 19. GET /api/presets/preview — Get preset details and preview data
         server.fn_handler("/api/presets/preview", Method::Get, |req| -> anyhow::Result<()> {

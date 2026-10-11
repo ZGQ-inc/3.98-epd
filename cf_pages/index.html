@@ -95,7 +95,7 @@
         <button class="tab-btn active" data-tab="badge">📇 智能工牌</button>
         <button class="tab-btn" data-tab="itabag">🎒 兽聚痛卡</button>
         <button class="tab-btn" data-tab="memo">📝 随身便签</button>
-        <button class="tab-btn" data-tab="paint">🎨 4色手绘</button>
+        <button class="tab-btn" data-tab="paint">🎨 手绘画板</button>
         <button class="tab-btn" data-tab="image">🖼️ 图片调色</button>
         <button class="tab-btn" data-tab="scenes">⚙️ 场景遥控</button>
         <button class="tab-btn" data-tab="presets">🗂️ 预设效果库</button>
@@ -301,19 +301,19 @@
           </div>
           <div class="form-group">
             <label class="form-label">底部便签提示语</label>
-            <input type="text" id="memoFooter" class="m3-input memo-input" value="保持专注，逐项击破！ | 墨水屏双稳态零功耗保持">
+            <input type="text" id="memoFooter" class="m3-input memo-input" value="保持专注，逐项击破！">
           </div>
         </div>
       </div>
     </div>
 
     <!-- 
-     * TAB 4: 🎨 4色手绘画板 / 涂鸦创作
+     * TAB 4: 🎨 手绘画板 / 涂鸦创作
      *  -->
     <div class="tab-pane" id="tab-paint">
       <div class="m3-card">
         <div class="card-title">
-          <span>🎨 4色手绘画板 (BWRY 768×552)</span>
+          <span>🎨 手绘画板</span>
           <div style="display:flex; gap:6px;">
             <button class="m3-btn small outlined" id="paintUndoBtn">↩️ 撤销</button>
             <button class="m3-btn small outlined" id="paintRedoBtn">↪️ 重做</button>
@@ -335,7 +335,6 @@
               <label class="form-label" style="margin:0;">工具:</label>
               <select id="paintToolSelect" class="m3-select" style="width:auto; padding:5px 10px; font-size:12px;">
                 <option value="pen">✏️ 画笔 (Pen)</option>
-                <option value="circle_pen">⭕ 圆头笔 (Circle Pen)</option>
                 <option value="line">📏 直线 (Line)</option>
                 <option value="rect">⬜ 矩形框 (Rect)</option>
                 <option value="rect_fill">⬛ 实心矩形 (Rect Fill)</option>
@@ -411,7 +410,7 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">4色 BWRY 误差扩散与半色调算法 (全部 9 种)</label>
+            <label class="form-label">4色 BWRY 误差扩散与半色调算法</label>
             <select id="imageAlgoSelect" class="m3-select">
               <option value="floyd">Floyd-Steinberg 误差扩散 (推荐 · 细腻层次)</option>
               <option value="atkinson">Atkinson (复古 Mac 风格 · 清晰线条)</option>
@@ -474,11 +473,12 @@
             <span>⚡ 墨水屏即时快捷遥控</span>
           </div>
 
-          <!-- 4 Physical Clear Buttons -->
+          <!-- 5 Physical Clear Buttons -->
           <div class="clear-buttons-grid">
             <button class="clear-btn refresh" data-clear-cmd="refresh">⚡ 物理全刷 (16s)</button>
             <button class="clear-btn white" data-clear-cmd="clear:white">⬜ 全白</button>
             <button class="clear-btn black" data-clear-cmd="clear:black">⬛ 全黑</button>
+            <button class="clear-btn yellow" data-clear-cmd="clear:yellow">🟨 全黄</button>
             <button class="clear-btn red" data-clear-cmd="clear:red">🟥 全红</button>
           </div>
 
@@ -579,11 +579,16 @@
 
         <!-- Hardware Storage Bar (Visible on 'hardware' tab) -->
         <div id="hwStorageBarContainer">
-          <div style="margin-top:12px; font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
-            <span>单片机 Flash 已占用: <strong id="storageUsedText">0 KB</strong></span>
-            <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
+          <div style="margin-top:12px; font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+              <span>单片机 Flash 已占用: <strong id="storageUsedText">0 KB</strong></span>
+              <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
+            </div>
+            <button class="m3-btn small outlined" id="hwClearFlashBtn" onclick="PresetHub.clearHardwareFlash()" style="padding:4px 10px; font-size:11px; color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);" title="清空单片机 Flash 存储中的所有预设及残留无效数据">
+              🗑️ 清空单片机 Flash
+            </button>
           </div>
-          <div class="storage-progress-bar">
+          <div class="storage-progress-bar" style="margin-top:8px;">
             <div class="storage-progress-fill" id="storageProgressFill"></div>
           </div>
         </div>
@@ -591,7 +596,12 @@
         <!-- Local Offline Storage Info (Visible on 'local' tab) -->
         <div id="localStorageBarContainer" style="display:none; margin-top:12px; padding:10px 14px; background:var(--surface-container-high); border-radius:10px; font-size:12px; color:var(--on-surface-variant); justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <span>📱 浏览器本地 IndexedDB 存储 · <strong style="color:var(--primary);">不占用单片机 Flash 空间</strong></span>
-          <span>离线预设草稿: <strong id="localCountText">0</strong> 个 · 占用浏览器空间: <strong id="localSizeText">0 KB</strong></span>
+          <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <span>离线预设草稿: <strong id="localCountText">0</strong> 个 · 占用浏览器空间: <strong id="localSizeText">0 KB</strong></span>
+            <button class="m3-btn small outlined" id="localClearDraftsBtn" onclick="PresetHub.clearLocalPresets()" style="padding:4px 10px; font-size:11px;" title="清空浏览器离线草稿">
+              🗑️ 清空本地草稿
+            </button>
+          </div>
         </div>
 
         <div class="preset-list" id="presetList" style="margin-top:14px;"></div>

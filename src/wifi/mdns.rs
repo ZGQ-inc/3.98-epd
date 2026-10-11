@@ -30,11 +30,11 @@ pub fn start_mdns(hostname: &str, sta_ip: Ipv4Addr) {
             }
 
             info!("mDNS responder running for {}.local -> {}", hostname, sta_ip);
-            println!("\n  ========================================================");
+            println!("\n  ");
             println!("  [mdns] Network Ready!");
             println!("  [mdns] IP Address:   http://{}", sta_ip);
             println!("  [mdns] Local Domain: http://{}.local", hostname);
-            println!("  ========================================================\n");
+            println!("  \n");
 
             let mut buf = [0u8; 1024];
             let host_wire = encode_domain(&format!("{}.local", hostname));

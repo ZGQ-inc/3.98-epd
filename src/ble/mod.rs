@@ -241,6 +241,12 @@ impl BleManager {
                         BleManager::global().notify_status();
                     } else if text == "clear:white" {
                         crate::display::request_clear_white();
+                    } else if text == "clear:black" {
+                        crate::display::request_clear_color(crate::display::BwryColor::Black);
+                    } else if text == "clear:yellow" {
+                        crate::display::request_clear_color(crate::display::BwryColor::Yellow);
+                    } else if text == "clear:red" {
+                        crate::display::request_clear_color(crate::display::BwryColor::Red);
                     } else if text.starts_with("preset:push:") {
                         let id = text[12..].trim();
                         println!("  [ble-rx] Pushing preset '{}' directly from SPIFFS...", id);
@@ -337,6 +343,13 @@ impl BleManager {
                         if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
                             let resp = format!("PRESET_DELETED:{}", id);
                             tx.lock().set_value(resp.as_bytes());
+                            tx.lock().notify();
+                        }
+                    } else if text == "storage:clear" || text == "preset:clear_all" || text == "spiffs:format" {
+                        println!("  [ble-rx] Wiping and clearing all SPIFFS storage partition...");
+                        let _ = crate::storage::clear_all_storage();
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            tx.lock().set_value(b"STORAGE_CLEARED");
                             tx.lock().notify();
                         }
                     } else if text.starts_with('{') {

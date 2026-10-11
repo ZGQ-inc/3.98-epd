@@ -3381,6 +3381,15 @@
           }
           if (window.UI?.showToast) window.UI.showToast('已触发全黑清屏！', 'success');
 
+        } else if (cmd === 'clear:yellow') {
+          if (typeof dm.sendClearYellow === 'function') {
+            await dm.sendClearYellow();
+          } else if (dm.isBleConnected && dm.rxChar) {
+            const enc = new TextEncoder().encode('clear:yellow');
+            await dm.rxChar.writeValueWithoutResponse(enc);
+          }
+          if (window.UI?.showToast) window.UI.showToast('已触发全黄清屏！', 'success');
+
         } else if (cmd === 'clear:red') {
           if (typeof dm.sendClearRed === 'function') {
             await dm.sendClearRed();

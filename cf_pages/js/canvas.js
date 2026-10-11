@@ -14,7 +14,7 @@ const PaintCanvas = {
 
   // Tool & Palette state
   currentColor: '#000000',
-  currentTool: 'pen', // 'pen' | 'circle_pen' | 'line' | 'rect' | 'rect_fill' | 'circle' | 'circle_fill' | 'text' | 'eraser'
+  currentTool: 'pen', // 'pen' | 'line' | 'rect' | 'rect_fill' | 'circle' | 'circle_fill' | 'text' | 'eraser'
   lineWidth: 4,
 
   // Palette definitions
@@ -262,15 +262,6 @@ const PaintCanvas = {
         this.ctx.moveTo(pos.x, pos.y);
         this.ctx.lineTo(pos.x, pos.y);
         this.ctx.stroke();
-      } else if (this.currentTool === 'circle_pen') {
-        // Draw round daub at starting point
-        this.ctx.fillStyle = this.currentColor;
-        this.ctx.beginPath();
-        this.ctx.arc(pos.x, pos.y, Math.max(1, this.lineWidth / 2), 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.strokeStyle = this.currentColor;
-        this.ctx.beginPath();
-        this.ctx.moveTo(pos.x, pos.y);
       } else if (this.currentTool === 'eraser') {
         this.ctx.strokeStyle = '#ffffff';
         this.ctx.beginPath();
@@ -297,19 +288,6 @@ const PaintCanvas = {
         this.ctx.strokeStyle = this.currentColor;
         this.ctx.lineTo(pos.x, pos.y);
         this.ctx.stroke();
-      } else if (this.currentTool === 'circle_pen') {
-        // Connect line + solid circle daubs along the path
-        this.ctx.strokeStyle = this.currentColor;
-        this.ctx.fillStyle = this.currentColor;
-        this.ctx.lineTo(pos.x, pos.y);
-        this.ctx.stroke();
-
-        this.ctx.beginPath();
-        this.ctx.arc(pos.x, pos.y, Math.max(1, this.lineWidth / 2), 0, Math.PI * 2);
-        this.ctx.fill();
-
-        this.ctx.beginPath();
-        this.ctx.moveTo(pos.x, pos.y);
       } else {
         // Shape rubber-band preview: restore snapshot
         this.ctx.putImageData(this.snapshot, 0, 0);
