@@ -928,8 +928,8 @@ impl WebServer {
 
             match serde_json::from_slice::<SavePresetPayload>(&body) {
                 Ok(p) => {
-                    let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-                    let preset_id = p.id.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| format!("preset_{}", now_ts));
+                    let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let preset_id = p.id.filter(|s| !s.trim().is_empty() && s.len() <= 16).unwrap_or_else(|| format!("p_{}", now_ts));
                     let preset_name = p.name.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| format!("预设效果_{}", now_ts));
                     let p_type = p.preset_type.unwrap_or_else(|| "canvas".to_string());
                     let p_label = p.type_label.unwrap_or_else(|| match p_type.as_str() {

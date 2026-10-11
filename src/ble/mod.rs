@@ -272,7 +272,7 @@ impl BleManager {
                         let name = parts[0].trim();
                         let p_type = if parts.len() > 1 { parts[1].trim() } else { "bitmap" };
                         let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                        let preset_id = format!("preset_{}", now_ts);
+                        let preset_id = format!("p_{}", now_ts);
                         let preset_name = if name.is_empty() { format!("预设效果_{}", now_ts) } else { name.to_string() };
                         let meta = crate::storage::PresetMeta {
                             id: preset_id.clone(),

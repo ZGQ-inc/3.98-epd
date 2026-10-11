@@ -953,19 +953,22 @@ const DeviceManager = {
         await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)), false);
       }
       progressCb?.(85);
-      const res = await fetch(`http://${this.lanIp}/api/presets/save`, {
+      const fetchOpts = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          id: meta.id,
           name: meta.name,
           preset_type: meta.preset_type || meta.type,
           type_label: meta.type_label || meta.typeLabel,
           save_current_screen: true
         }),
         signal: AbortSignal.timeout(20000)
-      });
+      };
+      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
+      const res = await fetch(`http://${this.lanIp}/api/presets/save`, fetchOpts);
       progressCb?.(100);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || '保存失败');
@@ -986,10 +989,16 @@ const DeviceManager = {
         const timeout = setTimeout(() => {
           this._onPresetSavedResolver = null;
           this._onPresetSavedRejecter = null;
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
           reject(new Error('单片机保存预设响应超时'));
         }, 10000);
         this._onPresetSavedResolver = (savedId, usedBytes, freeBytes) => {
           clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
           progressCb?.(100);
           resolve({
             status: 'ok',
@@ -1003,11 +1012,17 @@ const DeviceManager = {
         };
         this._onPresetSavedRejecter = (err) => {
           clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
           reject(err);
         };
         const cmd = new TextEncoder().encode(`preset:save:${meta.name}:${meta.preset_type || meta.type || 'bitmap'}`);
         this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
           clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
           reject(err);
         });
       });

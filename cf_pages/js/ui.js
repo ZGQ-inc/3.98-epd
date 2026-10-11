@@ -233,6 +233,11 @@ const UI = {
     if (el) {
       el.classList.add('active', 'open');
       el.setAttribute('aria-hidden', 'false');
+      // Ensure confirm/submit buttons inside modal are unlocked
+      el.querySelectorAll('button[disabled]').forEach(b => {
+        b.disabled = false;
+        b.removeAttribute('disabled');
+      });
     }
   },
 
@@ -241,6 +246,11 @@ const UI = {
     if (el) {
       el.classList.remove('active', 'open');
       el.setAttribute('aria-hidden', 'true');
+      // Clear disabled state on any buttons inside the closed modal
+      el.querySelectorAll('button[disabled]').forEach(b => {
+        b.disabled = false;
+        b.removeAttribute('disabled');
+      });
     }
   },
 

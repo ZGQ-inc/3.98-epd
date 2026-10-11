@@ -331,7 +331,7 @@ const PresetHub = {
       throw new Error(`单片机 Flash 存储空间不足！当前仅剩 ${this.formatBytes(this.storageStats.free_bytes)} 可用空间。`);
     }
 
-    const id = 'preset_' + Date.now();
+    const id = 'p_' + Date.now().toString(36);
     const presetName = (name && name.trim()) ? name.trim() : `预设效果 #${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`;
 
     const newPreset = {
@@ -368,6 +368,9 @@ const PresetHub = {
         throw err;
       }
 
+      if (saveRes && saveRes.preset && saveRes.preset.id) {
+        newPreset.id = saveRes.preset.id;
+      }
       if (saveRes && saveRes.storage) {
         this.storageStats = saveRes.storage;
         this._hasRemoteStorageStats = true;
@@ -380,6 +383,8 @@ const PresetHub = {
     }
 
     // Only add to presets list if saved successfully!
+    // Filter out any potential duplicate id before unshifting
+    this.presets = this.presets.filter(p => p.id !== newPreset.id);
     this.presets.unshift(newPreset);
     await this.saveLocalPresets();
     if (isTargetHardware) {

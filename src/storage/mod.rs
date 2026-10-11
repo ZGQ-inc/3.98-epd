@@ -314,9 +314,9 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
         ));
     }
 
-    // Generate unique ID if not provided
-    if meta.id.trim().is_empty() {
-        meta.id = format!("preset_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+    // Generate unique short ID if not provided or too long for SPIFFS 32-byte object limit
+    if meta.id.trim().is_empty() || meta.id.len() > 16 {
+        meta.id = format!("p_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs());
     }
 
     let json_path = format!("{}/{}.json", PRESETS_DIR, meta.id);

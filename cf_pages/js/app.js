@@ -218,7 +218,14 @@ const App = {
     const targetLabel = document.getElementById('savePresetTargetLabel');
     const checkTitle = document.getElementById('savePresetStorageCheckTitle');
 
+    // Ensure confirm button is completely unlocked and old disabled state is cleared
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.removeAttribute('disabled');
+    }
+
     const updateDestUI = () => {
+      const activeConfirmBtn = document.getElementById('btnConfirmWritePreset');
       if (selectedDest === 'hardware') {
         if (destHwBtn) destHwBtn.className = 'm3-btn small tonal save-dest-tab active';
         if (destLocalBtn) destLocalBtn.className = 'm3-btn small outlined save-dest-tab';
@@ -235,14 +242,14 @@ const App = {
             storageCheck.innerHTML = `<span style="color:#2196f3;">ℹ️ 单片机在线 (就绪写入)</span>`;
           }
         }
-        if (confirmBtn) confirmBtn.textContent = '🚀 写入单片机 Flash 存储';
+        if (activeConfirmBtn) activeConfirmBtn.textContent = '🚀 写入单片机 Flash 存储';
       } else {
         if (destHwBtn) destHwBtn.className = 'm3-btn small outlined save-dest-tab';
         if (destLocalBtn) destLocalBtn.className = 'm3-btn small tonal save-dest-tab active';
         if (targetLabel) targetLabel.textContent = '📱 浏览器本地草稿库 (IndexedDB)';
         if (checkTitle) checkTitle.textContent = '单片机 Flash 影响';
         if (storageCheck) storageCheck.innerHTML = `<span style="color:#2196f3; font-weight:700;">✓ 0 字节 (完全不占用单片机 Flash)</span>`;
-        if (confirmBtn) confirmBtn.textContent = '💾 暂存至本地离线草稿库';
+        if (activeConfirmBtn) activeConfirmBtn.textContent = '💾 暂存至本地离线草稿库';
       }
     };
 
@@ -258,56 +265,68 @@ const App = {
         updateDestUI();
       };
     }
-    updateDestUI();
 
+    // Reset progress indicator states before opening modal
     if (progressBox) progressBox.style.display = 'none';
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressPct) progressPct.textContent = '0%';
+    if (progressStatus) progressStatus.textContent = '';
+
     UI.openModal('savePresetModal');
 
-    // Remove old listeners and re-bind confirm button
-    const newConfirmBtn = confirmBtn.cloneNode(true);
-    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    // Remove old listeners and re-bind confirm button, ensuring fresh enabled state
+    if (confirmBtn) {
+      const newConfirmBtn = confirmBtn.cloneNode(true);
+      newConfirmBtn.disabled = false;
+      newConfirmBtn.removeAttribute('disabled');
+      confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
 
-    newConfirmBtn.addEventListener('click', async () => {
-      const name = (nameInput && nameInput.value) ? nameInput.value.trim() : defaultName;
-      if (!name) {
-        UI.showToast('请输入预设名称', 'warning');
-        return;
-      }
+      newConfirmBtn.addEventListener('click', async () => {
+        const name = (nameInput && nameInput.value) ? nameInput.value.trim() : defaultName;
+        if (!name) {
+          UI.showToast('请输入预设名称', 'warning');
+          return;
+        }
 
-      newConfirmBtn.disabled = true;
-      if (progressBox) progressBox.style.display = 'block';
+        newConfirmBtn.disabled = true;
+        if (progressBox) progressBox.style.display = 'block';
 
-      try {
-        if (progressStatus) progressStatus.textContent = '正在生成 2bpp 硬件显存点阵...';
-        if (progressPct) progressPct.textContent = '10%';
-        if (progressBar) progressBar.style.width = '10%';
-        await new Promise(r => setTimeout(r, 60));
+        try {
+          if (progressStatus) progressStatus.textContent = '正在生成 2bpp 硬件显存点阵...';
+          if (progressPct) progressPct.textContent = '10%';
+          if (progressBar) progressBar.style.width = '10%';
+          await new Promise(r => setTimeout(r, 60));
 
-        const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd', { orientation: UI.orientation });
+          const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd', { orientation: UI.orientation });
 
-        await PresetHub.savePreset({
-          name,
-          type,
-          typeLabel,
-          rawBitmap: packed,
-          targetLocation: selectedDest
-        }, (pct, text) => {
-          if (progressStatus && text) progressStatus.textContent = text;
-          if (progressPct) progressPct.textContent = `${pct}%`;
-          if (progressBar) progressBar.style.width = `${pct}%`;
-        });
+          await PresetHub.savePreset({
+            name,
+            type,
+            typeLabel,
+            rawBitmap: packed,
+            targetLocation: selectedDest
+          }, (pct, text) => {
+            if (progressStatus && text) progressStatus.textContent = text;
+            if (progressPct) progressPct.textContent = `${pct}%`;
+            if (progressBar) progressBar.style.width = `${pct}%`;
+          });
 
-        this.renderPresetsUI();
-        UI.closeModal('savePresetModal');
-        UI.showToast(selectedDest === 'hardware'
-          ? `🎉 预设「${name}」已成功写入单片机 Flash (SPIFFS) 存储！`
-          : `已成功保存预设「${name}」至本地草稿库（完全不占用单片机空间）！`, 'success', 4500);
-      } catch (e) {
-        if (progressBox) progressBox.style.display = 'none';
-        newConfirmBtn.disabled = false;
-        UI.showToast(`写入失败: ${e.message}`, 'error', 4500);
-      }
-    });
+          this.renderPresetsUI();
+          UI.closeModal('savePresetModal');
+          UI.showToast(selectedDest === 'hardware'
+            ? `🎉 预设「${name}」已成功写入单片机 Flash (SPIFFS) 存储！`
+            : `已成功保存预设「${name}」至本地草稿库（完全不占用单片机空间）！`, 'success', 4500);
+        } catch (e) {
+          UI.showToast(`写入失败: ${e.message}`, 'error', 4500);
+        } finally {
+          newConfirmBtn.disabled = false;
+          newConfirmBtn.removeAttribute('disabled');
+          if (progressBox) progressBox.style.display = 'none';
+        }
+      });
+    }
+
+    updateDestUI();
   },
 
   renderPresetsUI() {
