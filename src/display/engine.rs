@@ -321,8 +321,18 @@ pub fn run_display_loop(
                 }
             }
 
-            // 2. Command processing loop
-            while let Ok(cmd) = rx.recv() {
+            // 2. Command processing loop with non-allocating heartbeat
+            loop {
+                let cmd = match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+                    Ok(c) => c,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        let free = unsafe { esp_idf_sys::esp_get_free_heap_size() };
+                        let sta_ok = crate::wifi::is_station_connected();
+                        println!("  [epd-heartbeat] Alive | Free heap: {} B | STA connected: {}", free, sta_ok);
+                        continue;
+                    }
+                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                };
                 let mut ctx = ModeContext::default();
                 ctx.ip_str = ip_addr.clone();
 

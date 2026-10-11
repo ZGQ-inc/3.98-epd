@@ -24,11 +24,12 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 4096,
+            stack_size: 5120,
             max_open_sockets: 4,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
+            session_timeout: std::time::Duration::from_secs(5),
             ..Default::default()
         };
 
@@ -92,15 +93,16 @@ impl WebServer {
                 ("Cache-Control", "public, max-age=3600"),
                 ("ETag", "\"398epd-v2\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
-                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                std::thread::sleep(std::time::Duration::from_millis(2));
+            match resp.write_all(INDEX_HTML_GZ) {
+                Ok(_) => println!("  [web] Serving / SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
+                Err(e) => println!("  [web] Serving / ERROR: {:?}", e),
             }
             Ok(())
         })?;
 
         // 1b. Direct '/app' route to console
         server.fn_handler("/app", Method::Get, |_req| -> anyhow::Result<()> {
+            println!("  [web] Serving /app (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
             let len_str = INDEX_HTML_GZ.len().to_string();
             let mut resp = _req.into_response(200, None, &[
                 ("Content-Type", "text/html; charset=utf-8"),
@@ -110,9 +112,9 @@ impl WebServer {
                 ("Cache-Control", "public, max-age=3600"),
                 ("ETag", "\"398epd-v2\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
-                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                std::thread::sleep(std::time::Duration::from_millis(2));
+            match resp.write_all(INDEX_HTML_GZ) {
+                Ok(_) => println!("  [web] Serving /app SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
+                Err(e) => println!("  [web] Serving /app ERROR: {:?}", e),
             }
             Ok(())
         })?;

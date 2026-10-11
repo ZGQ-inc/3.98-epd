@@ -397,7 +397,6 @@ const UI = {
   initLanStatus() {
     const dm = window.DeviceManager;
     let ip = dm?.lanIp || localStorage.getItem('epd_lan_ip') || '';
-    if (ip === '192.168.10.203') ip = '';
     const isConn = dm ? dm.isLanConnected : false;
     const statusText = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
     const consoleLink = document.getElementById('lanConsoleLink');

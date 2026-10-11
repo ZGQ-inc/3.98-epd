@@ -21,8 +21,7 @@ const DeviceManager = {
   isBleConnected: false,
 
   lanIp: (() => {
-    const s = (localStorage.getItem('epd_lan_ip') || '').trim();
-    return s === '192.168.10.203' ? '' : s;
+    return (localStorage.getItem('epd_lan_ip') || '').trim();
   })(),
   isLanConnected: false,
   activeMode: 'auto', // 'ble' | 'lan' | 'auto'
@@ -33,22 +32,15 @@ const DeviceManager = {
 
   /*  Initialization & URL Query Auto-Binding  */
   init() {
-    if (localStorage.getItem('epd_lan_ip') === '192.168.10.203') {
-      localStorage.removeItem('epd_lan_ip');
-      this.lanIp = '';
-    }
-
     const params = new URLSearchParams(window.location.search);
-    const rawQueryIp = (params.get('ip') || params.get('host') || '').trim();
-    const queryIp = rawQueryIp === '192.168.10.203' ? '' : rawQueryIp;
+    const queryIp = (params.get('ip') || params.get('host') || '').trim();
 
     if (queryIp) {
       this.lanIp = queryIp;
-      this.isLanConnected = false; // Strictly do not assume connected before verification!
+      this.isLanConnected = false;
       localStorage.setItem('epd_lan_ip', queryIp);
     } else if (!this.lanIp) {
-      const stored = (localStorage.getItem('epd_lan_ip') || '').trim();
-      this.lanIp = (stored === '192.168.10.203') ? '' : stored;
+      this.lanIp = (localStorage.getItem('epd_lan_ip') || '').trim();
     }
 
     const updateLanBar = () => {
