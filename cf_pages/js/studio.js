@@ -394,8 +394,11 @@ const Studios = {
 
   /* ================= 2. Memo & Checklist Studio ================= */
   renderMemo(canvas, config) {
-    canvas.width = 768;
-    canvas.height = 552;
+    const isPortrait = (config.orientation === 90 || config.orientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
     const title = (config.title || '').trim() || 'TODAY TO-DO LIST';
     const items = Array.isArray(config.items) ? config.items : (config.items || '').split('\n');
@@ -403,22 +406,24 @@ const Studios = {
     const date = config.date || new Date().toLocaleDateString('zh-CN');
 
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 768, 552);
+    ctx.fillRect(0, 0, w, h);
 
     // Header bar
     ctx.fillStyle = '#d32f2f';
-    ctx.fillRect(0, 0, 768, 70);
+    ctx.fillRect(0, 0, w, 70);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px sans-serif';
     ctx.fillText('📝 ' + title, 30, 48);
 
     ctx.font = '20px sans-serif';
-    ctx.fillText(date, 620, 46);
+    const dateW = ctx.measureText(date).width;
+    ctx.fillText(date, w - dateW - 24, 46);
 
     // Checklist items
     ctx.fillStyle = '#000000';
     let startY = 125;
+    const step = isPortrait ? 50 : 58;
     for (let i = 0; i < items.length; i++) {
       const line = items[i].trim();
       if (!line) continue;
@@ -434,18 +439,18 @@ const Studios = {
       }
 
       ctx.fillStyle = '#000000';
-      ctx.font = 'bold 28px sans-serif';
+      ctx.font = isPortrait ? 'bold 24px sans-serif' : 'bold 28px sans-serif';
       ctx.fillText(line, 80, startY);
-      startY += 58;
-      if (startY > 480) break;
+      startY += step;
+      if (startY > (h - 55)) break;
     }
 
     // Bottom note bar
     ctx.fillStyle = '#f4c430';
-    ctx.fillRect(0, 520, 768, 32);
+    ctx.fillRect(0, h - 32, w, 32);
     ctx.fillStyle = '#000000';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText(footer, 30, 542);
+    ctx.fillText(footer, 30, h - 10);
   },
 
   /* Helper text wrap */

@@ -53,6 +53,9 @@ const PaintCanvas = {
 
   init(canvasEl) {
     this.canvas = canvasEl;
+    const isPortrait = typeof UI !== 'undefined' && (UI.orientation === 90 || UI.orientation === 270);
+    this.width = isPortrait ? 552 : 768;
+    this.height = isPortrait ? 768 : 552;
     this.canvas.width = this.width;
     this.canvas.height = this.height;
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
@@ -61,6 +64,47 @@ const PaintCanvas = {
     this.clear(false);
     this.saveState();
     this.bindEvents();
+  },
+
+  setOrientation(angle) {
+    const isPortrait = (angle === 90 || angle === 270);
+    const targetW = isPortrait ? 552 : 768;
+    const targetH = isPortrait ? 768 : 552;
+    if (this.width === targetW && this.height === targetH) return;
+
+    const oldW = this.width;
+    const oldH = this.height;
+    this.width = targetW;
+    this.height = targetH;
+
+    if (!this.canvas) return;
+
+    // Snapshot existing drawing
+    const temp = document.createElement('canvas');
+    temp.width = oldW;
+    temp.height = oldH;
+    const tCtx = temp.getContext('2d');
+    tCtx.drawImage(this.canvas, 0, 0);
+
+    this.canvas.width = targetW;
+    this.canvas.height = targetH;
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+
+    // Fill white
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, targetW, targetH);
+
+    // Scale and center existing drawing into new orientation
+    const scale = Math.min(targetW / oldW, targetH / oldH);
+    const dw = oldW * scale;
+    const dh = oldH * scale;
+    const dx = (targetW - dw) / 2;
+    const dy = (targetH - dh) / 2;
+    this.ctx.drawImage(temp, dx, dy, dw, dh);
+
+    this.undoStack = [];
+    this.redoStack = [];
+    this.saveState();
   },
 
   clear(save = true) {

@@ -96,7 +96,8 @@ const App = {
       title,
       items: itemsRaw.split('\n'),
       footer,
-      date: new Date().toLocaleDateString('zh-CN')
+      date: new Date().toLocaleDateString('zh-CN'),
+      orientation: UI.orientation
     });
   },
 
@@ -153,7 +154,7 @@ const App = {
     try {
       UI.showToast(`正在量化并推送【${name}】至墨水屏...`, 'info', 4000);
       const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
-      const packed = BWRY.ditherCanvasTo2bpp(canvas, algo);
+      const packed = BWRY.ditherCanvasTo2bpp(canvas, algo, { orientation: UI.orientation });
       await DeviceManager.pushBitmap2bpp(packed, (pct) => {
         console.log(`[Push Progress]: ${pct}%`);
       });
@@ -282,7 +283,7 @@ const App = {
         if (progressBar) progressBar.style.width = '10%';
         await new Promise(r => setTimeout(r, 60));
 
-        const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd');
+        const packed = BWRY.ditherCanvasTo2bpp(canvas, 'floyd', { orientation: UI.orientation });
 
         await PresetHub.savePreset({
           name,

@@ -98,6 +98,9 @@ const UI = {
       if (window.ItaBagStudio && typeof window.ItaBagStudio.renderPreview === 'function') {
         window.ItaBagStudio.renderPreview();
       }
+      if (window.PaintCanvas && typeof window.PaintCanvas.setOrientation === 'function') {
+        window.PaintCanvas.setOrientation(angle);
+      }
       if (window.ScenesStudio && typeof window.ScenesStudio.renderPreview === 'function') {
         window.ScenesStudio.renderPreview();
       }
@@ -453,8 +456,9 @@ const UI = {
       }
     }
 
+    options = Object.assign({ orientation: this.orientation }, options || {});
     const packed = BWRY.ditherCanvasTo2bpp(sourceCanvas, algo, options);
-    BWRY.render2bppToCanvas(modalCanvas, packed);
+    BWRY.render2bppToCanvas(modalCanvas, packed, this.orientation);
 
     this._activeDitherPacked = packed;
     this.openModal(document.getElementById('ditherPreviewModal') ? 'ditherPreviewModal' : 'presetPreviewModal');

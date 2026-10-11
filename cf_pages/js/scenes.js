@@ -23,9 +23,9 @@
 (function (window) {
   'use strict';
 
-  // =========================================================================
+  // =================
   // 1. Scene Mode Definitions (18 Modes)
-  // =========================================================================
+  // =================
   const MODES_DEF = [
     { id: 'demo', name: '系统信息与控制台', icon: '💻', desc: '经典复古仪表板、WebUI访问地址与四色标块' },
     { id: 'fridge_board', name: '冰箱贴布告板', icon: '📌', desc: '家庭核心留言、紧急备忘与今日状态' },
@@ -190,9 +190,9 @@
     }
   };
 
-  // =========================================================================
+  // =================
   // 2. Offline Astronomical Lunar / JieQi / GanZhi Algorithm Engine
-  // =========================================================================
+  // =================
   const LunarAlmanac = (function () {
     // 150 Years astronomical compressed lunar bitmask table (1900 - 2049)
     const lunarInfo = [
@@ -408,9 +408,9 @@
     };
   })();
 
-  // =========================================================================
+  // =================
   // 3. Global Open Data Integration Service (InkSight Architecture)
-  // =========================================================================
+  // =================
   const OpenDataService = {
     // 1. Weather: Open-Meteo API (100% Free, Global, No Key required)
     async fetchWeather(lat = 22.54, lon = 114.05, customOwmKey = '', city = '深圳') {
@@ -613,9 +613,9 @@
     }
   };
 
-  // =========================================================================
+  // =================
   // 4. Pomodoro Focus State Machine
-  // =========================================================================
+  // =================
   const PomodoroTimer = {
     states: {
       WORK: 'WORK',
@@ -700,9 +700,9 @@
     }
   };
 
-  // =========================================================================
+  // =================
   // 5. Interactive Habit Streak & Heatmap Tracker
-  // =========================================================================
+  // =================
   const HabitTracker = {
     getStorageKey() {
       return 'epd_habit_data_v2';
@@ -801,9 +801,9 @@
     }
   };
 
-  // =========================================================================
+  // =================
   // 6. Countdown & Year/Life Progress Calculator
-  // =========================================================================
+  // =================
   const ProgressCalc = {
     calcCountdown(targetDateStr) {
       const now = new Date();
@@ -837,9 +837,9 @@
     }
   };
 
-  // =========================================================================
+  // =================
   // 7. Scenes Studio Main Controller & Canvas Renderer
-  // =========================================================================
+  // =================
   const ScenesStudio = {
     MODES_DEF: MODES_DEF,
     modeParamsStore: JSON.parse(JSON.stringify(defaultParamsStore)),
@@ -1356,8 +1356,9 @@
 
       const canvas = this.canvas;
       const ctx = this.ctx || canvas.getContext('2d');
-      const w = 768;
-      const h = 552;
+      const isPortrait = typeof window.UI !== 'undefined' && (window.UI.orientation === 90 || window.UI.orientation === 270);
+      const w = isPortrait ? 552 : 768;
+      const h = isPortrait ? 768 : 552;
       canvas.width = w;
       canvas.height = h;
 
@@ -1436,6 +1437,124 @@
     // 1. Demo & System Telemetry
     _renderDemo(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
+      const isPortrait = w < h;
+
+      if (isPortrait) {
+        // Top status bar
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(0, 0, w, 54);
+        ctx.fillStyle = RED;
+        ctx.fillRect(0, 54, w, 2);
+        ctx.fillStyle = YELLOW;
+        ctx.fillRect(0, 56, w, 1);
+
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 22px -apple-system, sans-serif';
+        ctx.fillText(p.title || '3.98" SMART EPD', 20, 36);
+
+        ctx.fillStyle = YELLOW;
+        ctx.font = 'bold 16px -apple-system, sans-serif';
+        const sText = p.status || 'ONLINE & ACTIVE';
+        ctx.fillText(sText, w - 20 - ctx.measureText(sText).width, 36);
+
+        const pad = 18;
+        const cw = w - pad * 2;
+
+        // Card 1: Workspace Overview
+        ctx.fillStyle = WHITE;
+        ctx.fillRect(pad, 68, cw, 210);
+        ctx.strokeStyle = BLACK;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pad, 68, cw, 210);
+        ctx.strokeStyle = YELLOW;
+        ctx.strokeRect(pad + 2, 70, cw - 4, 206);
+
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(pad + 4, 72, cw - 8, 36);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 15px -apple-system, sans-serif';
+        ctx.fillText('WORKSPACE OVERVIEW', pad + 16, 96);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('PANEL : ' + (p.panel || 'SE0398NZ07 4-COLOR'), pad + 16, 130);
+        ctx.fillText('RES   : 768 x 552 BWRY E-INK (PORTRAIT)', pad + 16, 156);
+        ctx.fillStyle = RED;
+        ctx.fillText('STATUS: ' + (p.status || 'ONLINE & ACTIVE'), pad + 16, 182);
+
+        // 4 Color Swatches
+        const swatches = [
+          ['BLA', BLACK, WHITE],
+          ['WHI', WHITE, BLACK],
+          ['YEL', YELLOW, BLACK],
+          ['RED', RED, WHITE]
+        ];
+        const swW = Math.floor((cw - 44) / 4);
+        swatches.forEach(([name, bg, fg], idx) => {
+          const sx = pad + 16 + idx * (swW + 4);
+          const sy = 212;
+          ctx.fillStyle = bg;
+          ctx.fillRect(sx, sy, swW, 42);
+          ctx.strokeStyle = BLACK;
+          ctx.strokeRect(sx, sy, swW, 42);
+          ctx.fillStyle = fg;
+          ctx.font = 'bold 13px monospace';
+          const tw = ctx.measureText(name).width;
+          ctx.fillText(name, sx + (swW - tw) / 2, sy + 26);
+        });
+
+        // Card 2: Network & Access Info
+        ctx.strokeStyle = BLACK;
+        ctx.strokeRect(pad, 292, cw, 204);
+        ctx.strokeStyle = RED;
+        ctx.strokeRect(pad + 2, 294, cw - 4, 200);
+        ctx.fillStyle = RED;
+        ctx.fillRect(pad + 4, 296, cw - 8, 36);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 15px -apple-system, sans-serif';
+        ctx.fillText('NETWORK & ACCESS INFO', pad + 16, 320);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText('WIFI  : ' + (p.wifi_ssid || 'Home_WiFi'), pad + 16, 354);
+        ctx.fillText('IP    : ' + (p.ip || location.hostname || '192.168.1.100'), pad + 16, 382);
+        ctx.fillStyle = RED;
+        ctx.fillText('WEBUI : ' + (p.webui_url || 'http://' + (location.host || 'epd-display.local') + '/'), pad + 16, 410);
+        ctx.fillStyle = BLACK;
+        ctx.fillText('MDNS  : ' + (p.mdns || 'http://epd-display.local/'), pad + 16, 438);
+        ctx.fillText('PORT  : 80 (HTTP WEB & REST API)', pad + 16, 466);
+
+        // Card 3: WebUI Access Portal with live rendered QR Code
+        ctx.strokeStyle = BLACK;
+        ctx.strokeRect(pad, 510, cw, 230);
+        ctx.strokeStyle = RED;
+        ctx.strokeRect(pad + 2, 512, cw - 4, 226);
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(pad + 4, 514, cw - 8, 36);
+        ctx.fillStyle = YELLOW;
+        ctx.font = 'bold 14px -apple-system, sans-serif';
+        ctx.fillText('WEBUI ACCESS PORTAL', pad + 16, 538);
+
+        const qrTarget = p.webui_url || `http://${p.ip || '192.168.1.100'}/`;
+        if (window.QRCodeLib && typeof window.QRCodeLib.drawQRCode === 'function') {
+          window.QRCodeLib.drawQRCode(ctx, qrTarget, pad + 16, 560, 160);
+        } else {
+          ctx.strokeRect(pad + 16, 560, 160, 160);
+        }
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText('📱 手机扫码直达控制台', pad + 195, 595);
+        ctx.font = '14px "PingFang SC", sans-serif';
+        ctx.fillStyle = '#444444';
+        ctx.fillText('• 18 套全能场景模式', pad + 195, 628);
+        ctx.fillText('• 双稳态断电零耗电保持', pad + 195, 654);
+        ctx.fillText('• 智能蓝牙与Wi-Fi双栈', pad + 195, 680);
+        ctx.fillStyle = RED;
+        ctx.fillText('• 768×552 BWRY 4色点阵', pad + 195, 706);
+        return;
+      }
+
       // Top status bar
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, w, 54);
@@ -1684,6 +1803,69 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📅 万年历与老黄历 (CHINESE ALMANAC)', `${p.year || 2026}年 ${p.month || 10}月`);
 
+      const isP = w < h;
+      if (isP) {
+        // Left Big Focal Day
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 120px -apple-system, sans-serif';
+        ctx.fillText(String(p.day || 10), 32, 195);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 30px "PingFang SC", sans-serif';
+        ctx.fillText(p.weekday || '星期六', 210, 115);
+
+        ctx.font = '20px "PingFang SC", sans-serif';
+        ctx.fillText(p.lunar || '丙午年 [马] 九月初一', 210, 150);
+
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 18px "PingFang SC", sans-serif';
+        ctx.fillText(`节气：${p.term || '寒露'}`, 210, 185);
+
+        // Yellow Almanac Card
+        ctx.fillStyle = '#fff3cc';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 2;
+        ctx.fillRect(24, 235, w - 48, 180);
+        ctx.strokeRect(24, 235, w - 48, 180);
+
+        // Yi Tag
+        ctx.fillStyle = RED;
+        ctx.fillRect(38, 255, 42, 28);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText('宜', 50, 275);
+
+        // Ji Tag
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(38, 335, 42, 28);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText('忌', 50, 355);
+
+        const yijiParts = (p.yiji || '宜：祈福 祭祀 | 忌：出行').split('|');
+        const yiText = yijiParts[0] ? yijiParts[0].replace(/^宜：?/, '').trim() : '祈福 祭祀 动土 纳财 开市 赴任';
+        const jiText = yijiParts[1] ? yijiParts[1].replace(/^忌：?/, '').trim() : '词讼 开仓 破土 安葬 针灸 出行';
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 17px "PingFang SC", sans-serif';
+        this._wrapText(ctx, yiText, 94, 275, w - 150, 26, 2);
+        this._wrapText(ctx, jiText, 94, 355, w - 150, 26, 2);
+
+        // Daily Motto Card
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 435, w - 48, 190);
+        ctx.strokeRect(24, 435, w - 48, 190);
+
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 20px "PingFang SC", serif';
+        this._wrapText(ctx, `“ ${p.motto || '盛年不重来，一日难再晨。及时当勉励，岁月不待人。'} ”`, 44, 490, w - 88, 32, 4);
+
+        this._drawFooter(ctx, '中华天文历法算法引擎驱动 · 每日自动授时更新', '二十四节气精密演算');
+        return;
+      }
+
       // Left Big Focal Day
       ctx.fillStyle = RED;
       ctx.font = 'bold 140px -apple-system, sans-serif';
@@ -1750,6 +1932,88 @@
     _renderWeather(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, `🌤️ 全维气象看板 · ${p.city || '城市'}`, 'OPEN-METEO LIVE');
+
+      const isP = w < h;
+      if (isP) {
+        // Left Big Temp Box
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 84px -apple-system, sans-serif';
+        ctx.fillText(p.temp || '23.5°C', 28, 155);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText(p.cond || '晴朗 (Clear Sky)', 250, 115);
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`温差：${p.high_low || '22°C ~ 31°C'}`, 250, 145);
+
+        // AQI Tag
+        ctx.fillStyle = YELLOW;
+        ctx.fillRect(w - 130, 80, 106, 32);
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(`AQI ${p.aqi || '36 优'}`, w - 120, 102);
+
+        // Weather Telemetry Grid (3 Cards across 552)
+        const cards = [
+          { title: '相对湿度', val: p.humidity || '87%', color: BLACK },
+          { title: '实时风速', val: p.wind || '8.9 km/h', color: RED },
+          { title: '紫外线指数', val: '中等 (UV 4)', color: YELLOW }
+        ];
+        const cw = Math.floor((w - 48 - 16) / 3);
+        cards.forEach((c, idx) => {
+          const cx = 24 + idx * (cw + 8);
+          ctx.fillStyle = '#f8f9fa';
+          ctx.strokeStyle = '#cccccc';
+          ctx.lineWidth = 1;
+          ctx.fillRect(cx, 180, cw, 70);
+          ctx.strokeRect(cx, 180, cw, 70);
+
+          ctx.fillStyle = '#666666';
+          ctx.font = '13px sans-serif';
+          ctx.fillText(c.title, cx + 12, 204);
+
+          ctx.fillStyle = c.color;
+          ctx.font = 'bold 18px -apple-system, sans-serif';
+          ctx.fillText(c.val, cx + 12, 234);
+        });
+
+        // Multi-day Forecast Card
+        ctx.fillStyle = '#fff9db';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 2;
+        ctx.fillRect(24, 268, w - 48, 190);
+        ctx.strokeRect(24, 268, w - 48, 190);
+
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText('📅 5日预报趋势：', 40, 298);
+
+        const forecastParts = (p.forecast || '周六: 31°/22° 晴 | 周日: 30°/22° 多云 | 周一: 30°/23° 晴 | 周二: 34°/22° 阵雨').split('|');
+        ctx.fillStyle = BLACK;
+        ctx.font = '16px "PingFang SC", sans-serif';
+        forecastParts.forEach((part, fIdx) => {
+          if (fIdx < 4) {
+            ctx.fillText('• ' + part.trim(), 44, 332 + fIdx * 28);
+          }
+        });
+
+        // Tips Card
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#dddddd';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 475, w - 48, 175);
+        ctx.strokeRect(24, 475, w - 48, 175);
+
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText('💡 出行生活指南：', 40, 508);
+        ctx.fillStyle = BLACK;
+        ctx.font = '16px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.tips || '微风舒适，昼夜温差较小，适宜户外慢跑与出行！', 40, 542, w - 80, 26, 4);
+
+        this._drawFooter(ctx, 'Open-Meteo 全球高精度气象开放接口驱动 · 100% 免 Key', '刷新间隔 60 分钟');
+        return;
+      }
 
       // Left Big Temp Box
       ctx.fillStyle = RED;
@@ -1828,6 +2092,44 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '⏳ 里程碑倒计时 (COUNTDOWN)', 'DAYS REMAINING');
 
+      const isP = w < h;
+      if (isP) {
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 26px "PingFang SC", sans-serif';
+        ctx.fillText(`距离【${p.title || '目标事件'}】还剩`, 32, 120);
+
+        // Giant countdown number
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 120px -apple-system, sans-serif';
+        ctx.fillText(p.days || '0', 40, 245);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 36px "PingFang SC", sans-serif';
+        ctx.fillText('天', 250, 235);
+
+        // Progress bar representation
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillRect(32, 275, w - 64, 22);
+        const daysNum = parseInt(p.days, 10) || 0;
+        const progress = Math.max(0.05, Math.min(0.95, 1 - (daysNum / 100)));
+        ctx.fillStyle = RED;
+        ctx.fillRect(32, 275, (w - 64) * progress, 22);
+
+        // Quote Card
+        ctx.fillStyle = '#fff3cc';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 3;
+        ctx.fillRect(24, 325, w - 48, 260);
+        ctx.strokeRect(24, 325, w - 48, 260);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.quote || '道阻且长，行则将至；行而不辍，未来可期！', 44, 385, w - 88, 34, 5);
+
+        this._drawFooter(ctx, `目标基准日：${p.target_date || '2027-01-01'} · 自动递减倒计时`, '时光不负追梦人');
+        return;
+      }
+
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 32px "PingFang SC", sans-serif';
       ctx.fillText(`距离【${p.title || '目标事件'}】还剩`, 48, 130);
@@ -1867,6 +2169,86 @@
     _renderHabit(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🔥 自律习惯打卡看板 (HABIT TRACKER)', 'STREAK DAYS');
+
+      const isP = w < h;
+      if (isP) {
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText(`追踪习惯：${p.habit_name || '每日晨跑 5 公里'}`, 28, 110);
+
+        // Big streak
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 80px -apple-system, sans-serif';
+        ctx.fillText(p.streak || '42', 28, 195);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText('天连续坚持', 150, 185);
+
+        // Completion badge
+        ctx.fillStyle = YELLOW;
+        ctx.fillRect(w - 170, 145, 145, 42);
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 17px sans-serif';
+        ctx.fillText(`达成率 ${p.completion || '88%'}`, w - 150, 172);
+
+        // 4-Week GitHub Heatmap Card
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 230, w - 48, 185);
+        ctx.strokeRect(24, 230, w - 48, 185);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.fillText('近 4 周活动热力图 (GitHub Heatmap):', 38, 260);
+
+        const heatmap = HabitTracker.getHeatmap(4);
+        const dayNames = ['一', '二', '三', '四', '五', '六', '日'];
+
+        ctx.fillStyle = '#888888';
+        ctx.font = '12px sans-serif';
+        for (let r = 0; r < 7; r += 2) {
+          ctx.fillText(dayNames[r], 38, 298 + r * 15);
+        }
+
+        const startX = 66;
+        const boxSize = 13;
+        const gap = 4;
+        heatmap.forEach((week, wIdx) => {
+          week.forEach((item, dIdx) => {
+            const bx = startX + wIdx * (boxSize + gap) * 5.8;
+            const by = 282 + dIdx * (boxSize + gap);
+
+            if (item.done) {
+              ctx.fillStyle = (dIdx === 6 || dIdx === 0) ? YELLOW : RED;
+            } else if (item.isFuture) {
+              ctx.fillStyle = '#f0f0f0';
+            } else {
+              ctx.fillStyle = '#e0e0e0';
+            }
+
+            ctx.fillRect(bx, by, boxSize + 14, boxSize);
+            ctx.strokeStyle = '#bbbbbb';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(bx, by, boxSize + 14, boxSize);
+          });
+        });
+
+        // Motivation card
+        ctx.fillStyle = '#fff9db';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 435, w - 48, 190);
+        ctx.strokeRect(24, 435, w - 48, 190);
+
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 18px "PingFang SC", serif';
+        this._wrapText(ctx, '“自律即自由。每一个打卡方块都是通向卓越的坚实足迹。不积跬步，无以至千里。”', 44, 490, w - 88, 30, 4);
+
+        this._drawFooter(ctx, '本地数据持久化保存 · 今日打卡已就绪', '不积跬步 无以至千里');
+        return;
+      }
 
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 28px "PingFang SC", sans-serif';
@@ -1947,6 +2329,49 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📜 每日一诗 · 古典名家文选', 'POETRY & ART', false);
 
+      const isP = w < h;
+      if (isP) {
+        // Classical double frame
+        ctx.strokeStyle = RED;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(16, 72, w - 32, h - 124);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(22, 78, w - 44, h - 136);
+
+        // Red Seal Stamp
+        ctx.fillStyle = RED;
+        ctx.fillRect(w - 85, 95, 52, 52);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 20px "PingFang SC", serif';
+        ctx.fillText(p.seal || '太白', w - 73, 128);
+
+        // Title & Author
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 30px "PingFang SC", serif';
+        ctx.fillText(p.title || '《早发白帝城》', 42, 135);
+        ctx.font = 'bold 18px "PingFang SC", serif';
+        ctx.fillText(p.author || '【唐】李白', 42, 175);
+
+        // Classical Lines
+        ctx.font = '24px "PingFang SC", serif';
+        ctx.fillText(p.line1 || '朝辞白帝彩云间，千里江陵一日还。', 42, 245);
+        ctx.fillText(p.line2 || '两岸猿声啼不住，轻舟已过万重山。', 42, 310);
+
+        // Classical Appreciation Card
+        ctx.fillStyle = '#fff9db';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 1;
+        ctx.fillRect(36, 380, w - 72, 220);
+        ctx.strokeRect(36, 380, w - 72, 220);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = '17px "PingFang SC", sans-serif';
+        this._wrapText(ctx, '意境鉴赏：全诗意境豪迈开阔，节奏明快流利，寄托了舟行如飞的欣喜与释怀豪情，融情于景，气势非凡。', 52, 430, w - 104, 28, 5);
+
+        this._drawFooter(ctx, '中华古典诗词数据库 · 宣纸朱印金墨美学排版', '经典永流传');
+        return;
+      }
+
       // Classical double frame
       ctx.strokeStyle = RED;
       ctx.lineWidth = 3;
@@ -1991,6 +2416,54 @@
     _renderHistory(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🏛️ 历史上的今天大事记 (TODAY IN HISTORY)', 'CHRONICLE');
+
+      const isP = w < h;
+      if (isP) {
+        // Card 1
+        ctx.fillStyle = '#fdfdfd';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.fillRect(20, 75, w - 40, 260);
+        ctx.strokeRect(20, 75, w - 40, 260);
+
+        ctx.fillStyle = RED;
+        ctx.fillRect(36, 95, 130, 34);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 17px "PingFang SC", sans-serif';
+        ctx.fillText(p.year || '公元 1913 年', 48, 118);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 21px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.title || '福特汽车启用首条流水装配线', 36, 160, w - 72, 26, 2);
+
+        ctx.fillStyle = '#333333';
+        ctx.font = '17px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.desc || '大幅降低了工业制造装配成本，使汽车快速进入大众家庭，彻底推动现代工业生产时代的开启。', 36, 225, w - 72, 26, 3);
+
+        // Card 2
+        ctx.fillStyle = '#fff9db';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 2;
+        ctx.fillRect(20, 360, w - 40, 260);
+        ctx.strokeRect(20, 360, w - 40, 260);
+
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(36, 380, 110, 34);
+        ctx.fillStyle = WHITE;
+        ctx.font = 'bold 17px sans-serif';
+        ctx.fillText(p.event2_year || '1985 年', 50, 403);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.event2_title || '深海科考队在北大西洋首次发现泰坦尼克号残骸', 36, 445, w - 72, 26, 2);
+
+        ctx.fillStyle = '#444444';
+        ctx.font = '16px "PingFang SC", sans-serif';
+        this._wrapText(ctx, '历经73年的深海寻觅，人类科考队终于揭开世纪巨轮的神秘面纱，推动了深海探潜科技跃升。', 36, 510, w - 72, 26, 3);
+
+        this._drawFooter(ctx, '以史为鉴可知兴替 · 每日重大历史回顾', '时光长河的坐标');
+        return;
+      }
 
       // Card 1
       ctx.fillStyle = '#fdfdfd';
@@ -2041,6 +2514,85 @@
     _renderLifeProgress(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '⏳ 人生进度条与时间感知 (TIME PROGRESS)', 'AWARENESS');
+
+      const isP = w < h;
+      if (isP) {
+        // Year Progress
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 18px "PingFang SC", sans-serif';
+        ctx.fillText(`2026 年度时间流逝：${p.year_prog || '77.2%'}`, 28, 95);
+
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillRect(28, 108, w - 56, 22);
+        const yPct = Math.min(1.0, Math.max(0, parseFloat(p.year_prog) / 100)) || 0.772;
+        ctx.fillStyle = RED;
+        ctx.fillRect(28, 108, (w - 56) * yPct, 22);
+
+        // Month & Day Dual Bars (Stacked in portrait)
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 16px "PingFang SC", sans-serif';
+        ctx.fillText(`当月进度：${p.month_prog || '32.3%'}`, 28, 155);
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillRect(28, 165, w - 56, 16);
+        ctx.fillStyle = YELLOW;
+        ctx.fillRect(28, 165, (w - 56) * (parseFloat(p.month_prog) / 100 || 0.32), 16);
+
+        ctx.fillStyle = BLACK;
+        ctx.fillText(`今日流逝：${p.day_prog || '65.0%'}`, 28, 205);
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillRect(28, 215, w - 56, 16);
+        ctx.fillStyle = BLACK;
+        ctx.fillRect(28, 215, (w - 56) * (parseFloat(p.day_prog) / 100 || 0.65), 16);
+
+        // 80-Year Life Grid Matrix (10 cols × 8 rows in portrait)
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.fillRect(20, 250, w - 40, 270);
+        ctx.strokeRect(20, 250, w - 40, 270);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 15px "PingFang SC", sans-serif';
+        ctx.fillText(`人生八十年透视网格 (当前年龄: ${p.age || 28} 岁):`, 34, 276);
+
+        const ageNum = parseInt(p.age, 10) || 28;
+        const cols = 10;
+        const rows = 8;
+        const boxW = 38;
+        const boxH = 18;
+        const gap = 8;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c + 1;
+            const bx = 36 + c * (boxW + gap);
+            const by = 294 + r * (boxH + 6);
+
+            if (idx <= ageNum) {
+              ctx.fillStyle = RED;
+              ctx.fillRect(bx, by, boxW, boxH);
+            } else {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(bx, by, boxW, boxH);
+              ctx.strokeStyle = '#cccccc';
+              ctx.strokeRect(bx, by, boxW, boxH);
+            }
+          }
+        }
+
+        // Caption Quote
+        ctx.fillStyle = '#fff3cc';
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 1;
+        ctx.fillRect(20, 535, w - 40, 95);
+        ctx.strokeRect(20, 535, w - 40, 95);
+
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 16px "PingFang SC", serif';
+        this._wrapText(ctx, p.caption || '2026年已悄然流逝四分之三，珍惜眼前每一个清晨与星夜。只争朝夕，不负韶华。', 36, 568, w - 72, 24, 3);
+
+        this._drawFooter(ctx, '时光飞逝，只争朝夕 · 珍惜当下每一秒', '墨水屏静态保持');
+        return;
+      }
 
       // Year Progress
       ctx.fillStyle = BLACK;
@@ -2116,6 +2668,55 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🍅 番茄专注时钟 (POMODORO CLOCK)', p.state || 'DEEP FOCUS');
 
+      const isP = w < h;
+      if (isP) {
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText(`当前任务：${p.task || 'ESP32 嵌入式墨水屏研发'}`, 32, 115);
+
+        // Monospace timer centered
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 110px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.timer || '25:00', w / 2, 250);
+        ctx.textAlign = 'left';
+
+        // Status Tag & Rounds centered
+        ctx.fillStyle = YELLOW;
+        ctx.fillRect((w - 200) / 2, 290, 200, 46);
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.round || '第 1 / 4 组', w / 2, 321);
+        ctx.textAlign = 'left';
+
+        // 4 Round Circles
+        for (let i = 1; i <= 4; i++) {
+          const cx = (w / 2) - 75 + (i - 1) * 50;
+          const cy = 370;
+          ctx.fillStyle = i === 1 ? RED : '#cccccc';
+          ctx.beginPath();
+          ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Tips Card
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 420, w - 48, 200);
+        ctx.strokeRect(24, 420, w - 48, 200);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 18px "PingFang SC", sans-serif';
+        ctx.fillText('💡 专注提示：', 44, 460);
+        ctx.font = '17px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.tip || '保持单任务专注，消除外界所有干扰。25分钟深度冲刺后将有5分钟身心短休。', 44, 500, w - 88, 28, 4);
+
+        this._drawFooter(ctx, '番茄工作法状态机驱动 · 25分钟深度工作 + 5分钟短休', '心流状态保持');
+        return;
+      }
+
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 28px "PingFang SC", sans-serif';
       ctx.fillText(`当前任务：${p.task || 'ESP32 嵌入式墨水屏研发'}`, 48, 120);
@@ -2161,30 +2762,32 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🛒 家庭补货与采购清单 (SHOPPING LIST)', 'BUY TODAY');
 
-      let y = 100;
+      const isP = w < h;
+      let y = isP ? 90 : 100;
+      const stepY = isP ? 90 : 82;
       [p.item1, p.item2, p.item3, p.item4].forEach((it, idx) => {
         if (!it) return;
         ctx.fillStyle = '#fff9db';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 2;
-        ctx.fillRect(36, y - 20, w - 72, 62);
-        ctx.strokeRect(36, y - 20, w - 72, 62);
+        ctx.fillRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 70 : 62);
+        ctx.strokeRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 70 : 62);
 
         // Package icon / Checkbox
         ctx.fillStyle = idx === 0 ? RED : BLACK;
         ctx.font = 'bold 22px sans-serif';
-        ctx.fillText('📦', 54, y + 20);
+        ctx.fillText('📦', isP ? 38 : 54, y + 22);
 
         ctx.fillStyle = BLACK;
-        ctx.font = 'bold 21px "PingFang SC", sans-serif';
-        ctx.fillText(it, 100, y + 20);
+        ctx.font = (isP ? 'bold 18px ' : 'bold 21px ') + '"PingFang SC", sans-serif';
+        ctx.fillText(it, isP ? 78 : 100, y + 22);
 
         // Checkbox square
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 2;
-        ctx.strokeRect(w - 90, y - 6, 24, 24);
+        ctx.strokeRect(w - (isP ? 70 : 90), y - 4, 24, 24);
 
-        y += 82;
+        y += stepY;
       });
 
       this._drawFooter(ctx, '随买随销，生活更有条理 · 墨水屏全天随身参考', '采购清单已同步');
@@ -2195,7 +2798,9 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '💊 健康用药与温情关怀 (HEALTH CARE)', 'REMINDERS');
 
-      let y = 100;
+      const isP = w < h;
+      let y = isP ? 90 : 100;
+      const stepY = isP ? 100 : 92;
       const slots = [
         { label: '🌅 晨间用药 (08:00)', val: p.morning, color: RED },
         { label: '☀️ 午间补充 (12:30)', val: p.noon, color: YELLOW },
@@ -2206,29 +2811,29 @@
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = s.color;
         ctx.lineWidth = 3;
-        ctx.fillRect(36, y - 20, w - 72, 70);
-        ctx.strokeRect(36, y - 20, w - 72, 70);
+        ctx.fillRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 78 : 70);
+        ctx.strokeRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 78 : 70);
 
         ctx.fillStyle = s.color;
-        ctx.font = 'bold 20px "PingFang SC", sans-serif';
-        ctx.fillText(s.label, 56, y + 24);
+        ctx.font = (isP ? 'bold 18px ' : 'bold 20px ') + '"PingFang SC", sans-serif';
+        ctx.fillText(s.label, isP ? 38 : 56, y + 24);
 
         ctx.fillStyle = BLACK;
-        ctx.font = 'bold 18px "PingFang SC", sans-serif';
-        ctx.fillText(s.val || '无', 290, y + 24);
-        y += 92;
+        ctx.font = (isP ? 'bold 16px ' : 'bold 18px ') + '"PingFang SC", sans-serif';
+        ctx.fillText(s.val || '无', isP ? 230 : 290, y + 24);
+        y += stepY;
       });
 
       // Warm Note Card
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 2;
-      ctx.fillRect(36, 400, w - 72, 70);
-      ctx.strokeRect(36, 400, w - 72, 70);
+      ctx.fillRect(isP ? 24 : 36, isP ? 430 : 400, isP ? w - 48 : w - 72, isP ? 180 : 70);
+      ctx.strokeRect(isP ? 24 : 36, isP ? 430 : 400, isP ? w - 48 : w - 72, isP ? 180 : 70);
 
       ctx.fillStyle = RED;
       ctx.font = 'bold 18px "PingFang SC", sans-serif';
-      ctx.fillText(p.note || '健康是最好的财富，记得按时作息多喝温水！', 56, 442);
+      this._wrapText(ctx, p.note || '健康是最好的财富，记得按时作息多喝温水！', isP ? 40 : 56, isP ? 470 : 442, isP ? w - 80 : w - 110, 28, 4);
 
       this._drawFooter(ctx, '家庭健康智慧看护终端 · 贴心相伴每一刻', '温水服用 按时作息');
     },
@@ -2238,12 +2843,14 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🕒 今日作息与高效时间轴 (DAILY ROUTINE)', 'SCHEDULE');
 
-      let y = 100;
+      const isP = w < h;
+      let y = isP ? 85 : 100;
+      const stepY = isP ? 82 : 58;
       [p.r1, p.r2, p.r3, p.r4, p.r5, p.r6].forEach((r, idx) => {
         if (!r) return;
         ctx.fillStyle = idx === 2 ? RED : (idx % 2 === 0 ? YELLOW : BLACK);
         ctx.beginPath();
-        ctx.arc(54, y + 4, 8, 0, Math.PI * 2);
+        ctx.arc(isP ? 40 : 54, y + 4, 8, 0, Math.PI * 2);
         ctx.fill();
 
         // Connecting vertical line
@@ -2251,8 +2858,8 @@
           ctx.strokeStyle = '#cccccc';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(54, y + 14);
-          ctx.lineTo(54, y + 54);
+          ctx.moveTo(isP ? 40 : 54, y + 14);
+          ctx.lineTo(isP ? 40 : 54, y + (isP ? 76 : 54));
           ctx.stroke();
         }
 
@@ -2260,14 +2867,14 @@
         ctx.fillStyle = idx === 2 ? '#fff9db' : '#f8f9fa';
         ctx.strokeStyle = idx === 2 ? RED : '#e0e0e0';
         ctx.lineWidth = 1;
-        ctx.fillRect(80, y - 18, w - 120, 48);
-        ctx.strokeRect(80, y - 18, w - 120, 48);
+        ctx.fillRect(isP ? 60 : 80, y - 18, isP ? w - 84 : w - 120, isP ? 54 : 48);
+        ctx.strokeRect(isP ? 60 : 80, y - 18, isP ? w - 84 : w - 120, isP ? 54 : 48);
 
         ctx.fillStyle = BLACK;
-        ctx.font = (idx === 2 ? 'bold ' : '') + '20px "PingFang SC", sans-serif';
-        ctx.fillText(r, 96, y + 14);
+        ctx.font = (idx === 2 ? 'bold ' : '') + (isP ? '17px ' : '20px ') + '"PingFang SC", sans-serif';
+        ctx.fillText(r, isP ? 74 : 96, y + 15);
 
-        y += 58;
+        y += stepY;
       });
 
       this._drawFooter(ctx, '劳逸结合，秩序井然 · 保持高效节奏', '墨水屏全天候展示');
@@ -2277,6 +2884,50 @@
     _renderMoonPhase(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🌙 月相盈亏与天文潮汐 (MOON PHASE & TIDES)', 'ASTRONOMY');
+
+      const isP = w < h;
+      if (isP) {
+        // Centered Moon Sphere
+        ctx.fillStyle = BLACK;
+        ctx.beginPath();
+        ctx.arc(w / 2, 175, 75, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Crescent illumination
+        ctx.fillStyle = YELLOW;
+        ctx.beginPath();
+        ctx.arc(w / 2, 175, 73, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
+
+        // Text Data centered
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 30px "PingFang SC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.phase || '残月 (Waning Crescent)', w / 2, 285);
+
+        ctx.font = '20px sans-serif';
+        ctx.fillText(p.age || '月龄 28.1 天', w / 2, 325);
+        ctx.fillText(`亮面占比：${p.illum || '2.2%'}`, w / 2, 360);
+
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText(`潮汐预报：${p.tide || '大潮 (高潮 04:20 / 低潮 11:35)'}`, w / 2, 400);
+        ctx.textAlign = 'left';
+
+        // Astronomy facts card
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 440, w - 48, 180);
+        ctx.strokeRect(24, 440, w - 48, 180);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = '16px "PingFang SC", sans-serif';
+        this._wrapText(ctx, '天文历法实时演算：朔望月周期约为 29.53 天，地月引力导致海水周期性涨落。潮汐能量源源不断，与万物同律共振。', 42, 485, w - 84, 26, 4);
+
+        this._drawFooter(ctx, '精密天文演算引擎驱动 · 潮汐与天象实时数据', '万物同律');
+        return;
+      }
 
       // Moon Sphere Graphic
       ctx.fillStyle = BLACK;
@@ -2322,17 +2973,63 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📱 Wi-Fi 快速扫码连网 (QR CODE SHARE)', 'CONNECT');
 
+      const ssid = p.ssid || 'Your_WiFi_SSID';
+      const pass = p.pass || 'Your_WiFi_Password';
+      const wifiQrPayload = `WIFI:S:${ssid};T:WPA;P:${pass};;`;
+
+      const isP = w < h;
+      if (isP) {
+        // QR Code Card Centered
+        const qrBox = 260;
+        const qx = (w - qrBox) / 2;
+        ctx.fillStyle = WHITE;
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.fillRect(qx, 78, qrBox, qrBox);
+        ctx.strokeRect(qx, 78, qrBox, qrBox);
+
+        if (window.QRCodeLib && typeof window.QRCodeLib.drawQRCode === 'function') {
+          window.QRCodeLib.drawQRCode(ctx, wifiQrPayload, qx + 15, 93, 230);
+        } else {
+          ctx.fillStyle = BLACK;
+          ctx.fillRect(qx + 30, 108, 200, 200);
+        }
+
+        // Credentials Card below
+        ctx.fillStyle = '#f8f9fa';
+        ctx.strokeStyle = '#dddddd';
+        ctx.lineWidth = 1;
+        ctx.fillRect(24, 355, w - 48, 270);
+        ctx.strokeRect(24, 355, w - 48, 270);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText('📶 网络名称 (SSID):', 44, 395);
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(ssid, 44, 430);
+
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 20px "PingFang SC", sans-serif';
+        ctx.fillText('🔑 无线密码 (Password):', 44, 480);
+        ctx.fillStyle = RED;
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(pass, 44, 515);
+
+        ctx.fillStyle = '#555555';
+        ctx.font = '15px "PingFang SC", sans-serif';
+        this._wrapText(ctx, p.prompt || '手机系统相机扫一扫，免输入密码快速连接无线网络。', 44, 565, w - 88, 24, 2);
+
+        this._drawFooter(ctx, '家庭局域网便捷共享 · 标准 RFC Wi-Fi QR Code 协议', '免输密码扫码即连');
+        return;
+      }
+
       // Card for QR Code
       ctx.fillStyle = WHITE;
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 2;
       ctx.fillRect(48, 85, 310, 310);
       ctx.strokeRect(48, 85, 310, 310);
-
-      // Wi-Fi RFC Payload format: WIFI:S:...;T:WPA;P:...;;
-      const ssid = p.ssid || 'Your_WiFi_SSID';
-      const pass = p.pass || 'Your_WiFi_Password';
-      const wifiQrPayload = `WIFI:S:${ssid};T:WPA;P:${pass};;`;
 
       if (window.QRCodeLib && typeof window.QRCodeLib.drawQRCode === 'function') {
         window.QRCodeLib.drawQRCode(ctx, wifiQrPayload, 68, 105, 270);
@@ -2373,6 +3070,53 @@
     _renderPhoto(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '🖼️ 电子相框与艺术画廊 (PHOTO GALLERY)', 'GALLERY');
+
+      const isP = w < h;
+      if (isP) {
+        // Outer museum frame
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(24, 80, w - 48, 480);
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(24, 80, w - 48, 480);
+
+        // Artwork simulated viewport
+        ctx.fillStyle = '#111111';
+        ctx.fillRect(40, 96, w - 80, 448);
+
+        // Procedural art landscape
+        ctx.fillStyle = RED;
+        ctx.beginPath();
+        ctx.arc(w / 2, 230, 60, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mountain silhouette
+        ctx.fillStyle = YELLOW;
+        ctx.beginPath();
+        ctx.moveTo(40, 544);
+        ctx.lineTo(w / 2 - 70, 360);
+        ctx.lineTo(w / 2 + 100, 544);
+        ctx.fill();
+
+        ctx.fillStyle = BLACK;
+        ctx.beginPath();
+        ctx.moveTo(w / 2 - 100, 544);
+        ctx.lineTo(w / 2 + 70, 330);
+        ctx.lineTo(w - 40, 544);
+        ctx.fill();
+
+        // Plaque Card
+        ctx.fillStyle = BLACK;
+        ctx.font = 'bold 22px "PingFang SC", sans-serif';
+        ctx.fillText(p.title || '山川湖海 · 秋日光影', 32, 595);
+
+        ctx.fillStyle = '#666666';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`${p.date || '2026 Autumn'} · ${p.author || 'Shot on Custom Rig'}`, 32, 625);
+
+        this._drawFooter(ctx, 'Floyd-Steinberg 4色微粒物理量化渲染 · 艺术级呈现', 'Edition 1/1');
+        return;
+      }
 
       // Outer museum frame
       ctx.fillStyle = '#f0f0f0';
@@ -2422,6 +3166,56 @@
     _renderRSS(ctx, p, w, h) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📰 科技早报与加密货币行情 (TECH & CRYPTO)', 'LIVE DIGEST');
+
+      const isP = w < h;
+      if (isP) {
+        const cryptos = [
+          { name: '₿ BTC', val: p.btc || '$63.8k (+2.4%)', color: RED },
+          { name: 'Ξ ETH', val: p.eth || '$2.6k (+1.8%)', color: YELLOW },
+          { name: '◎ SOL', val: p.sol || '$148.5 (+5.2%)', color: BLACK }
+        ];
+
+        const cw = Math.floor((w - 48 - 16) / 3);
+        cryptos.forEach((c, idx) => {
+          const cx = 24 + idx * (cw + 8);
+          ctx.fillStyle = '#f8f9fa';
+          ctx.strokeStyle = c.color === YELLOW ? '#b78103' : c.color;
+          ctx.lineWidth = 2;
+          ctx.fillRect(cx, 75, cw, 68);
+          ctx.strokeRect(cx, 75, cw, 68);
+
+          ctx.fillStyle = c.color === YELLOW ? '#b78103' : c.color;
+          ctx.font = 'bold 16px -apple-system, sans-serif';
+          ctx.fillText(c.name, cx + 12, 100);
+
+          ctx.fillStyle = BLACK;
+          ctx.font = 'bold 13px monospace';
+          ctx.fillText(c.val, cx + 12, 126);
+        });
+
+        // Bottom Hacker News Headlines
+        let y = 165;
+        [p.head1, p.head2, p.head3, p.head4].forEach((head, idx) => {
+          if (!head) return;
+          ctx.fillStyle = '#fdfdfd';
+          ctx.strokeStyle = '#e0e0e0';
+          ctx.lineWidth = 1;
+          ctx.fillRect(24, y - 18, w - 48, 62);
+          ctx.strokeRect(24, y - 18, w - 48, 62);
+
+          ctx.fillStyle = idx === 0 ? RED : (idx === 1 ? YELLOW : BLACK);
+          ctx.fillRect(36, y - 4, 8, 30);
+
+          ctx.fillStyle = BLACK;
+          ctx.font = 'bold 16px "PingFang SC", -apple-system, sans-serif';
+          this._wrapText(ctx, head, 56, y + 10, w - 90, 22, 2);
+
+          y += 78;
+        });
+
+        this._drawFooter(ctx, 'Hacker News & CoinGecko 全球开源 API 实时聚合驱动', '60 分钟自动更新');
+        return;
+      }
 
       // Top Crypto Live Ticker Cards
       const cryptos = [
@@ -2477,37 +3271,43 @@
 
     _drawHeader(ctx, title, subRight, isRed = true) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
-      const w = 768;
+      const w = ctx.canvas.width || 768;
       ctx.fillStyle = isRed ? RED : BLACK;
       ctx.fillRect(0, 0, w, 56);
       ctx.fillStyle = WHITE;
-      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-      ctx.fillText(title, 28, 38);
+      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+
+      let displayTitle = title;
+      const maxTitleWidth = subRight ? (w - 50 - ctx.measureText(subRight).width) : (w - 50);
+      while (ctx.measureText(displayTitle).width > maxTitleWidth && displayTitle.length > 4) {
+        displayTitle = displayTitle.slice(0, -2) + '…';
+      }
+      ctx.fillText(displayTitle, 24, 38);
 
       if (subRight) {
         ctx.fillStyle = YELLOW;
-        ctx.font = 'bold 18px -apple-system, sans-serif';
+        ctx.font = 'bold 16px -apple-system, sans-serif';
         const tw = ctx.measureText(subRight).width;
-        ctx.fillText(subRight, w - 28 - tw, 37);
+        ctx.fillText(subRight, w - 24 - tw, 37);
       }
     },
 
     _drawFooter(ctx, left, right) {
       const { BLACK, WHITE, YELLOW } = this.COLORS;
-      const w = 768;
-      const h = 552;
+      const w = ctx.canvas.width || 768;
+      const h = ctx.canvas.height || 552;
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, h - 36, w, 36);
 
       ctx.fillStyle = WHITE;
-      ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-      ctx.fillText(left || '智能墨水屏物联网终端', 28, h - 13);
+      ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+      ctx.fillText(left || '智能墨水屏物联网终端', 20, h - 13);
 
       if (right) {
         ctx.fillStyle = YELLOW;
-        ctx.font = 'bold 14px -apple-system, sans-serif';
+        ctx.font = 'bold 13px -apple-system, sans-serif';
         const tw = ctx.measureText(right).width;
-        ctx.fillText(right, w - 28 - tw, h - 13);
+        ctx.fillText(right, w - 20 - tw, h - 13);
       }
     },
 
@@ -2647,7 +3447,7 @@
         if (window.App && typeof window.App.pushCanvas === 'function') {
           await window.App.pushCanvas(this.canvas, `场景: ${this.currentSelectedMode}`);
         } else if (window.BWRY && window.DeviceManager) {
-          const packed = window.BWRY.ditherCanvasTo2bpp(this.canvas, 'floyd');
+          const packed = window.BWRY.ditherCanvasTo2bpp(this.canvas, 'floyd', { orientation: window.UI?.orientation || 0 });
           await window.DeviceManager.pushBitmap2bpp(packed);
           if (window.UI?.showToast) window.UI.showToast('🎉 推送场景成功！', 'success');
         }
@@ -2659,12 +3459,16 @@
     async saveCurrentSceneAsPreset() {
       if (!this.canvas) return;
       const def = this.MODES_DEF.find(m => m.id === this.currentSelectedMode);
+      if (window.App && typeof window.App.promptSavePreset === 'function') {
+        await window.App.promptSavePreset(this.canvas, 'scene', def ? def.name : '场景预设');
+        return;
+      }
       const name = prompt('请输入预设名称:', `${def ? def.name : '场景'}_${new Date().toLocaleTimeString('zh-CN')}`);
       if (!name) return;
 
       try {
         if (window.BWRY && window.PresetHub) {
-          const packed = window.BWRY.ditherCanvasTo2bpp(this.canvas, 'floyd');
+          const packed = window.BWRY.ditherCanvasTo2bpp(this.canvas, 'floyd', { orientation: window.UI?.orientation || 0 });
           await window.PresetHub.savePreset({
             name,
             type: 'scene',

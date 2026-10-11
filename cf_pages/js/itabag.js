@@ -272,58 +272,61 @@
 
       const canvas = this.canvas;
       const ctx = this.ctx || canvas.getContext('2d');
-      canvas.width = 768;
-      canvas.height = 552;
+      const isPortrait = typeof UI !== 'undefined' && (UI.orientation === 90 || UI.orientation === 270);
+      const w = isPortrait ? 552 : 768;
+      const h = isPortrait ? 768 : 552;
+      canvas.width = w;
+      canvas.height = h;
 
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       const { scale, rotate, offsetX, offsetY, title, source, quote, style } = this.config;
 
       // 1. Fill clean White base
       ctx.fillStyle = WHITE;
-      ctx.fillRect(0, 0, 768, 552);
+      ctx.fillRect(0, 0, w, h);
 
       // 2. Character Image or Cute Placeholder
       if (this.userImage) {
         ctx.save();
         // Inner clipping boundary (below top banner, above bottom dialogue)
         ctx.beginPath();
-        this._roundRect(ctx, 16, 58, 736, 456, 12);
+        const clipH = isPortrait ? (h - 210) : 456;
+        this._roundRect(ctx, 16, 58, w - 32, clipH, 12);
         ctx.clip();
 
-        const cx = 384 + (offsetX || 0);
-        const cy = 275 + (offsetY || 0);
+        const cx = (w / 2) + (offsetX || 0);
+        const cy = (isPortrait ? 340 : 275) + (offsetY || 0);
         ctx.translate(cx, cy);
         ctx.rotate(((rotate || 0) * Math.PI) / 180);
         ctx.scale(scale || 1.0, scale || 1.0);
         ctx.drawImage(this.userImage, -this.userImage.width / 2, -this.userImage.height / 2);
         ctx.restore();
       } else {
-        this._drawPlaceholder(ctx);
+        this._drawPlaceholder(ctx, w, h, isPortrait);
       }
 
       // 3. Bottom Subtitle Banner or Speech Bubble (character name + dialogue)
-      this._drawBottomBanner(ctx);
+      this._drawBottomBanner(ctx, w, h, isPortrait);
 
       // 4. Top Banner with Red/Yellow BWRY accents and Lanyard hole
-      this._drawTopBanner(ctx);
+      this._drawTopBanner(ctx, w, h);
 
       // 5. Four Corner Decorative Badge Marks & Protective Border
-      this._drawBadgeDecorations(ctx);
+      this._drawBadgeDecorations(ctx, w, h);
 
       // 6. Bottom spec footer
-      this._drawFooterSpec(ctx);
+      this._drawFooterSpec(ctx, w, h);
     },
 
     /**
      * Draw cute anime chibi avatar placeholder when no user image uploaded
      */
-    _drawPlaceholder(ctx) {
+    _drawPlaceholder(ctx, w = 768, h = 552, isPortrait = false) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
-      const w = 768;
-      const cardX = 24;
+      const cardX = isPortrait ? 20 : 24;
       const cardY = 68;
-      const cardW = w - 48;
-      const cardH = 345;
+      const cardW = w - (cardX * 2);
+      const cardH = isPortrait ? (h - 225) : 345;
       const cx = w / 2;
       const cy = cardY + cardH / 2;
 
@@ -387,13 +390,13 @@
       // Central "OC PIC" Big Badge Tag
       ctx.fillStyle = BLACK;
       ctx.beginPath();
-      ctx.arc(cx - 160, cy - 35, 6, 0, Math.PI * 2);
-      ctx.arc(cx + 160, cy - 35, 6, 0, Math.PI * 2);
+      ctx.arc(cx - 140, cy - 35, 6, 0, Math.PI * 2);
+      ctx.arc(cx + 140, cy - 35, 6, 0, Math.PI * 2);
       ctx.fill();
 
       // Yellow top bar for OC PIC
       ctx.fillStyle = YELLOW;
-      ctx.fillRect(cx - 140, cy - 78, 280, 8);
+      ctx.fillRect(cx - 130, cy - 78, 260, 8);
 
       // Big Bold Modern "OC PIC" Text
       ctx.fillStyle = BLACK;
@@ -404,24 +407,24 @@
 
       // Red accent underline
       ctx.fillStyle = RED;
-      ctx.fillRect(cx - 140, cy + 4, 280, 8);
+      ctx.fillRect(cx - 130, cy + 4, 260, 8);
 
       // Subtitle
       ctx.fillStyle = BLACK;
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
       ctx.fillText('[ 角色立绘 · 谷美相片 · 随身痛卡 ]', cx, cy + 42);
 
       // Clean Upload Hint Pill
       ctx.fillStyle = '#000000';
-      this._roundRect(ctx, cx - 180, cy + 72, 360, 38, 19, true, false);
+      this._roundRect(ctx, cx - 170, cy + 72, 340, 38, 19, true, false);
 
       ctx.fillStyle = YELLOW;
-      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
       ctx.fillText('📷 点击或拖拽上传自定义立绘照片', cx, cy + 92);
 
       ctx.fillStyle = '#777777';
-      ctx.font = '13px -apple-system, sans-serif';
-      ctx.fillText('支持 PNG / JPG / WEBP · 50%~250% 无级缩放与四向旋转', cx, cy + 128);
+      ctx.font = '12px -apple-system, sans-serif';
+      ctx.fillText('支持 PNG / JPG / WEBP · 50%~250% 无级缩放', cx, cy + 128);
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
@@ -430,37 +433,37 @@
     /**
      * Draw Top Banner: "🎒 痛卡挂饰 · [出处]" with yellow/red BWRY accents
      */
-    _drawTopBanner(ctx) {
+    _drawTopBanner(ctx, w = 768, h = 552) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       const sourceText = this.config.source ? this.config.source.trim() : '谷美痛包 / ITA-BAG';
 
-      // 1. Top banner header bar (H: 52)
+      // 1. Top banner header bar (H: 46)
       ctx.fillStyle = RED;
-      this._roundRect(ctx, 16, 12, 736, 46, { tl: 10, tr: 10, bl: 0, br: 0 }, true, false);
+      this._roundRect(ctx, 16, 12, w - 32, 46, { tl: 10, tr: 10, bl: 0, br: 0 }, true, false);
 
       // 2. Yellow accent divider line
       ctx.fillStyle = YELLOW;
-      ctx.fillRect(16, 56, 736, 4);
+      ctx.fillRect(16, 56, w - 32, 4);
 
       // 3. Banner title text
       ctx.fillStyle = WHITE;
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-      ctx.fillText('🎒 痛卡挂饰 · ', 32, 42);
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+      ctx.fillText('🎒 痛卡挂饰 · ', 28, 42);
 
       const titleWidth = ctx.measureText('🎒 痛卡挂饰 · ').width;
       ctx.fillStyle = YELLOW;
-      ctx.fillText(sourceText, 32 + titleWidth, 42);
+      ctx.fillText(sourceText, 28 + titleWidth, 42);
 
       // 4. Right side tag
       ctx.fillStyle = BLACK;
-      this._roundRect(ctx, 620, 20, 118, 28, 14, true, false);
+      this._roundRect(ctx, w - 146, 20, 118, 28, 14, true, false);
       ctx.fillStyle = YELLOW;
       ctx.font = 'bold 13px monospace';
-      ctx.fillText('3.98" BWRY', 636, 39);
+      ctx.fillText('3.98" BWRY', w - 130, 39);
 
       // 5. Lanyard Hole Indicator (Top center strap mount)
       if (this.config.showLanyard) {
-        const lx = 384;
+        const lx = w / 2;
         const ly = 24;
 
         // Metallic eyelet / grommet ring
@@ -494,7 +497,7 @@
     /**
      * Draw Bottom subtitle banner or comic speech bubble
      */
-    _drawBottomBanner(ctx) {
+    _drawBottomBanner(ctx, w = 768, h = 552, isPortrait = false) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       const charName = this.config.title ? this.config.title.trim() : '角色名';
       const quoteText = this.config.quote ? this.config.quote.trim() : '专属台词 / 签名题字';
@@ -502,10 +505,10 @@
 
       if (isBubble) {
         // Comic Dialogue Speech Bubble
-        const bx = 36;
-        const by = 398;
-        const bw = 696;
-        const bh = 112;
+        const bx = isPortrait ? 20 : 36;
+        const bw = isPortrait ? (w - 40) : 696;
+        const by = isPortrait ? (h - 150) : 398;
+        const bh = isPortrait ? 122 : 112;
 
         // Bubble body
         ctx.fillStyle = WHITE;
@@ -514,11 +517,12 @@
         this._roundRect(ctx, bx, by, bw, bh, 16, true, true);
 
         // Speech bubble pointer tail (pointing upwards toward character)
+        const tailX = w / 2;
         ctx.fillStyle = WHITE;
         ctx.beginPath();
-        ctx.moveTo(384 - 16, by);
-        ctx.lineTo(384, by - 16);
-        ctx.lineTo(384 + 16, by);
+        ctx.moveTo(tailX - 16, by);
+        ctx.lineTo(tailX, by - 16);
+        ctx.lineTo(tailX + 16, by);
         ctx.closePath();
         ctx.fill();
 
@@ -526,14 +530,14 @@
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 3.5;
         ctx.beginPath();
-        ctx.moveTo(384 - 16, by);
-        ctx.lineTo(384, by - 16);
-        ctx.lineTo(384 + 16, by);
+        ctx.moveTo(tailX - 16, by);
+        ctx.lineTo(tailX, by - 16);
+        ctx.lineTo(tailX + 16, by);
         ctx.stroke();
 
         // Re-cover base line of pointer
         ctx.fillStyle = WHITE;
-        ctx.fillRect(384 - 14, by - 1, 28, 4);
+        ctx.fillRect(tailX - 14, by - 1, 28, 4);
 
         // Character Name Inset Pill (Top-left of bubble)
         ctx.fillStyle = RED;
@@ -547,15 +551,15 @@
 
         // Dialogue / Quote inside bubble
         ctx.fillStyle = BLACK;
-        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        this._wrapText(ctx, `「${quoteText}」`, bx + 28, by + 46, bw - 56, 28, 2);
+        ctx.font = 'bold 19px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+        this._wrapText(ctx, `「${quoteText}」`, bx + 24, by + 46, bw - 48, 26, 2);
 
       } else {
         // Sleek Anime Character Subtitle Plate
-        const px = 28;
-        const py = 400;
-        const pw = 712;
-        const ph = 112;
+        const px = isPortrait ? 16 : 28;
+        const pw = isPortrait ? (w - 32) : 712;
+        const py = isPortrait ? (h - 148) : 400;
+        const ph = isPortrait ? 120 : 112;
 
         ctx.fillStyle = WHITE;
         ctx.strokeStyle = RED;
@@ -577,42 +581,42 @@
 
         // Character Name in bold red
         ctx.fillStyle = RED;
-        ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        ctx.fillText('★ ' + charName, px + 24, py + 38);
+        ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+        ctx.fillText('★ ' + charName, px + 20, py + 36);
 
         // Source badge in yellow/black
         ctx.fillStyle = BLACK;
-        ctx.font = 'bold 15px -apple-system, sans-serif';
-        ctx.fillText('【' + (this.config.source || 'VOCALOID') + '】', px + 24 + ctx.measureText('★ ' + charName).width + 12, py + 36);
+        ctx.font = 'bold 14px -apple-system, sans-serif';
+        ctx.fillText('【' + (this.config.source || 'VOCALOID') + '】', px + 20 + ctx.measureText('★ ' + charName).width + 10, py + 34);
 
         // Quote text in bold black
         ctx.fillStyle = BLACK;
-        ctx.font = '19px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        this._wrapText(ctx, `“ ${quoteText} ”`, px + 24, py + 76, pw - 48, 26, 2);
+        ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
+        this._wrapText(ctx, `“ ${quoteText} ”`, px + 20, py + 72, pw - 40, 24, 2);
       }
     },
 
     /**
      * Draw four corner decorative badge marks & protective acrylic border
      */
-    _drawBadgeDecorations(ctx) {
+    _drawBadgeDecorations(ctx, w = 768, h = 552) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
 
       // Outer protective border frame (acrylic double-line)
       ctx.strokeStyle = BLACK;
       ctx.lineWidth = 3;
-      this._roundRect(ctx, 8, 8, 752, 536, 14, false, true);
+      this._roundRect(ctx, 8, 8, w - 16, h - 16, 14, false, true);
 
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 1.5;
-      this._roundRect(ctx, 12, 12, 744, 528, 12, false, true);
+      this._roundRect(ctx, 12, 12, w - 24, h - 24, 12, false, true);
 
       // Four corner metallic badge rivets / star clips
       const corners = [
         { x: 26, y: 26 },
-        { x: 742, y: 26 },
-        { x: 26, y: 526 },
-        { x: 742, y: 526 }
+        { x: w - 26, y: 26 },
+        { x: 26, y: h - 26 },
+        { x: w - 26, y: h - 26 }
       ];
 
       if (this.config.borderStyle === 'stars') {
@@ -658,12 +662,12 @@
     /**
      * Draw bottom spec footer bar
      */
-    _drawFooterSpec(ctx) {
+    _drawFooterSpec(ctx, w = 768, h = 552) {
       const { BLACK } = this.COLORS;
       ctx.fillStyle = BLACK;
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('3.98" BWRY EPD ITA-BAG CHARM · ZGQ Inc. · 零功耗双稳态随身谷美挂饰', 384, 542);
+      ctx.fillText('3.98" BWRY EPD ITA-BAG CHARM · ZGQ Inc. · 零功耗双稳态随身谷美挂饰', w / 2, h - 10);
       ctx.textAlign = 'left';
     },
 

@@ -96,6 +96,10 @@ const BWRY = {
     const w = BWRY.WIDTH;
     const h = BWRY.HEIGHT;
 
+    const angle = options.orientation !== undefined
+      ? options.orientation
+      : (typeof UI !== 'undefined' ? UI.orientation : 0);
+
     let ctx;
     let data;
 
@@ -106,7 +110,29 @@ const BWRY = {
       ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, w, h);
-      ctx.drawImage(sourceCanvas, 0, 0, w, h);
+
+      ctx.save();
+      if (angle === 90) {
+        // Rotate 90 deg clockwise into physical 768x552 buffer
+        ctx.translate(w, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(sourceCanvas, 0, 0);
+      } else if (angle === 180) {
+        // Rotate 180 deg into physical 768x552 buffer
+        ctx.translate(w, h);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(sourceCanvas, 0, 0);
+      } else if (angle === 270) {
+        // Rotate 270 deg (90 CCW) into physical 768x552 buffer
+        ctx.translate(0, h);
+        ctx.rotate(-Math.PI / 2);
+        ctx.drawImage(sourceCanvas, 0, 0);
+      } else {
+        // 0 deg: 1:1 direct mapping
+        ctx.drawImage(sourceCanvas, 0, 0, w, h);
+      }
+      ctx.restore();
+
       data = ctx.getImageData(0, 0, w, h).data;
     } else if (sourceCanvas && sourceCanvas.getContext) {
       ctx = sourceCanvas.getContext('2d');
@@ -299,13 +325,21 @@ const BWRY = {
     return packed;
   },
 
-  render2bppToCanvas(targetCanvas, packed2bpp) {
-    const w = BWRY.WIDTH;
-    const h = BWRY.HEIGHT;
-    targetCanvas.width = w;
-    targetCanvas.height = h;
-    const ctx = targetCanvas.getContext('2d');
-    const imgData = ctx.createImageData(w, h);
+  render2bppToCanvas(targetCanvas, packed2bpp, orientation = 0) {
+    const w = BWRY.WIDTH; // 768
+    const h = BWRY.HEIGHT; // 552
+
+    // Offscreen 768x552 unrotated physical bitmap
+    let offscreen;
+    if (typeof document !== 'undefined') {
+      offscreen = document.createElement('canvas');
+    } else {
+      offscreen = targetCanvas;
+    }
+    offscreen.width = w;
+    offscreen.height = h;
+    const oCtx = offscreen.getContext('2d');
+    const imgData = oCtx.createImageData(w, h);
     const data = imgData.data;
 
     let pixelIdx = 0;
@@ -328,7 +362,42 @@ const BWRY = {
         pixelIdx++;
       }
     }
-    ctx.putImageData(imgData, 0, 0);
+    oCtx.putImageData(imgData, 0, 0);
+
+    if (offscreen === targetCanvas) return;
+
+    // View orientation: rotate back to user's desired display mode
+    const isPortrait = (orientation === 90 || orientation === 270);
+    const targetW = isPortrait ? 552 : 768;
+    const targetH = isPortrait ? 768 : 552;
+
+    targetCanvas.width = targetW;
+    targetCanvas.height = targetH;
+    const tCtx = targetCanvas.getContext('2d');
+    tCtx.fillStyle = '#ffffff';
+    tCtx.fillRect(0, 0, targetW, targetH);
+
+    tCtx.save();
+    if (orientation === 90) {
+      // 90 deg view: rotate physical 768x552 counter-clockwise into 552x768
+      tCtx.translate(0, targetH);
+      tCtx.rotate(-Math.PI / 2);
+      tCtx.drawImage(offscreen, 0, 0);
+    } else if (orientation === 180) {
+      // 180 deg view
+      tCtx.translate(targetW, targetH);
+      tCtx.rotate(Math.PI);
+      tCtx.drawImage(offscreen, 0, 0);
+    } else if (orientation === 270) {
+      // 270 deg view
+      tCtx.translate(targetW, 0);
+      tCtx.rotate(Math.PI / 2);
+      tCtx.drawImage(offscreen, 0, 0);
+    } else {
+      // 0 deg view
+      tCtx.drawImage(offscreen, 0, 0);
+    }
+    tCtx.restore();
   }
 };
 
