@@ -352,6 +352,14 @@ impl BleManager {
                             tx.lock().set_value(b"STORAGE_CLEARED");
                             tx.lock().notify();
                         }
+                    } else if text == "preset:clean_orphans" || text == "storage:clean_orphans" {
+                        println!("  [ble-rx] Cleaning invalid and orphan files from SPIFFS...");
+                        let count = crate::storage::clean_invalid_data().map(|(c, _)| c).unwrap_or(0);
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let resp = format!("CLEANED_ORPHANS:{}", count);
+                            tx.lock().set_value(resp.as_bytes());
+                            tx.lock().notify();
+                        }
                     } else if text.starts_with('{') {
                         if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
                             if val.get("cmd").and_then(|v| v.as_str()) == Some("wifi_setup") {

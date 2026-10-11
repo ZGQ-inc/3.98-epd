@@ -341,15 +341,23 @@ const App = {
 
     listEl.innerHTML = displayedPresets.map(p => {
       const isSelected = PresetHub.selectedIds.has(p.id);
+      const isInvalid = p.is_orphan || p.is_complete === false;
+      const badgeStyle = isInvalid
+        ? 'background:rgba(244, 67, 54, 0.15); color:#f44336;'
+        : (p.is_offline ? 'background:rgba(33, 150, 243, 0.15); color:#2196f3;' : 'background:rgba(76, 175, 80, 0.15); color:#4caf50;');
+      const badgeText = isInvalid
+        ? `⚠️ ${p.type_label || '孤儿残留'}`
+        : `${p.is_offline ? '📱 本地草稿' : '📟 Flash 存储'} · ${p.type_label}`;
+
       return `
-        <div class="preset-card ${isSelected ? 'selected' : ''}" data-id="${p.id}">
+        <div class="preset-card ${isSelected ? 'selected' : ''}" data-id="${p.id}" style="${isInvalid ? 'border:1px dashed #f44336;' : ''}">
           <div class="preset-card-header">
             <div style="display:flex; align-items:center; gap:8px;">
               <input type="checkbox" class="preset-check" data-id="${p.id}" ${isSelected ? 'checked' : ''}>
-              <strong style="font-size:14px;">${p.name}</strong>
+              <strong style="font-size:14px; ${isInvalid ? 'color:#f44336;' : ''}">${p.name}</strong>
             </div>
-            <span class="preset-type-badge" style="${p.is_offline ? 'background:rgba(33, 150, 243, 0.15); color:#2196f3;' : 'background:rgba(76, 175, 80, 0.15); color:#4caf50;'}">
-              ${p.is_offline ? '📱 本地草稿' : '📟 Flash 存储'} · ${p.type_label}
+            <span class="preset-type-badge" style="${badgeStyle}">
+              ${badgeText}
             </span>
           </div>
           <div style="font-size:12px; color:var(--md-sys-color-outline); display:flex; justify-content:space-between;">
@@ -357,16 +365,32 @@ const App = {
             <span>${p.created_str || ''}</span>
           </div>
           <div class="preset-actions" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
-            <button class="m3-btn small outlined preset-preview-btn" data-id="${p.id}">👁️ 预览</button>
-            ${p.is_offline
-              ? `<button class="m3-btn small tonal preset-push-btn" data-id="${p.id}">🚀 屏幕推送</button>
-                 <button class="m3-btn small preset-upload-hw-btn" data-id="${p.id}" style="background:var(--primary); color:var(--on-primary);">⬆️ 写入硬件</button>`
-              : `<button class="m3-btn small preset-push-btn" data-id="${p.id}">🚀 内部直推</button>`
+            ${isInvalid
+              ? `<button class="m3-btn small outlined preset-delete-single-btn" data-id="${p.id}" style="color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);">🗑️ 单独删除此残留</button>`
+              : `<button class="m3-btn small outlined preset-preview-btn" data-id="${p.id}">👁️ 预览</button>
+                 ${p.is_offline
+                   ? `<button class="m3-btn small tonal preset-push-btn" data-id="${p.id}">🚀 屏幕推送</button>
+                      <button class="m3-btn small preset-upload-hw-btn" data-id="${p.id}" style="background:var(--primary); color:var(--on-primary);">⬆️ 写入硬件</button>`
+                   : `<button class="m3-btn small preset-push-btn" data-id="${p.id}">🚀 内部直推</button>`
+                 }`
             }
           </div>
         </div>
       `;
     }).join('');
+
+    listEl.querySelectorAll('.preset-delete-single-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (confirm(`确定要单独删除此项残留数据吗？`)) {
+          PresetHub.selectedIds.clear();
+          PresetHub.selectedIds.add(id);
+          const count = await PresetHub.deleteSelected();
+          this.renderPresetsUI();
+          UI.showToast(`已成功删除该项残留数据！`, 'success');
+        }
+      });
+    });
 
     listEl.querySelectorAll('.preset-check').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -704,6 +728,10 @@ const App = {
       } else {
         UI.showToast('⚠️ 单片机同步响应超时，已保留本地预设缓存', 'warning', 4000);
       }
+    });
+
+    document.getElementById('hwCleanOrphansBtn')?.addEventListener('click', () => {
+      PresetHub.cleanInvalidData();
     });
 
     document.getElementById('hwClearFlashBtn')?.addEventListener('click', () => {

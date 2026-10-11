@@ -1097,6 +1097,57 @@ const DeviceManager = {
     return result || { status: 'ok' };
   },
 
+  /**
+   * Cleans invalid, incomplete, and orphan files from the microcontroller,
+   * preserving all valid presets intact.
+   */
+  async cleanInvalidData(fallbackOrphanIds = []) {
+    let handled = false;
+    let result = null;
+
+    if (this.isLanConnected && this.lanIp) {
+      try {
+        const res = await fetch(`http://${this.lanIp}/api/storage/clean_orphans`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(10000)
+        });
+        if (res.ok) {
+          result = await res.json().catch(() => ({ status: 'ok' }));
+          handled = true;
+        }
+      } catch (e) {
+        try {
+          const res2 = await fetch(`http://${this.lanIp}/api/presets/clean_orphans`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(8000)
+          });
+          if (res2.ok) {
+            result = await res2.json().catch(() => ({ status: 'ok' }));
+            handled = true;
+          }
+        } catch (e2) {}
+      }
+    }
+
+    if (this.isBleConnected && this.rxChar) {
+      const cmd = new TextEncoder().encode('preset:clean_orphans');
+      await this.rxChar.writeValueWithoutResponse(cmd);
+      handled = true;
+      result = { status: 'ok', message: '已向单片机发送清理孤儿文件指令' };
+    }
+
+    // Fallback for older firmware: delete identified orphan IDs individually
+    if ((!handled || !result) && fallbackOrphanIds && fallbackOrphanIds.length > 0) {
+      result = await this.deletePresetsFromDevice(fallbackOrphanIds);
+      handled = true;
+    }
+
+    if (!handled) {
+      throw new Error('未连接任何单片机设备（请先在顶部连接蓝牙或配置局域网 IP）');
+    }
+    return result || { status: 'ok' };
+  },
+
   async scanWifi() {
     if (!this.lanIp) throw new Error('未连接局域网设备');
     const res = await fetch(`http://${this.lanIp}/api/wifi/scan`, { method: 'POST' });

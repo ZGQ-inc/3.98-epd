@@ -219,6 +219,22 @@ const PresetHub = {
         if (usedText) usedText.textContent = this.formatBytes(used);
         if (freeText) freeText.textContent = this.formatBytes(free);
         if (progressFill) progressFill.style.width = `${pct}%`;
+
+        const orphanCount = hwPresets.filter(p => p.is_orphan || p.is_complete === false).length;
+        const cleanOrphansBtn = document.getElementById('hwCleanOrphansBtn');
+        if (cleanOrphansBtn) {
+          if (orphanCount > 0) {
+            cleanOrphansBtn.innerHTML = `🧹 一键清理无效数据 (${orphanCount})`;
+            cleanOrphansBtn.style.color = 'var(--md-sys-color-primary)';
+            cleanOrphansBtn.style.borderColor = 'var(--md-sys-color-primary)';
+            cleanOrphansBtn.style.fontWeight = '700';
+          } else {
+            cleanOrphansBtn.innerHTML = '🧹 一键清理无效数据';
+            cleanOrphansBtn.style.color = '';
+            cleanOrphansBtn.style.borderColor = '';
+            cleanOrphansBtn.style.fontWeight = '';
+          }
+        }
       }
     } else {
       if (hwContainer) hwContainer.style.display = 'none';
@@ -544,6 +560,74 @@ const PresetHub = {
       console.error('[PresetHub] 清空 Flash 失败:', e);
       if (window.UI?.showToast) {
         window.UI.showToast(`清空 Flash 失败: ${e.message}`, 'error', 4500);
+      }
+    }
+  },
+
+  /**
+   * One-click cleanup of all orphan, incomplete, and corrupted data files on MCU,
+   * preserving all valid presets intact.
+   */
+  async cleanInvalidData() {
+    const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
+      || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
+
+    if (!isHardwareConnected && !DeviceManager.lanIp) {
+      if (window.UI?.showToast) {
+        window.UI.showToast('⚠️ 未连通单片机硬件，请先在顶部连接蓝牙或局域网！', 'warning', 4000);
+      }
+      return;
+    }
+
+    const orphanPresets = this.presets.filter(p => !p.is_offline && (p.is_orphan || p.is_complete === false));
+    const orphanIds = orphanPresets.map(p => p.id);
+
+    const msg = orphanPresets.length > 0
+      ? `检测到单片机内有 ${orphanPresets.length} 项未完成或孤儿残留文件。\n\n确定执行一键清理吗？（将仅删除这些残留数据，保留全部正常预设）`
+      : '确定扫描并清理单片机 Flash 内所有无索引的孤儿点阵文件与未完成数据吗？（不会影响正常预设）';
+
+    if (!confirm(msg)) return;
+
+    if (window.UI?.showToast) {
+      window.UI.showToast('正在清理单片机内的孤儿与无效残留数据...', 'info', 3000);
+    }
+
+    try {
+      const res = await DeviceManager.cleanInvalidData(orphanIds);
+
+      // Remove local memory copies of orphan presets
+      if (orphanIds.length > 0) {
+        this.presets = this.presets.filter(p => !orphanIds.includes(p.id));
+        orphanIds.forEach(id => this.selectedIds.delete(id));
+        await this.saveLocalPresets();
+      }
+
+      if (res && res.storage) {
+        this.storageStats = res.storage;
+        this._hasRemoteStorageStats = true;
+      }
+
+      this.updateStorageUI();
+      if (typeof App !== 'undefined' && App.renderPresetsUI) {
+        App.renderPresetsUI();
+      }
+
+      const count = res?.cleaned_count || orphanPresets.length || 0;
+      if (window.UI?.showToast) {
+        window.UI.showToast(`🎉 已成功清理 ${count} 项无效/孤儿残留文件！`, 'success', 4000);
+      }
+
+      // Wait a moment and re-sync
+      await new Promise(r => setTimeout(r, 600));
+      await this.syncWithDevice();
+      this.updateStorageUI();
+      if (typeof App !== 'undefined' && App.renderPresetsUI) {
+        App.renderPresetsUI();
+      }
+    } catch (e) {
+      console.error('[PresetHub] 清理孤儿文件失败:', e);
+      if (window.UI?.showToast) {
+        window.UI.showToast(`清理无效数据失败: ${e.message}`, 'error', 4500);
       }
     }
   },

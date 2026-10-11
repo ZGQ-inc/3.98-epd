@@ -1150,6 +1150,38 @@ impl WebServer {
         server.fn_handler("/api/storage/clear", Method::Post, handle_clear_storage)?;
         server.fn_handler("/api/presets/clear", Method::Post, handle_clear_storage)?;
 
+        // 18c. POST /api/storage/clean_orphans & POST /api/presets/clean_orphans — Clean invalid and orphan files only
+        let handle_clean_orphans = move |req: esp_idf_svc::http::server::Request<&mut esp_idf_svc::http::server::EspHttpConnection>| -> anyhow::Result<()> {
+            println!("  [web-api] POST storage/clean_orphans triggered");
+            let (count, stats) = match crate::storage::clean_invalid_data() {
+                Ok((c, s)) => (c, s),
+                Err(_) => (0, crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                    total_bytes: 1528 * 1024, used_bytes: 0, free_bytes: 1528 * 1024,
+                }))
+            };
+            let list = crate::storage::list_presets();
+            let resp_data = serde_json::json!({
+                "status": "ok",
+                "cleaned_count": count,
+                "message": format!("已成功清理 {} 项无效残留文件！", count),
+                "storage": stats,
+                "presets": list.presets
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        };
+
+        server.fn_handler("/api/storage/clean_orphans", Method::Post, handle_clean_orphans)?;
+        server.fn_handler("/api/presets/clean_orphans", Method::Post, handle_clean_orphans)?;
+
         // 19. GET /api/presets/preview — Get preset details and preview data
         server.fn_handler("/api/presets/preview", Method::Get, |req| -> anyhow::Result<()> {
             let query = req.uri();

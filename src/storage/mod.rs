@@ -17,12 +17,16 @@ pub struct StorageStats {
     pub free_bytes: usize,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresetMeta {
     pub id: String,
     pub name: String,
-    pub preset_type: String, // "canvas" | "mode" | "bitmap" | "text"
-    pub type_label: String,  // "画板设计" | "功能模式" | "位图图像" | "纯文本"
+    pub preset_type: String, // "canvas" | "mode" | "bitmap" | "text" | "orphan"
+    pub type_label: String,  // "画板设计" | "功能模式" | "位图图像" | "纯文本" | "孤儿残留文件"
     pub size_bytes: usize,
     pub size_str: String,
     pub created_at: u64,
@@ -41,20 +45,28 @@ pub struct PresetMeta {
     pub preview_thumb: Option<String>, // Base64 thumbnail or SVG preview
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bitmap_file: Option<String>,
+    #[serde(default = "default_true")]
+    pub is_complete: bool,
+    #[serde(default)]
+    pub is_orphan: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresetSummary {
     pub id: String,
     pub name: String,
-    pub preset_type: String, // "canvas" | "mode" | "bitmap" | "text"
-    pub type_label: String,  // "画板设计" | "功能模式" | "位图图像" | "纯文本"
+    pub preset_type: String, // "canvas" | "mode" | "bitmap" | "text" | "orphan"
+    pub type_label: String,  // "画板设计" | "功能模式" | "位图图像" | "纯文本" | "孤儿残留文件"
     pub size_bytes: usize,
     pub size_str: String,
     pub created_at: u64,
     pub created_str: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bitmap_file: Option<String>,
+    #[serde(default = "default_true")]
+    pub is_complete: bool,
+    #[serde(default)]
+    pub is_orphan: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,21 +155,109 @@ static CACHED_PRESETS: Mutex<Option<Vec<PresetSummary>>> = Mutex::new(None);
 
 fn scan_presets_dir() -> Vec<PresetSummary> {
     let mut presets = Vec::new();
+    let mut referenced_bitmaps = std::collections::HashSet::new();
+
+    // 1. Scan JSON metadata files in /spiffs/presets
     if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
                 if let Ok(mut file) = File::open(&path) {
                     let mut bytes = Vec::new();
                     if file.read_to_end(&mut bytes).is_ok() {
-                        if let Ok(summary) = serde_json::from_slice::<PresetSummary>(&bytes) {
-                            presets.push(summary);
+                        match serde_json::from_slice::<PresetSummary>(&bytes) {
+                            Ok(mut summary) => {
+                                if let Some(ref bf) = summary.bitmap_file {
+                                    referenced_bitmaps.insert(bf.clone());
+                                    let bpath = format!("{}/{}", PRESETS_DIR, bf);
+                                    if !Path::new(&bpath).exists() {
+                                        summary.is_complete = false;
+                                        summary.type_label = "⚠️ 点阵丢失".to_string();
+                                    }
+                                }
+                                if !summary.is_complete {
+                                    summary.type_label = "⚠️ 未完成写入".to_string();
+                                }
+                                presets.push(summary);
+                            }
+                            Err(_) => {
+                                // Broken JSON: expose as corrupted item
+                                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("corrupted").to_string();
+                                let size = file.metadata().map(|m| m.len() as usize).unwrap_or(0);
+                                presets.push(PresetSummary {
+                                    id: stem,
+                                    name: format!("⚠️ 损坏索引 ({})", file_name),
+                                    preset_type: "corrupted".to_string(),
+                                    type_label: "⚠️ 损坏元数据".to_string(),
+                                    size_bytes: size,
+                                    size_str: format!("{:.1} KB", size as f64 / 1024.0),
+                                    created_at: 0,
+                                    created_str: "未知时间".to_string(),
+                                    bitmap_file: None,
+                                    is_complete: false,
+                                    is_orphan: true,
+                                });
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    // 2. Scan all non-json files in /spiffs/presets to expose orphan .2bpp / .tmp files
+    if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if ext != "json" && !referenced_bitmaps.contains(&file_name) {
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(&file_name).to_string();
+                let size = entry.metadata().map(|m| m.len() as usize).unwrap_or(0);
+                presets.push(PresetSummary {
+                    id: format!("orphan_{}", stem),
+                    name: format!("⚠️ 孤儿点阵文件 ({})", file_name),
+                    preset_type: "orphan".to_string(),
+                    type_label: "⚠️ 孤儿残留数据".to_string(),
+                    size_bytes: size,
+                    size_str: format!("{:.1} KB", size as f64 / 1024.0),
+                    created_at: 0,
+                    created_str: "缺少元数据索引".to_string(),
+                    bitmap_file: Some(file_name.clone()),
+                    is_complete: false,
+                    is_orphan: true,
+                });
+            }
+        }
+    }
+
+    // 3. Scan root /spiffs for stray .2bpp or temporary swap files
+    if let Ok(entries) = fs::read_dir("/spiffs") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                if file_name.ends_with(".2bpp") || file_name == "swap_fb.bin" || file_name.ends_with(".tmp") {
+                    let size = entry.metadata().map(|m| m.len() as usize).unwrap_or(0);
+                    presets.push(PresetSummary {
+                        id: format!("orphan_{}", file_name),
+                        name: format!("⚠️ 临时缓存残留 ({})", file_name),
+                        preset_type: "orphan".to_string(),
+                        type_label: "⚠️ 根目录残留".to_string(),
+                        size_bytes: size,
+                        size_str: format!("{:.1} KB", size as f64 / 1024.0),
+                        created_at: 0,
+                        created_str: "临时交换文件".to_string(),
+                        bitmap_file: Some(file_name.clone()),
+                        is_complete: false,
+                        is_orphan: true,
+                    });
+                }
+            }
+        }
+    }
+
     presets.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     presets
 }
@@ -193,7 +293,10 @@ pub fn list_presets() -> PresetListResponse {
     }
 }
 
-/// Saves a new preset with storage quota verification.
+/// Saves a new preset with two-phase commit:
+/// 1. Write metadata JSON with is_complete: false
+/// 2. Stream and write raw bitmap (.2bpp)
+/// 3. Update metadata JSON with is_complete: true on success
 pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<PresetMeta, String> {
     let _guard = STORAGE_LOCK.lock().unwrap();
     let stats = get_storage_stats()?;
@@ -216,12 +319,21 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
         meta.id = format!("preset_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
     }
 
-    // If raw bitmap is provided, write to .2bpp file
+    let json_path = format!("{}/{}.json", PRESETS_DIR, meta.id);
+
+    // Phase 1: Write initial index metadata with is_complete: false
+    meta.is_complete = false;
+    meta.is_orphan = false;
+    let json_init_str = serde_json::to_string(&meta).map_err(|e| e.to_string())?;
+    let mut f_init = File::create(&json_path).map_err(|e| format!("Failed to create preset json: {:?}", e))?;
+    f_init.write_all(json_init_str.as_bytes()).map_err(|e| format!("Failed to write initial preset json: {:?}", e))?;
+
+    // Phase 2: If raw bitmap is provided, write to .2bpp file
     if let Some(bitmap) = raw_bitmap {
         let bitmap_filename = format!("{}.2bpp", meta.id);
         let bitmap_path = format!("{}/{}", PRESETS_DIR, bitmap_filename);
-        let mut f = File::create(&bitmap_path).map_err(|e| format!("Failed to create bitmap file: {:?}", e))?;
-        f.write_all(bitmap).map_err(|e| format!("Failed to write bitmap file: {:?}", e))?;
+        let mut f_bmp = File::create(&bitmap_path).map_err(|e| format!("Failed to create bitmap file: {:?}", e))?;
+        f_bmp.write_all(bitmap).map_err(|e| format!("Failed to write bitmap file: {:?}", e))?;
         meta.bitmap_file = Some(bitmap_filename);
         meta.size_bytes = json_bytes + bitmap.len();
         meta.size_str = format!("{:.1} KB", meta.size_bytes as f64 / 1024.0);
@@ -230,11 +342,11 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
         meta.size_str = format!("{:.1} KB", meta.size_bytes as f64 / 1024.0);
     }
 
-    // Save metadata JSON
-    let json_path = format!("{}/{}.json", PRESETS_DIR, meta.id);
-    let json_str = serde_json::to_string(&meta).map_err(|e| e.to_string())?;
-    let mut f = File::create(&json_path).map_err(|e| format!("Failed to create preset json: {:?}", e))?;
-    f.write_all(json_str.as_bytes()).map_err(|e| format!("Failed to write preset json: {:?}", e))?;
+    // Phase 3: Update metadata JSON with is_complete: true
+    meta.is_complete = true;
+    let json_final_str = serde_json::to_string(&meta).map_err(|e| e.to_string())?;
+    let mut f_final = File::create(&json_path).map_err(|e| format!("Failed to update finalized preset json: {:?}", e))?;
+    f_final.write_all(json_final_str.as_bytes()).map_err(|e| format!("Failed to write finalized preset json: {:?}", e))?;
 
     let summary = PresetSummary {
         id: meta.id.clone(),
@@ -246,9 +358,12 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
         created_at: meta.created_at,
         created_str: meta.created_str.clone(),
         bitmap_file: meta.bitmap_file.clone(),
+        is_complete: true,
+        is_orphan: false,
     };
     if let Ok(mut lock) = CACHED_PRESETS.lock() {
         if let Some(ref mut list) = *lock {
+            list.retain(|p| p.id != summary.id);
             list.insert(0, summary);
         } else {
             *lock = Some(vec![summary]);
@@ -260,23 +375,117 @@ pub fn save_preset(mut meta: PresetMeta, raw_bitmap: Option<&[u8]>) -> Result<Pr
     Ok(meta)
 }
 
-/// Deletes one or multiple presets and their associated bitmap files.
+/// Deletes one or multiple presets, single orphan files, or corrupted entries.
 pub fn delete_presets(ids: &[String]) -> Result<StorageStats, String> {
     let _guard = STORAGE_LOCK.lock().unwrap();
     for id in ids {
-        let json_path = format!("{}/{}.json", PRESETS_DIR, id);
-        let bitmap_path = format!("{}/{}.2bpp", PRESETS_DIR, id);
+        let raw_id = id.strip_prefix("orphan_").unwrap_or(id);
+
+        let json_path = format!("{}/{}.json", PRESETS_DIR, raw_id);
+        let bitmap_path = format!("{}/{}.2bpp", PRESETS_DIR, raw_id);
+        let direct_preset_path = format!("{}/{}", PRESETS_DIR, raw_id);
+        let direct_spiffs_path = format!("/spiffs/{}", raw_id);
 
         let _ = fs::remove_file(&json_path);
         let _ = fs::remove_file(&bitmap_path);
-        info!("[PRESET] Deleted preset: {}", id);
+        let _ = fs::remove_file(&direct_preset_path);
+        let _ = fs::remove_file(&direct_spiffs_path);
+        info!("[PRESET] Deleted preset or orphan file: {}", id);
     }
     if let Ok(mut lock) = CACHED_PRESETS.lock() {
         if let Some(ref mut list) = *lock {
-            list.retain(|p| !ids.contains(&p.id));
+            list.retain(|p| !ids.contains(&p.id) && !ids.contains(&format!("orphan_{}", p.id)));
         }
     }
     refresh_storage_stats()
+}
+
+/// Deletes all invalid, incomplete, and orphan files from SPIFFS storage,
+/// preserving all valid presets intact.
+pub fn clean_invalid_data() -> Result<(usize, StorageStats), String> {
+    let _guard = STORAGE_LOCK.lock().unwrap();
+    let mut cleaned_count = 0;
+    let mut referenced_bitmaps = std::collections::HashSet::new();
+    let mut invalid_json_stems = Vec::new();
+
+    // 1. Check all JSON metadata files
+    if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                let mut is_valid = false;
+                if let Ok(mut file) = File::open(&path) {
+                    let mut bytes = Vec::new();
+                    if file.read_to_end(&mut bytes).is_ok() {
+                        if let Ok(summary) = serde_json::from_slice::<PresetSummary>(&bytes) {
+                            if summary.is_complete && !summary.is_orphan {
+                                if let Some(ref bf) = summary.bitmap_file {
+                                    let bpath = format!("{}/{}", PRESETS_DIR, bf);
+                                    if Path::new(&bpath).exists() {
+                                        referenced_bitmaps.insert(bf.clone());
+                                        is_valid = true;
+                                    }
+                                } else {
+                                    is_valid = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                if !is_valid {
+                    invalid_json_stems.push(stem);
+                }
+            }
+        }
+    }
+
+    // Delete invalid JSONs and their associated bitmap files
+    for stem in invalid_json_stems {
+        let json_path = format!("{}/{}.json", PRESETS_DIR, stem);
+        let bitmap_path = format!("{}/{}.2bpp", PRESETS_DIR, stem);
+        let _ = fs::remove_file(&json_path);
+        let _ = fs::remove_file(&bitmap_path);
+        cleaned_count += 1;
+        println!("  [spiffs] Cleaned invalid preset: {}", stem);
+    }
+
+    // 2. Delete orphan files in /spiffs/presets
+    if let Ok(entries) = fs::read_dir(PRESETS_DIR) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if ext != "json" && !referenced_bitmaps.contains(&file_name) {
+                let _ = fs::remove_file(&path);
+                cleaned_count += 1;
+                println!("  [spiffs] Cleaned orphan file in presets: {}", file_name);
+            }
+        }
+    }
+
+    // 3. Delete orphan files in /spiffs root (e.g. swap_fb.bin, .tmp)
+    if let Ok(entries) = fs::read_dir("/spiffs") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                if file_name.ends_with(".2bpp") || file_name == "swap_fb.bin" || file_name.ends_with(".tmp") {
+                    let _ = fs::remove_file(&path);
+                    cleaned_count += 1;
+                    println!("  [spiffs] Cleaned root orphan file: {}", file_name);
+                }
+            }
+        }
+    }
+
+    // Reset cached presets and rescan
+    if let Ok(mut lock) = CACHED_PRESETS.lock() {
+        *lock = None;
+    }
+    let stats = refresh_storage_stats()?;
+    info!("[SPIFFS] Cleaned {} invalid/orphan files", cleaned_count);
+    Ok((cleaned_count, stats))
 }
 
 /// Retrieves a preset's raw bitmap bytes for preview or push.

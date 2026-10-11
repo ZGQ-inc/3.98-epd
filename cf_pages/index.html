@@ -584,9 +584,14 @@
               <span>单片机 Flash 已占用: <strong id="storageUsedText">0 KB</strong></span>
               <span>剩余可用空间: <strong id="storageFreeText">1.5 MB</strong></span>
             </div>
-            <button class="m3-btn small outlined" id="hwClearFlashBtn" onclick="PresetHub.clearHardwareFlash()" style="padding:4px 10px; font-size:11px; color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);" title="清空单片机 Flash 存储中的所有预设及残留无效数据">
-              🗑️ 清空单片机 Flash
-            </button>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button class="m3-btn small outlined" id="hwCleanOrphansBtn" onclick="PresetHub.cleanInvalidData()" style="padding:4px 10px; font-size:11px;" title="仅清理未完成写入的损坏数据与无元数据索引的孤儿点阵文件，保留所有完整预设">
+                🧹 一键清理无效数据
+              </button>
+              <button class="m3-btn small outlined" id="hwClearFlashBtn" onclick="PresetHub.clearHardwareFlash()" style="padding:4px 10px; font-size:11px; color:var(--md-sys-color-error); border-color:var(--md-sys-color-error);" title="全部清空单片机 Flash 存储中的所有预设及残留数据">
+                🗑️ 全部清空
+              </button>
+            </div>
           </div>
           <div class="storage-progress-bar" style="margin-top:8px;">
             <div class="storage-progress-fill" id="storageProgressFill"></div>
