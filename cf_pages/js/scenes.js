@@ -17,7 +17,7 @@
  *    - Standard Wi-Fi RFC QR Code Generator (WIFI:S:...;T:WPA;P:...;;)
  * 2. 768×552 BWRY High-Density E-Paper Layouts for all 18 Modes
  *
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 (function (window) {

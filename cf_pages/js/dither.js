@@ -3,7 +3,7 @@
  * 4-Color (BWRY) Multi-Algorithm Dithering & 2bpp Bit-Packing Engine
  * Screen Specs: 768 × 552, 2bpp, 105,984 Bytes Framebuffer
  * Algorithms: Floyd-Steinberg, Atkinson, Microsoft 8x8 GDI, Stucki, Burkes, Sierra, Ostromoukhov, Bayer 4x4, Threshold
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const BWRY = {

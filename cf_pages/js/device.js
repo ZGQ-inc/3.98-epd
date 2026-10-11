@@ -2,7 +2,7 @@
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
  * Unified Device Manager (Dual-Mode: WebBLE 5.0 + Local LAN HTTP REST API)
  * Remote Hardware Controller, 2bpp BIN Raw Import/Export & Air Provisioning
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const BLE_SERVICE_UUID_128 = '000000ff-0000-1000-8000-00805f9b34fb';

@@ -1,7 +1,7 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
  * Preset Hub Engine (Bidirectional PWA IndexedDB/Local & ESP32-C3 1.5MB SPIFFS)
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const PresetHub = {

@@ -8,7 +8,7 @@
  * 4. staff: 🎫 展会工作证
  * Full input fields: Name, Title/Role, Org/Company, Contact/Telegram, Email, Motto/Bio, QR URL
  * Supports Landscape (768×552) and Portrait (552×768)
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const Studios = {

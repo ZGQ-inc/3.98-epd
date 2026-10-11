@@ -3,7 +3,7 @@
  * 4-Color (BWRY) Paint Canvas Engine
  * Canvas Size: 768 × 552
  * Tools: Pen, Circle Pen, Line, Rect, Rect Fill, Circle, Circle Fill, Text, Eraser
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const PaintCanvas = {

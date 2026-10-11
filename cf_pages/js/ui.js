@@ -1,7 +1,7 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
  * UI Controller (Material Web 3.0, Device Detection, Orientation, Modals, Tabs, Toasts, BIN Tools)
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 const UI = {

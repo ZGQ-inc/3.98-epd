@@ -3,6 +3,7 @@ name = "epd-firmware"
 version = "0.1.0"
 edition = "2021"
 authors = ["ZGQ Inc."]
+license = "MIT"
 description = "ESP32-C3 3.98-inch 4-Color E-Ink Display Smart Controller"
 
 [[bin]]

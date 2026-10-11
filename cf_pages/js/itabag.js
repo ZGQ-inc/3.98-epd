@@ -2,7 +2,7 @@
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
  * Ita-Bag Charm Studio (痛卡随身挂饰工坊)
  * High-precision 768×552 BWRY Canvas Rendering Engine
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 (function (window) {

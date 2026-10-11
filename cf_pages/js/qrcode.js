@@ -1,7 +1,7 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
  * Lightweight Client-Side QR Code Library
- * Copyright (c) 2026 ZGQ Inc. All Rights Reserved.
+ * Copyright (c) 2026 ZGQ Inc. Licensed under the MIT License.
  */
 
 var QRCodeLib = (function () {

@@ -93,5 +93,7 @@ wrangler pages deploy . --project-name=epd-badge
 
 ## 📄 开源许可证 (License)
 
-MIT License © 2026 ZGQ Inc. & Open Contributors.
-欢迎 Fork、提交 PR 或制作专属的个性外壳与主题模版！
+本项目采用 [MIT 许可证](https://github.com/ZGQ-inc/3.98-epd/blob/main/LICENSE) 开源。
+
+> 💡 **关于版权与署名说明**：  
+> `ZGQ Inc.` 仅为作者个人昵称（Author Handle）。本项目前端 PWA 代码、UI 及模型均以宽松的 MIT License 开放授权，任何人均可在遵守 MIT 协议的前提下自由学习、修改、二次开发与商业/非商业分享。
