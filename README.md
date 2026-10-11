@@ -201,6 +201,38 @@ esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-f
 
 ---
 
+### 6. 连电脑用命令恢复出厂设置与防死锁救砖 (Factory Reset & Unbricking)
+
+如果在操作射频模式时不慎将 Wi-Fi 与蓝牙设置为死锁/失联状态（例如在未配置路由器 Wi-Fi 时误切为仅 Wi-Fi，或蓝牙不可达），可通过 Type-C 数据线将 ESP32-C3 连接至电脑，使用以下命令免拆机 1 秒恢复出厂设置：
+
+#### 方案一：仅清除配置参数（最推荐 · 保留固件与中文字库）
+只需擦除 `0x9000` 处的 NVS 分区（大小 24 KB），设备即可在**不损坏主固件与字库**的前提下重置为出厂初始态（自动重置为双模并发模式，并开启 `EPD-Display-Setup` 配网热点与 BLE 广播）：
+```bash
+# Windows (以 COM17 为例，请替换为您的实际端口)
+python -m esptool --chip esp32c3 -p COM17 erase_region 0x9000 0x6000
+
+# Linux / macOS
+esptool.py --chip esp32c3 -p /dev/ttyUSB0 erase_region 0x9000 0x6000
+```
+执行完毕后，重新插拔 USB 或按一下板载 Reset 键，设备即以出厂默认状态启动。
+
+#### 方案二：清空单片机内部效果库预设分区（可选）
+若 Flash 预设库中产生了异常孤儿数据或需要彻底清空存储空间：
+```bash
+python -m esptool --chip esp32c3 -p <PORT> erase_region 0x268000 0x198000
+```
+
+#### 方案三：全片擦除并重新刷机（终极救砖）
+```bash
+# 1. 彻底擦除 4MB Flash
+python -m esptool --chip esp32c3 -p <PORT> erase_flash
+
+# 2. 重新刷入最新编译的二进制固件
+python -m esptool --chip esp32c3 -p <PORT> write_flash 0x20000 firmware/epd-firmware.bin
+```
+
+---
+
 ## 🚀 1 分钟一键部署至 Cloudflare Pages
 
 1. Fork 本仓库到你自己的 GitHub 账号；

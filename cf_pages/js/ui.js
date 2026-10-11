@@ -186,6 +186,9 @@ const UI = {
       targetPane.classList.add('active');
     }
 
+    if (tabId === 'system') {
+      this.pollSystemDiag();
+    }
     window.dispatchEvent(new CustomEvent('tabchange', { detail: { tabId } }));
   },
 
@@ -601,9 +604,20 @@ const UI = {
       if (document.getElementById('diagPanel')) {
         document.getElementById('diagPanel').textContent = data.panel_model || 'SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)';
       }
-      if (document.getElementById('diagWirelessMode')) {
+      if (data.wireless_mode) {
         const names = { auto: '智能自动 (Auto)', ble_only: '仅蓝牙 (BLE Only)', wifi_only: '仅 Wi-Fi', dual: '双模并发 (Dual Mode)' };
-        document.getElementById('diagWirelessMode').textContent = names[data.wireless_mode] || data.wireless_mode || '智能自动 (Auto)';
+        if (document.getElementById('diagWirelessMode')) {
+          document.getElementById('diagWirelessMode').textContent = names[data.wireless_mode] || data.wireless_mode || '智能自动 (Auto)';
+        }
+        document.querySelectorAll('.wireless-opt-btn').forEach(b => {
+          b.classList.remove('active');
+          b.classList.add('tonal');
+        });
+        const activeBtn = document.getElementById(`opt-${data.wireless_mode}`);
+        if (activeBtn) {
+          activeBtn.classList.add('active');
+          activeBtn.classList.remove('tonal');
+        }
       }
       if (document.getElementById('diagBleClients')) {
         document.getElementById('diagBleClients').textContent = `${(data.ble_devices || []).length} 台客户端在线`;
@@ -729,11 +743,28 @@ const UI = {
   },
 
   async setWirelessMode(mode) {
+    const warnings = {
+      ble_only: '⚠️ 警告：切换为【仅蓝牙 (BLE Only)】将彻底关闭 Wi-Fi 芯片以极致省电。\n\n若您当前正在通过局域网/Wi-Fi 进行控制，当前连接将立即中断！\n后续需使用手机蓝牙直推连接（或通过 USB 串口恢复）。\n\n是否确认切换为仅蓝牙模式？',
+      wifi_only: '⚠️ 警告：切换为【仅 Wi-Fi】将关闭蓝牙 BLE 广播与直推通道。\n\n若您当前正在通过蓝牙进行控制，当前连接将立即中断！\n\n是否确认切换为仅 Wi-Fi 模式？',
+      dual: 'ℹ️ 切换为【双模并发 (Dual Mode)】将同时开启 Wi-Fi 与蓝牙 BLE 5.0，支持两端并发控制，待机功耗会略微上升。\n\n是否确认切换？',
+      auto: 'ℹ️ 切换为【智能自动 (Auto)】将根据连网状态智能休眠蓝牙广播以降低待机功耗。\n\n是否确认切换？'
+    };
+    const confirmMsg = warnings[mode] || `确认切换无线通信工作模式为【${mode}】吗？`;
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
     try {
       const res = await window.DeviceManager.setWirelessMode(mode);
-      document.querySelectorAll('.wireless-opt-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.wireless-opt-btn').forEach(b => {
+        b.classList.remove('active');
+        b.classList.add('tonal');
+      });
       const activeBtn = document.getElementById(`opt-${mode}`);
-      if (activeBtn) activeBtn.classList.add('active');
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.classList.remove('tonal');
+      }
       this.showToast(`🎉 ${res.message || `无线模式已切换为 ${mode}`}`, 'success', 3500);
       this.pollSystemDiag();
     } catch (e) {

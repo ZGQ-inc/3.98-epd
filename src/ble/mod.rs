@@ -457,6 +457,7 @@ impl BleManager {
         let mut adv = advertising.lock();
         if adv.is_advertising() {
             let _ = adv.stop();
+            std::thread::sleep(std::time::Duration::from_millis(30));
         }
 
         let name = self.device_name.lock().unwrap().clone();
@@ -477,11 +478,25 @@ impl BleManager {
         scan_rsp[2..].copy_from_slice(name.as_bytes());
         let _ = adv.set_raw_scan_response_data(&scan_rsp);
 
-        let _ = adv.start();
-
-        *self.status.lock().unwrap() = BleStatus::Advertising;
-        println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF, interval: 100~150ms)", name);
-        info!("[BLE] Started RF advertising as '{}'", name);
+        match adv.start() {
+            Ok(_) => {
+                *self.status.lock().unwrap() = BleStatus::Advertising;
+                println!("  [ble-hardware] Started RF advertising as '{}' (Service 0x00FF, interval: 100~150ms)", name);
+                info!("[BLE] Started RF advertising as '{}'", name);
+            }
+            Err(e) => {
+                println!("  [ble-hardware] adv.start() error: {:?}, retrying after 100ms...", e);
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                let _ = adv.stop();
+                std::thread::sleep(std::time::Duration::from_millis(30));
+                if let Err(e2) = adv.start() {
+                    println!("  [ble-hardware] ERROR: adv.start() retry failed: {:?}", e2);
+                } else {
+                    *self.status.lock().unwrap() = BleStatus::Advertising;
+                    println!("  [ble-hardware] Started RF advertising on retry as '{}'", name);
+                }
+            }
+        }
     }
 
     pub fn stop_advertising(&self) {

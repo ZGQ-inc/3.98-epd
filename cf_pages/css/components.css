@@ -101,6 +101,16 @@
   filter: brightness(1.06);
 }
 
+.m3-btn.active,
+.btn.active,
+.wireless-opt-btn.active {
+  background: var(--md-sys-color-primary) !important;
+  color: var(--md-sys-color-on-primary) !important;
+  font-weight: 700 !important;
+  border-color: var(--md-sys-color-primary) !important;
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary-container) !important;
+}
+
 .m3-btn.danger,
 .btn-danger {
   background: var(--md-sys-color-error);
