@@ -90,8 +90,8 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "public, max-age=3600"),
-                ("ETag", "\"398epd-v2\""),
+                ("Cache-Control", "no-cache, must-revalidate"),
+                ("ETag", "\"398epd-v3.1\""),
             ])?;
             match resp.write_all(INDEX_HTML_GZ) {
                 Ok(_) => println!("  [web] Serving / SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
@@ -109,8 +109,8 @@ impl WebServer {
                 ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "public, max-age=3600"),
-                ("ETag", "\"398epd-v2\""),
+                ("Cache-Control", "no-cache, must-revalidate"),
+                ("ETag", "\"398epd-v3.1\""),
             ])?;
             match resp.write_all(INDEX_HTML_GZ) {
                 Ok(_) => println!("  [web] Serving /app SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
@@ -120,15 +120,21 @@ impl WebServer {
         })?;
 
         // 1c. Dedicated PWA mobile app routes -> 302 HTTP Redirect to HTTPS PWA
+        let ip_redirect_str = ip_addr.clone();
         for path in &["/pwa", "/pwa.html"] {
-            server.fn_handler(path, Method::Get, |_req| -> anyhow::Result<()> {
-                let pwa_url = "https://398epd.zgqinc.gq";
+            let ip_for_redir = ip_redirect_str.clone();
+            server.fn_handler(path, Method::Get, move |_req| -> anyhow::Result<()> {
+                let pwa_url = if !ip_for_redir.is_empty() && ip_for_redir != "0.0.0.0" {
+                    format!("https://398epd.zgqinc.gq/?ip={}", ip_for_redir)
+                } else {
+                    "https://398epd.zgqinc.gq/".to_string()
+                };
                 let body = format!(
                     r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD PWA</title></head><body>正在跳转至独立 PWA 专页：<a href="{pwa_url}">{pwa_url}</a>...</body></html>"#
                 );
                 let len_str = body.len().to_string();
                 let mut resp = _req.into_response(302, None, &[
-                    ("Location", pwa_url),
+                    ("Location", &pwa_url),
                     ("Content-Type", "text/html; charset=utf-8"),
                     ("Content-Length", &len_str),
                     ("Connection", "close"),
