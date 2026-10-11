@@ -251,12 +251,8 @@ impl BleManager {
                         let id = text[12..].trim();
                         println!("  [ble-rx] Pushing preset '{}' directly from SPIFFS...", id);
                         let mut ok = false;
-                        if let Ok(bytes) = crate::storage::get_preset_bitmap(id) {
-                            if bytes.len() == crate::display::TOTAL_BUFFER_SIZE {
-                                let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
-                                raw_fb.copy_from_slice(&bytes);
-                                ok = crate::display::request_direct_bitmap();
-                            }
+                        if crate::storage::load_preset_to_framebuffer(id).is_ok() {
+                            ok = crate::display::request_direct_bitmap();
                         }
                         if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
                             let resp = if ok {

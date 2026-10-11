@@ -24,7 +24,7 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 5120,
+            stack_size: 8192,
             max_open_sockets: 4,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
@@ -893,17 +893,17 @@ impl WebServer {
             println!("  [web] GET /api/presets handler invoked!");
             let list = crate::storage::list_presets();
             println!("  [web] list_presets returned {} presets", list.presets.len());
-            let json = serde_json::to_vec(&list)?;
-            println!("  [web] serialized json: {} bytes", json.len());
-            let len_str = json.len().to_string();
+            let (total_len, p_jsons, stats_json, msg_part, clean_part) =
+                build_preset_list_chunks(&list, None, None);
+            let len_str = total_len.to_string();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
                 ("Connection", "close"),
             ])?;
-            resp.write_all(&json)?;
-            println!("  [web] GET /api/presets response sent successfully!");
+            stream_preset_list_response(&mut resp, &stats_json, &p_jsons, msg_part.as_deref(), clean_part.as_deref())?;
+            println!("  [web] GET /api/presets response sent successfully ({} bytes)!", total_len);
             Ok(())
         })?;
 
@@ -1033,15 +1033,11 @@ impl WebServer {
             if let Ok(p) = serde_json::from_slice::<PushPresetPayload>(&body) {
                 let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, p.id);
                 if let Ok(content) = std::fs::read_to_string(&meta_path) {
-                    if let Ok(meta) = serde_json::from_str::<crate::storage::PresetMeta>(&content) {
+                    if let Some(meta) = crate::storage::parse_preset_meta(&content) {
                         let mut ok = false;
                         if meta.bitmap_file.is_some() || meta.preset_type == "bitmap" {
-                            if let Ok(bytes) = crate::storage::get_preset_bitmap(&meta.id) {
-                                if bytes.len() == crate::display::TOTAL_BUFFER_SIZE {
-                                    let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
-                                    raw_fb.copy_from_slice(&bytes);
-                                    ok = crate::display::request_direct_bitmap();
-                                }
+                            if crate::storage::load_preset_to_framebuffer(&meta.id).is_ok() {
+                                ok = crate::display::request_direct_bitmap();
                             }
                         } else if let Some(ref m_id) = meta.mode_id {
                             ok = crate::display::request_mode(m_id.clone());
@@ -1093,25 +1089,21 @@ impl WebServer {
             }
 
             if let Ok(p) = serde_json::from_slice::<DeletePresetPayload>(&body) {
-                let stats = crate::storage::delete_presets(&p.ids).unwrap_or(crate::storage::StorageStats {
+                let _stats = crate::storage::delete_presets(&p.ids).unwrap_or(crate::storage::StorageStats {
                     total_bytes: 0, used_bytes: 0, free_bytes: 0
                 });
                 let list = crate::storage::list_presets();
-                let resp_data = serde_json::json!({
-                    "status": "ok",
-                    "message": format!("已成功删除选中的 {} 项预设！", p.ids.len()),
-                    "storage": stats,
-                    "presets": list.presets
-                });
-                let json = serde_json::to_vec(&resp_data)?;
-                let len_str = json.len().to_string();
+                let msg = format!("已成功删除选中的 {} 项预设！", p.ids.len());
+                let (total_len, p_jsons, stats_json, msg_part, clean_part) =
+                    build_preset_list_chunks(&list, Some(&msg), None);
+                let len_str = total_len.to_string();
                 let mut resp = req.into_response(200, None, &[
                     ("Content-Type", "application/json; charset=utf-8"),
                     ("Content-Length", &len_str),
                     ("Access-Control-Allow-Origin", "*"),
                     ("Connection", "close"),
                 ])?;
-                resp.write_all(&json)?;
+                stream_preset_list_response(&mut resp, &stats_json, &p_jsons, msg_part.as_deref(), clean_part.as_deref())?;
                 return Ok(());
             }
 
@@ -1163,29 +1155,24 @@ impl WebServer {
         // 18c. POST /api/storage/clean_orphans & POST /api/presets/clean_orphans — Clean invalid and orphan files only
         let handle_clean_orphans = move |req: esp_idf_svc::http::server::Request<&mut esp_idf_svc::http::server::EspHttpConnection>| -> anyhow::Result<()> {
             println!("  [web-api] POST storage/clean_orphans triggered");
-            let (count, stats) = match crate::storage::clean_invalid_data() {
+            let (count, _stats) = match crate::storage::clean_invalid_data() {
                 Ok((c, s)) => (c, s),
                 Err(_) => (0, crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
                     total_bytes: 1528 * 1024, used_bytes: 0, free_bytes: 1528 * 1024,
                 }))
             };
             let list = crate::storage::list_presets();
-            let resp_data = serde_json::json!({
-                "status": "ok",
-                "cleaned_count": count,
-                "message": format!("已成功清理 {} 项无效残留文件！", count),
-                "storage": stats,
-                "presets": list.presets
-            });
-            let json = serde_json::to_vec(&resp_data)?;
-            let len_str = json.len().to_string();
+            let msg = format!("已成功清理 {} 项无效残留文件！", count);
+            let (total_len, p_jsons, stats_json, msg_part, clean_part) =
+                build_preset_list_chunks(&list, Some(&msg), Some(count));
+            let len_str = total_len.to_string();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
                 ("Connection", "close"),
             ])?;
-            resp.write_all(&json)?;
+            stream_preset_list_response(&mut resp, &stats_json, &p_jsons, msg_part.as_deref(), clean_part.as_deref())?;
             Ok(())
         };
 
@@ -1203,14 +1190,19 @@ impl WebServer {
             if !preset_id.is_empty() {
                 let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, preset_id);
                 if let Ok(content) = std::fs::read_to_string(&meta_path) {
-                    let len_str = content.len().to_string();
+                    let clean_content = if let Some(idx) = content.rfind('}') {
+                        &content[..=idx]
+                    } else {
+                        &content
+                    };
+                    let len_str = clean_content.len().to_string();
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
                         ("Connection", "close"),
                     ])?;
-                    resp.write_all(content.as_bytes())?;
+                    resp.write_all(clean_content.as_bytes())?;
                     return Ok(());
                 }
             }
@@ -1236,19 +1228,30 @@ impl WebServer {
                 preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
             }
 
-            if let Ok(bytes) = crate::storage::get_preset_bitmap(&preset_id) {
-                let len_str = bytes.len().to_string();
-                let mut resp = req.into_response(200, None, &[
-                    ("Content-Type", "application/octet-stream"),
-                    ("Content-Length", &len_str),
-                    ("Access-Control-Allow-Origin", "*"),
-                    ("Connection", "close"),
-                ])?;
-                for chunk in bytes.chunks(1024) {
-                    resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                    std::thread::sleep(std::time::Duration::from_millis(1));
+            if !preset_id.is_empty() {
+                let bmp_path = format!("{}/{}.2bpp", crate::storage::PRESETS_DIR, preset_id);
+                if let Ok(mut f) = std::fs::File::open(&bmp_path) {
+                    if let Ok(metadata) = f.metadata() {
+                        let len_str = metadata.len().to_string();
+                        let mut resp = req.into_response(200, None, &[
+                            ("Content-Type", "application/octet-stream"),
+                            ("Content-Length", &len_str),
+                            ("Access-Control-Allow-Origin", "*"),
+                            ("Connection", "close"),
+                        ])?;
+                        let mut buf = [0u8; 1024];
+                        use std::io::Read;
+                        loop {
+                            let n = f.read(&mut buf)?;
+                            if n == 0 {
+                                break;
+                            }
+                            resp.write_all(&buf[..n]).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+                            std::thread::sleep(std::time::Duration::from_millis(1));
+                        }
+                        return Ok(());
+                    }
                 }
-                return Ok(());
             }
 
             let mut resp = req.into_response(404, None, &[
@@ -1286,6 +1289,55 @@ impl WebServer {
 
         Ok(Self)
     }
+}
+fn build_preset_list_chunks(
+    list: &crate::storage::PresetListResponse,
+    extra_msg: Option<&str>,
+    cleaned_count: Option<usize>,
+) -> (usize, Vec<Vec<u8>>, Vec<u8>, Option<String>, Option<String>) {
+    let stats_json = serde_json::to_vec(&list.storage).unwrap_or_default();
+    let p_jsons: Vec<Vec<u8>> = list.presets.iter().filter_map(|p| serde_json::to_vec(p).ok()).collect();
+    let msg_part = extra_msg.and_then(|m| serde_json::to_string(m).ok()).map(|j| format!(",\"message\":{}", j));
+    let clean_part = cleaned_count.map(|c| format!(",\"cleaned_count\":{}", c));
+
+    let total_len = "{\"status\":\"ok\"".len()
+        + msg_part.as_ref().map(|s| s.len()).unwrap_or(0)
+        + clean_part.as_ref().map(|s| s.len()).unwrap_or(0)
+        + ",\"storage\":".len()
+        + stats_json.len()
+        + ",\"presets\":[".len()
+        + if p_jsons.is_empty() { 0 } else { p_jsons.len() - 1 }
+        + p_jsons.iter().map(|b| b.len()).sum::<usize>()
+        + "]}".len();
+
+    (total_len, p_jsons, stats_json, msg_part, clean_part)
+}
+
+fn stream_preset_list_response<W: esp_idf_svc::io::Write>(
+    resp: &mut W,
+    stats_json: &[u8],
+    p_jsons: &[Vec<u8>],
+    msg_part: Option<&str>,
+    clean_part: Option<&str>,
+) -> anyhow::Result<()> {
+    resp.write_all(b"{\"status\":\"ok\"").map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    if let Some(m) = msg_part {
+        resp.write_all(m.as_bytes()).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    }
+    if let Some(c) = clean_part {
+        resp.write_all(c.as_bytes()).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    }
+    resp.write_all(b",\"storage\":").map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    resp.write_all(stats_json).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    resp.write_all(b",\"presets\":[").map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    for (i, p_bytes) in p_jsons.iter().enumerate() {
+        if i > 0 {
+            resp.write_all(b",").map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        }
+        resp.write_all(p_bytes).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    }
+    resp.write_all(b"]}").map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    Ok(())
 }
 
 /// Safe stack-based chunk writer to prevent out-of-bounds indexing
