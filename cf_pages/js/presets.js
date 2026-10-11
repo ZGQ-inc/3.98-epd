@@ -53,7 +53,7 @@ const PresetHub = {
     }
   },
 
-  /* ================= IndexedDB Storage Engine ================= */
+  /*  IndexedDB Storage Engine  */
   async _openDb() {
     if (this.db) return this.db;
     if (!window.indexedDB) return null;
@@ -112,7 +112,7 @@ const PresetHub = {
     });
   },
 
-  /* ================= Local Storage & IndexedDB Hybrid Cache ================= */
+  /*  Local Storage & IndexedDB Hybrid Cache  */
   async loadLocalPresets() {
     let localPresets = [];
     // 1. Synchronous localStorage fallback
@@ -248,7 +248,7 @@ const PresetHub = {
     }
   },
 
-  /* ================= Bidirectional Sync with Hardware SPIFFS ================= */
+  /*  Bidirectional Sync with Hardware SPIFFS  */
   async syncWithDevice() {
     let synced = false;
     const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)

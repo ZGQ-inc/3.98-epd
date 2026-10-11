@@ -947,6 +947,8 @@ impl WebServer {
                         text_content: p.text_content,
                         preview_thumb: p.preview_thumb,
                         bitmap_file: None,
+                        is_complete: false,
+                        is_orphan: false,
                     };
 
                     let raw_fb = if p.save_current_screen.unwrap_or(false) || p_type == "bitmap" {

@@ -12,7 +12,7 @@
  */
 
 const Studios = {
-  /* ================= 1. Smart E-Badge Studio ================= */
+  /*  1. Smart E-Badge Studio  */
   renderBadge(canvas, config) {
     const isPortrait = (config.orientation === 90 || config.orientation === 270);
     const w = isPortrait ? 552 : 768;
@@ -36,7 +36,7 @@ const Studios = {
     ctx.fillRect(0, 0, w, h);
 
     if (isPortrait) {
-      /* ================= 竖屏自适应模式 (552 × 768) ================= */
+      /*  竖屏自适应模式 (552 × 768)  */
       if (template === 'geek') {
         // 🧑‍💻 极客黑客 (Portrait)
         ctx.fillStyle = '#000000';
@@ -221,7 +221,7 @@ const Studios = {
       }
 
     } else {
-      /* ================= 横屏自适应模式 (768 × 552) ================= */
+      /*  横屏自适应模式 (768 × 552)  */
       if (template === 'geek') {
         // 🧑‍💻 极客黑客 (Landscape)
         ctx.fillStyle = '#000000';
@@ -392,7 +392,7 @@ const Studios = {
     }
   },
 
-  /* ================= 2. Memo & Checklist Studio ================= */
+  /*  2. Memo & Checklist Studio  */
   renderMemo(canvas, config) {
     const isPortrait = (config.orientation === 90 || config.orientation === 270);
     const w = isPortrait ? 552 : 768;

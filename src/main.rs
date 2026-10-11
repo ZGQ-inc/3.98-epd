@@ -32,10 +32,10 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
     log::set_max_level(log::LevelFilter::Info);
-    println!("==================================================");
+    println!("");
     println!("  3.98\" 4-Color E-Ink Smart Display (768x552)     ");
     println!("  Target: ESP32-C3 SuperMini | BWRY 4-Color Mode  ");
-    println!("==================================================");
+    println!("");
     info!("[SYSTEM] Booting EPD smart firmware...");
 
     let peripherals = Peripherals::take()?;

@@ -21,7 +21,7 @@ const UI = {
     this.initLanStatus();
   },
 
-  /* ================= 1. UA Detection & Adaptive Form-Factor ================= */
+  /*  1. UA Detection & Adaptive Form-Factor  */
   detectDevice() {
     const ua = navigator.userAgent.toLowerCase();
     const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -57,7 +57,7 @@ const UI = {
     });
   },
 
-  /* ================= 2. 4-Way Orientation Handler ================= */
+  /*  2. 4-Way Orientation Handler  */
   initOrientation() {
     const saved = parseInt(localStorage.getItem('epd_orientation'), 10) || 0;
     this.setOrientation(saved, false);
@@ -110,7 +110,7 @@ const UI = {
     window.dispatchEvent(new CustomEvent('orientationchange', { detail: { angle } }));
   },
 
-  /* ================= 3. Responsive Sliding Tabs Navigation ================= */
+  /*  3. Responsive Sliding Tabs Navigation  */
   initSlidingTabs() {
     const wrapper = document.querySelector('.tab-scroll-wrapper');
     const container = document.querySelector('.tab-scroll-container');
@@ -189,7 +189,7 @@ const UI = {
     window.dispatchEvent(new CustomEvent('tabchange', { detail: { tabId } }));
   },
 
-  /* ================= 4. Theme Toggle ================= */
+  /*  4. Theme Toggle  */
   initTheme() {
     const saved = localStorage.getItem('epd_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
@@ -208,7 +208,7 @@ const UI = {
     }
   },
 
-  /* ================= 5. Universal Modal Controller ================= */
+  /*  5. Universal Modal Controller  */
   initModals() {
     document.querySelectorAll('.modal-overlay, .modal-backdrop').forEach(overlay => {
       overlay.addEventListener('click', (e) => {
@@ -241,7 +241,7 @@ const UI = {
     }
   },
 
-  /* ================= 6. Device Manager Modal ================= */
+  /*  6. Device Manager Modal  */
   openDeviceManagerModal() {
     const container = document.getElementById('deviceListContainer');
     if (!container) return;
@@ -323,7 +323,7 @@ const UI = {
     this.showToast('已移除设备记忆', 'info');
   },
 
-  /* ================= 7. Air Provisioning Modal ================= */
+  /*  7. Air Provisioning Modal  */
   openAirProvisionModal() {
     this.openModal('airProvModal');
   },
@@ -361,7 +361,7 @@ const UI = {
     }
   },
 
-  /* ================= 8. Custom LAN IP Modal ================= */
+  /*  8. Custom LAN IP Modal  */
   openLanIpModal() {
     const input = document.getElementById('lanModalIpInput') || document.getElementById('customLanIp');
     const currentIp = window.DeviceManager?.lanIp || localStorage.getItem('epd_lan_ip') || '';
@@ -415,7 +415,7 @@ const UI = {
     }
   },
 
-  /* ================= 9. 1:1 Dither Dot-Matrix Simulation Modal ================= */
+  /*  9. 1:1 Dither Dot-Matrix Simulation Modal  */
   openDitherPreviewModal(sourceCanvas, algo = null, options = null) {
     const modalCanvas = document.getElementById('ditherModalCanvas') || document.getElementById('modalPreviewCanvas');
     if (!modalCanvas) return;
@@ -479,7 +479,7 @@ const UI = {
     }
   },
 
-  /* ================= 10. 2bpp BIN Export & Import ================= */
+  /*  10. 2bpp BIN Export & Import  */
   exportCanvasAsBin() {
     const activePane = document.querySelector('.tab-pane.active, .tab-view.active');
     const canvas = activePane ? activePane.querySelector('canvas') : document.getElementById('badgePreviewCanvas');
@@ -524,7 +524,7 @@ const UI = {
     e.target.value = '';
   },
 
-  /* ================= 11. Toast Notifications ================= */
+  /*  11. Toast Notifications  */
   showToast(message, type = 'info', duration = 3000) {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -547,7 +547,7 @@ const UI = {
     }, duration);
   },
 
-  /* ================= 12. System Diagnostics & MQTT Management ================= */
+  /*  12. System Diagnostics & MQTT Management  */
   _bleBroadcastEnabled: true,
   _screenDebugEnabled: false,
 

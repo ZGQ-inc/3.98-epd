@@ -23,9 +23,9 @@
 (function (window) {
   'use strict';
 
-  // =================
+  // 
   // 1. Scene Mode Definitions (18 Modes)
-  // =================
+  // 
   const MODES_DEF = [
     { id: 'demo', name: '系统信息与控制台', icon: '💻', desc: '经典复古仪表板、WebUI访问地址与四色标块' },
     { id: 'fridge_board', name: '冰箱贴布告板', icon: '📌', desc: '家庭核心留言、紧急备忘与今日状态' },
@@ -190,9 +190,9 @@
     }
   };
 
-  // =================
+  // 
   // 2. Offline Astronomical Lunar / JieQi / GanZhi Algorithm Engine
-  // =================
+  // 
   const LunarAlmanac = (function () {
     // 150 Years astronomical compressed lunar bitmask table (1900 - 2049)
     const lunarInfo = [
@@ -408,9 +408,9 @@
     };
   })();
 
-  // =================
+  // 
   // 3. Global Open Data Integration Service (InkSight Architecture)
-  // =================
+  // 
   const OpenDataService = {
     // 1. Weather: Open-Meteo API (100% Free, Global, No Key required)
     async fetchWeather(lat = 22.54, lon = 114.05, customOwmKey = '', city = '深圳') {
@@ -613,9 +613,9 @@
     }
   };
 
-  // =================
+  // 
   // 4. Pomodoro Focus State Machine
-  // =================
+  // 
   const PomodoroTimer = {
     states: {
       WORK: 'WORK',
@@ -700,9 +700,9 @@
     }
   };
 
-  // =================
+  // 
   // 5. Interactive Habit Streak & Heatmap Tracker
-  // =================
+  // 
   const HabitTracker = {
     getStorageKey() {
       return 'epd_habit_data_v2';
@@ -801,9 +801,9 @@
     }
   };
 
-  // =================
+  // 
   // 6. Countdown & Year/Life Progress Calculator
-  // =================
+  // 
   const ProgressCalc = {
     calcCountdown(targetDateStr) {
       const now = new Date();
@@ -837,9 +837,9 @@
     }
   };
 
-  // =================
+  // 
   // 7. Scenes Studio Main Controller & Canvas Renderer
-  // =================
+  // 
   const ScenesStudio = {
     MODES_DEF: MODES_DEF,
     modeParamsStore: JSON.parse(JSON.stringify(defaultParamsStore)),

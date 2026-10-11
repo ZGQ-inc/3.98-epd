@@ -31,7 +31,7 @@ const DeviceManager = {
   onProgress: null,
   _onBleDisconnectedBound: null,
 
-  /* ================= Initialization & URL Query Auto-Binding ================= */
+  /*  Initialization & URL Query Auto-Binding  */
   init() {
     if (localStorage.getItem('epd_lan_ip') === '192.168.10.203') {
       localStorage.removeItem('epd_lan_ip');
@@ -129,7 +129,7 @@ const DeviceManager = {
     return { type: 'none', label: '未连接任何硬件设备', name: '' };
   },
 
-  /* ================= Web Bluetooth (WebBLE Dual-Mode 5.0) ================= */
+  /*  Web Bluetooth (WebBLE Dual-Mode 5.0)  */
   async connectBle() {
     if (!navigator.bluetooth) {
       if (!window.isSecureContext) {
@@ -365,7 +365,7 @@ const DeviceManager = {
     this.updateAirProvBleStatus();
   },
 
-  /* ================= Local LAN HTTP REST API ================= */
+  /*  Local LAN HTTP REST API  */
   setLanIp(ip) {
     this.lanIp = (ip || '').trim();
     localStorage.setItem('epd_lan_ip', this.lanIp);
@@ -409,7 +409,7 @@ const DeviceManager = {
     return false;
   },
 
-  /* ================= Unified 2bpp Push & Stream ================= */
+  /*  Unified 2bpp Push & Stream  */
   async pushBitmap2bpp(packed2bpp, progressCb) {
     if (!packed2bpp || packed2bpp.length !== FRAMEBUFFER_SIZE) {
       throw new Error(`点阵数据大小不合法：预期 ${FRAMEBUFFER_SIZE} 字节，实际 ${packed2bpp?.length || 0} 字节`);
@@ -520,7 +520,7 @@ const DeviceManager = {
     return data;
   },
 
-  /* ================= 2bpp BIN Raw File Export & Import ================= */
+  /*  2bpp BIN Raw File Export & Import  */
   /**
    * Export canvas to 2bpp raw binary file (exactly 105,984 bytes)
    * Triggers download: epd_398_bwry_<timestamp>.bin
@@ -604,7 +604,7 @@ const DeviceManager = {
     return result;
   },
 
-  /* ================= Remote Hardware Control Commands ================= */
+  /*  Remote Hardware Control Commands  */
   /**
    * 1. 16s physical waveform full refresh
    */
@@ -767,7 +767,7 @@ const DeviceManager = {
     return this.sendRestart();
   },
 
-  /* ================= Bluetooth Air Provisioning ================= */
+  /*  Bluetooth Air Provisioning  */
   openAirProvision() {
     this.updateAirProvBleStatus();
     if (typeof UI !== 'undefined' && UI.openModal) {
@@ -870,7 +870,7 @@ const DeviceManager = {
     });
   },
 
-  /* ================= Hardware Text & Presets Actions ================= */
+  /*  Hardware Text & Presets Actions  */
   async pushText(text, x = 20, y = 100, size = 32, color = 'black') {
     if (this.isLanConnected && this.lanIp) {
       await fetch(`http://${this.lanIp}/api/display/text`, {
@@ -1172,7 +1172,7 @@ const DeviceManager = {
     return await fallback.json().catch(() => ({ status: 'ok' }));
   },
 
-  /* ================= Hardware Diagnostics & MQTT REST Methods ================= */
+  /*  Hardware Diagnostics & MQTT REST Methods  */
   async fetchSystemDiag() {
     if (!this.lanIp) throw new Error('未设置局域网设备 IP');
     const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });

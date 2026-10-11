@@ -298,6 +298,8 @@ impl BleManager {
                             text_content: None,
                             preview_thumb: None,
                             bitmap_file: None,
+                            is_complete: false,
+                            is_orphan: false,
                         };
                         let raw_fb = Some(crate::display::framebuffer::get_raw_slice());
                         let res = crate::storage::save_preset(meta, raw_fb);

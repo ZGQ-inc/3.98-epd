@@ -52,7 +52,7 @@ const App = {
     console.log('[App] Ready!');
   },
 
-  /* ================= 1. Smart Badge Studio ================= */
+  /*  1. Smart Badge Studio  */
   selectBadgeTpl(tpl) {
     this.badgeTemplate = tpl;
     ['geek', 'business', 'anime', 'staff'].forEach(t => {
@@ -85,12 +85,12 @@ const App = {
     });
   },
 
-  /* ================= 2. Memo & Checklist ================= */
+  /*  2. Memo & Checklist  */
   renderMemo() {
     if (!this.memoCanvas) return;
     const title = document.getElementById('memoTitle')?.value || 'TODAY TO-DO LIST';
     const itemsRaw = document.getElementById('memoItems')?.value || '';
-    const footer = document.getElementById('memoFooter')?.value || '保持专注，逐项击破！ | 墨水屏双稳态零功耗保持';
+    const footer = document.getElementById('memoFooter')?.value || '保持专注，逐项击破！';
 
     Studios.renderMemo(this.memoCanvas, {
       title,
@@ -101,7 +101,7 @@ const App = {
     });
   },
 
-  /* ================= 3. Image Lab (9 Algorithms & Sliders) ================= */
+  /*  3. Image Lab (9 Algorithms & Sliders)  */
   renderImageLab() {
     if (!this.imageLabCanvas) return;
     const canvas = this.imageLabCanvas;
@@ -148,7 +148,7 @@ const App = {
     BWRY.render2bppToCanvas(canvas, packed);
   },
 
-  /* ================= 4. Push & Presets Engine ================= */
+  /*  4. Push & Presets Engine  */
   async pushCanvas(canvas, name) {
     if (!canvas) return;
     try {
@@ -466,7 +466,7 @@ const App = {
     });
   },
 
-  /* ================= 5. Universal Event Bindings ================= */
+  /*  5. Universal Event Bindings  */
   bindEvents() {
     // 1. Badge inputs
     document.querySelectorAll('.badge-input').forEach(el => {
