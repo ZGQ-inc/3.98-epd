@@ -47,7 +47,7 @@
     <p style="font-size:12px; opacity:0.9; margin-bottom:12px; line-height:1.5;">
       支持智能工牌、痛卡 OC 立绘、相册 4 色微粒量化、手绘画板、预设库与多设备形态自适应。无需消耗单片机内存，秒级畅快操作！
     </p>
-    <a id="pwaLaunchBtn" href="https://398epd.zgqinc.gq/?ip=192.168.10.203" target="_blank" class="btn btn-primary" style="font-weight:700;">🚀 立即启动随身工坊 (PWA)</a>
+    <a id="pwaLaunchBtn" href="https://398epd.zgqinc.gq/" target="_blank" class="btn btn-primary" style="font-weight:700;">🚀 立即启动随身工坊 (PWA)</a>
   </div>
 
   <!-- Screen Debug Overlay Card -->
@@ -379,14 +379,15 @@
     }
 
     function updatePwaLaunchLink() {
-      const host = currentDeviceIp || window.location.hostname || '192.168.10.203';
-      const targetUrl = `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}`;
+      const host = currentDeviceIp || window.location.hostname || '';
+      const targetUrl = host ? `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}` : 'https://398epd.zgqinc.gq/';
       const btn = document.getElementById('pwaLaunchBtn') || document.querySelector('.pwa-card a');
       if (btn) {
         btn.href = targetUrl;
         btn.onclick = function(e) {
-          const freshHost = currentDeviceIp || window.location.hostname || '192.168.10.203';
-          window.open(`https://398epd.zgqinc.gq/?ip=${encodeURIComponent(freshHost)}`, '_blank');
+          const freshHost = currentDeviceIp || window.location.hostname || '';
+          const url = freshHost ? `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(freshHost)}` : 'https://398epd.zgqinc.gq/';
+          window.open(url, '_blank');
           return false;
         };
       }

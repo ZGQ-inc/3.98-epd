@@ -20,7 +20,10 @@ const DeviceManager = {
   txChar: null,
   isBleConnected: false,
 
-  lanIp: localStorage.getItem('epd_lan_ip') || '',
+  lanIp: (() => {
+    const s = (localStorage.getItem('epd_lan_ip') || '').trim();
+    return s === '192.168.10.203' ? '' : s;
+  })(),
   isLanConnected: false,
   activeMode: 'auto', // 'ble' | 'lan' | 'auto'
 
@@ -30,15 +33,22 @@ const DeviceManager = {
 
   /* ================= Initialization & URL Query Auto-Binding ================= */
   init() {
+    if (localStorage.getItem('epd_lan_ip') === '192.168.10.203') {
+      localStorage.removeItem('epd_lan_ip');
+      this.lanIp = '';
+    }
+
     const params = new URLSearchParams(window.location.search);
-    const queryIp = (params.get('ip') || params.get('host') || '').trim();
+    const rawQueryIp = (params.get('ip') || params.get('host') || '').trim();
+    const queryIp = rawQueryIp === '192.168.10.203' ? '' : rawQueryIp;
 
     if (queryIp) {
       this.lanIp = queryIp;
       this.isLanConnected = false; // Strictly do not assume connected before verification!
       localStorage.setItem('epd_lan_ip', queryIp);
     } else if (!this.lanIp) {
-      this.lanIp = localStorage.getItem('epd_lan_ip') || '';
+      const stored = (localStorage.getItem('epd_lan_ip') || '').trim();
+      this.lanIp = (stored === '192.168.10.203') ? '' : stored;
     }
 
     const updateLanBar = () => {
@@ -49,11 +59,11 @@ const DeviceManager = {
       }
       const netLanStatus = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
       if (netLanStatus) {
-        netLanStatus.textContent = this.isLanConnected ? `局域网: ${curIp}` : (curIp ? `局域网: ${curIp} (待验证)` : '未连接局域网');
+        netLanStatus.textContent = this.isLanConnected ? `局域网: ${curIp}` : (curIp ? `局域网: ${curIp} (待连接)` : '未连接局域网');
       }
       const lanConsoleLink = document.getElementById('lanConsoleLink');
       if (lanConsoleLink) {
-        if (curIp) {
+        if (curIp && this.isLanConnected) {
           lanConsoleLink.style.display = 'inline-block';
           lanConsoleLink.href = `http://${curIp}/`;
         } else {
@@ -175,18 +185,18 @@ const DeviceManager = {
         throw new Error('GATT 服务连接未建立或已断开');
       }
 
-      // Crucial: 250ms settling delay for Windows / Android Bluetooth PHY & MTU negotiation!
-      await new Promise(r => setTimeout(r, 250));
+      // Crucial: 450ms settling delay for Windows / Android Bluetooth PHY & MTU negotiation!
+      await new Promise(r => setTimeout(r, 450));
 
       console.log('[BLE] Discovering 0x00FF Service (with auto-reconnect fallback)...');
       let service = null;
-      for (let sAttempt = 1; sAttempt <= 3; sAttempt++) {
+      for (let sAttempt = 1; sAttempt <= 4; sAttempt++) {
         try {
           if (!server || !server.connected) {
             console.warn(`[BLE] GATT Server disconnected before service discovery, reconnecting (${sAttempt})...`);
-            await new Promise(r => setTimeout(r, 350));
+            await new Promise(r => setTimeout(r, 400));
             server = await device.gatt.connect();
-            await new Promise(r => setTimeout(r, 250));
+            await new Promise(r => setTimeout(r, 450));
           }
 
           try {
@@ -197,10 +207,20 @@ const DeviceManager = {
           if (service) break;
         } catch (sErr) {
           console.warn(`[BLE] Service discovery attempt ${sAttempt} failed:`, sErr.message);
-          if (sAttempt === 3) {
-            throw new Error(`无法获取 GATT 服务: ${sErr.message} (若在 Windows 上，建议在系统设置中删除蓝牙设备后重试)`);
+          if (sAttempt === 4) {
+            throw new Error(`无法获取 GATT 服务: ${sErr.message} (若在 Windows 上，建议在系统「设置 -> 蓝牙和其他设备」中删除本设备后重新配对)`);
           }
-          await new Promise(r => setTimeout(r, 400));
+          try {
+            if (device.gatt) {
+              await device.gatt.disconnect();
+              await new Promise(r => setTimeout(r, 300));
+              server = await device.gatt.connect();
+              await new Promise(r => setTimeout(r, 450));
+            }
+          } catch (rErr) {
+            console.warn('[BLE] Reconnect retry error:', rErr);
+            await new Promise(r => setTimeout(r, 500));
+          }
         }
       }
 
@@ -399,8 +419,15 @@ const DeviceManager = {
       return await this._pushBleBitmap(packed2bpp, progressCb);
     } else if (this.isLanConnected && this.lanIp) {
       return await this._pushLanBitmap(packed2bpp, progressCb);
+    } else if (this.lanIp) {
+      // User has an IP configured but not currently verified: test on demand
+      const connected = await this.testLanConnection().catch(() => false);
+      if (connected) {
+        return await this._pushLanBitmap(packed2bpp, progressCb);
+      }
+      throw new Error(`硬件未连通！\n局域网 (${this.lanIp}) 无法访问。请点击顶部「🔍 扫描连接」使用蓝牙直推，或在「🌐 填入 IP」中更新设备 IP。`);
     } else {
-      throw new Error('未连接任何硬件设备！请点击顶部“连接蓝牙”直接无线推送，或在“局域网”中输入设备 IP 并测试连通。');
+      throw new Error('未连接硬件设备！请点击顶部「🔍 扫描连接」使用 WebBLE 蓝牙无线直推，或在「🌐 填入 IP」中输入设备 IP。');
     }
   },
 
@@ -461,20 +488,24 @@ const DeviceManager = {
       : `http://${this.lanIp}/api/display/raw?refresh=false`;
     let res;
     try {
-      res = await fetch(url, {
+      const fetchOpts = {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/octet-stream',
-          'Connection': 'close',
-          'X-Refresh': triggerRefresh ? 'true' : 'false'
+          'Content-Type': 'application/octet-stream'
         },
         body: packed2bpp,
-        signal: AbortSignal.timeout(20000)
-      });
+        signal: AbortSignal.timeout(25000)
+      };
+      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
+      res = await fetch(url, fetchOpts);
     } catch (netErr) {
       this.isLanConnected = false;
       if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
-      throw new Error(`局域网推送连接失败: ${netErr.message} (若在 HTTPS 页面请使用蓝牙，或在浏览器设置中放行 HTTP 混合内容)`);
+      const isHttps = window.location.protocol === 'https:';
+      const helpMsg = isHttps
+        ? `局域网推送连接失败: ${netErr.message}。\n⚠️ 提示：当前页面通过 HTTPS 域名访问，浏览器默认禁止向内网 HTTP 设备发送数据 (Mixed Content / 私有网络拦截)。\n💡 建议解决方案：\n1. 点击顶部「🔍 扫描连接」使用蓝牙无线直推 (零配置、稳定不被拦截)\n2. 或在浏览器设置中放行当前网站的「不安全内容 (Insecure content)」\n3. 或直接在浏览器打开 http://${this.lanIp}/ 访问单片机内置网页进行推送`
+        : `局域网推送连接失败: ${netErr.message}。请检查设备 IP 是否正确且处于同一局域网。`;
+      throw new Error(helpMsg);
     }
 
     if (!res.ok) {
@@ -728,7 +759,7 @@ const DeviceManager = {
     if (!statusEl) return;
 
     if (this.isBleConnected) {
-      statusEl.innerHTML = `<span style="color:#4caf50;">● 蓝牙已连接: <strong>${this.bleDevice?.name || 'EPD-Display'}</strong></span>`;
+      statusEl.innerHTML = `<span style="color:#4caf50;">蓝牙已连接: <strong>${this.bleDevice?.name || 'EPD-Display'}</strong></span>`;
       if (connectBtn) connectBtn.style.display = 'none';
     } else {
       statusEl.innerHTML = `<span style="color:#e57373;">○ 未连接蓝牙设备</span>`;
@@ -874,7 +905,6 @@ const DeviceManager = {
     if (this.isLanConnected && this.lanIp) {
       try {
         const res = await fetch(`http://${this.lanIp}/api/presets`, {
-          headers: { 'Connection': 'close' },
           signal: AbortSignal.timeout(8000)
         });
         if (res.ok) return await res.json();
@@ -912,8 +942,7 @@ const DeviceManager = {
       const res = await fetch(`http://${this.lanIp}/api/presets/save`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Connection': 'close'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           name: meta.name,
@@ -977,8 +1006,7 @@ const DeviceManager = {
       const res = await fetch(`http://${this.lanIp}/api/presets/delete`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Connection': 'close'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ ids }),
         signal: AbortSignal.timeout(10000)

@@ -48,7 +48,7 @@ impl WebServer {
             let mut resp = req.into_response(204, None, &[
                 ("Access-Control-Allow-Origin", "*"),
                 ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
-                ("Access-Control-Allow-Headers", "Content-Type, Authorization"),
+                ("Access-Control-Allow-Headers", "*"),
                 ("Access-Control-Allow-Private-Network", "true"),
                 ("Access-Control-Max-Age", "86400"),
             ])?;
@@ -819,6 +819,7 @@ impl WebServer {
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Access-Control-Allow-Private-Network", "true"),
                         ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;
@@ -832,6 +833,7 @@ impl WebServer {
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Access-Control-Allow-Private-Network", "true"),
                         ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;

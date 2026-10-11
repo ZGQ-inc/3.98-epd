@@ -245,7 +245,6 @@ const PresetHub = {
           res = await DeviceManager.fetchPresets();
         } else if (DeviceManager.lanIp) {
           const resp = await fetch(`http://${DeviceManager.lanIp}/api/presets`, {
-            headers: { 'Connection': 'close' },
             signal: AbortSignal.timeout(8000)
           });
           res = await resp.json();

@@ -392,15 +392,18 @@ const UI = {
   },
 
   initLanStatus() {
-    const ip = window.DeviceManager?.lanIp || localStorage.getItem('epd_lan_ip') || '';
+    const dm = window.DeviceManager;
+    let ip = dm?.lanIp || localStorage.getItem('epd_lan_ip') || '';
+    if (ip === '192.168.10.203') ip = '';
+    const isConn = dm ? dm.isLanConnected : false;
     const statusText = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
     const consoleLink = document.getElementById('lanConsoleLink');
 
     if (statusText) {
-      statusText.textContent = ip ? `局域网: ${ip}` : '未连接局域网';
+      statusText.textContent = isConn ? `局域网: ${ip}` : (ip ? `局域网: ${ip} (待连接)` : '未连接局域网');
     }
     if (consoleLink) {
-      if (ip) {
+      if (ip && isConn) {
         consoleLink.style.display = 'inline-block';
         consoleLink.href = `http://${ip}/`;
       } else {

@@ -37,7 +37,7 @@
     <div class="conn-left">
       <div class="conn-title-row">
         <span class="conn-status-dot" id="bleStatusDot"></span>
-        <strong id="bleStatusText">● 已断开连接</strong>
+        <strong id="bleStatusText">已断开连接</strong>
       </div>
       <div class="conn-subtext" id="bleSubText">
         无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推
@@ -53,8 +53,8 @@
   <div class="network-sub-bar">
     <div class="network-sub-left">
       <span>●</span>
-      <span id="netLanStatus" class="lan-ip-badge">局域网: 192.168.10.203</span>
-      <a href="http://192.168.10.203/" target="_blank" rel="noopener noreferrer" id="lanConsoleLink" class="lan-console-link">[打开控制台]</a>
+      <span id="netLanStatus" class="lan-ip-badge">未连接局域网</span>
+      <a href="#" target="_blank" rel="noopener noreferrer" id="lanConsoleLink" class="lan-console-link" style="display: none;">[打开控制台]</a>
     </div>
     <div class="network-sub-right">
       <button class="m3-btn small outlined" id="btnAirProv">📶 蓝牙配网</button>
@@ -792,7 +792,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">墨水屏局域网 IP 地址:</label>
-        <input type="text" id="lanModalIpInput" class="m3-input" placeholder="如 192.168.10.203">
+        <input type="text" id="lanModalIpInput" class="m3-input" placeholder="如 192.168.1.100 或 epd-display.local">
       </div>
       <div style="margin: 12px 0 6px 0; font-size:12px; font-weight:700; color:var(--md-sys-color-primary);">
         🏠 Home Assistant / MQTT Broker 快捷配置 (可选)

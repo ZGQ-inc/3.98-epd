@@ -549,19 +549,19 @@ const App = {
     const updateConnUI = (status) => {
       if (status.type === 'ble') {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
-        if (bleStatusText) bleStatusText.textContent = `● 已连接: ${status.name}`;
+        if (bleStatusText) bleStatusText.textContent = `已连接: ${status.name}`;
         if (bleSubText) bleSubText.textContent = 'Web Bluetooth 5.0 · 物理低延迟点阵直推中';
         if (bleConnectBtn) bleConnectBtn.textContent = '断开蓝牙';
         UI.rememberDevice(DeviceManager.bleDevice?.id, status.name);
         PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
       } else if (status.type === 'lan') {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
-        if (bleStatusText) bleStatusText.textContent = `● 局域网已连接: ${status.name}`;
+        if (bleStatusText) bleStatusText.textContent = `局域网已连接: ${status.name}`;
         if (bleSubText) bleSubText.textContent = 'REST API 高速全双工信道已连通';
         PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
       } else {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot';
-        if (bleStatusText) bleStatusText.textContent = '● 已断开连接';
+        if (bleStatusText) bleStatusText.textContent = '已断开连接';
         if (bleSubText) bleSubText.textContent = '无需 Wi-Fi · 支持 Chrome/Edge 100% 离线直推';
         if (bleConnectBtn) bleConnectBtn.textContent = '🔍 扫描连接';
         PresetHub._hasRemoteStorageStats = false;
@@ -584,7 +584,7 @@ const App = {
             UI.showToast(`成功连接到蓝牙设备: ${name}`, 'success');
           } catch (e) {
             if (bleStatusDot) bleStatusDot.className = 'conn-status-dot';
-            if (bleStatusText) bleStatusText.textContent = '● 已断开连接';
+            if (bleStatusText) bleStatusText.textContent = '已断开连接';
             UI.showToast(`蓝牙连接失败: ${e.message}`, 'error');
           }
         }
