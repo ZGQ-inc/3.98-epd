@@ -93,10 +93,10 @@ impl WebServer {
                 ("Cache-Control", "no-cache, must-revalidate"),
                 ("ETag", "\"398epd-v3.1\""),
             ])?;
-            match resp.write_all(INDEX_HTML_GZ) {
-                Ok(_) => println!("  [web] Serving / SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
-                Err(e) => println!("  [web] Serving / ERROR: {:?}", e),
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
+                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
+            println!("  [web] Serving / SUCCESS ({} bytes sent in chunks)", INDEX_HTML_GZ.len());
             Ok(())
         })?;
 
@@ -112,10 +112,10 @@ impl WebServer {
                 ("Cache-Control", "no-cache, must-revalidate"),
                 ("ETag", "\"398epd-v3.1\""),
             ])?;
-            match resp.write_all(INDEX_HTML_GZ) {
-                Ok(_) => println!("  [web] Serving /app SUCCESS ({} bytes sent)", INDEX_HTML_GZ.len()),
-                Err(e) => println!("  [web] Serving /app ERROR: {:?}", e),
+            for chunk in INDEX_HTML_GZ.chunks(1024) {
+                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
             }
+            println!("  [web] Serving /app SUCCESS ({} bytes sent in chunks)", INDEX_HTML_GZ.len());
             Ok(())
         })?;
 
