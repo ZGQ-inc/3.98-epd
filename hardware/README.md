@@ -60,6 +60,48 @@ hardware/
 
 驱动板与 ESP32-C3 SuperMini 之间通过 8 根细跳线（推荐 30AWG 或 32AWG 耐高温硅胶线 / OK线）连接，引脚定义与底层硬件 SPI/GPIO 配置严格对应：
 
+```mermaid
+flowchart LR
+    subgraph ESP32["ESP32-C3 SuperMini"]
+        direction TB
+        E_3V3["3.3 (3.3V)"]
+        E_GND["G (GND)"]
+        E_6["6 (GPIO 6)"]
+        E_4["4 (GPIO 4)"]
+        E_7["7 (GPIO 7)"]
+        E_1["1 (GPIO 1)"]
+        E_2["2 (GPIO 2)"]
+        E_10["10 (GPIO 10)"]
+    end
+
+    subgraph DRIVER["高压驱动板 (flamj0)"]
+        direction TB
+        D_VCC["VCC"]
+        D_GND["GND"]
+        D_DIN["DIN"]
+        D_SCK["SCK"]
+        D_CS["CS"]
+        D_DC["DC"]
+        D_RST["RST"]
+        D_BSY["BSY"]
+    end
+
+    subgraph SCREEN["3.98寸 BWRY 墨水屏"]
+        FPC["24-Pin 0.8mm FPC<br>(回流焊 / JLC SMT)"]
+    end
+
+    E_3V3 ==>|"3.3V 逻辑与电荷泵"| D_VCC
+    E_GND ==>|"系统公共地"| D_GND
+    E_6 -->|"MOSI (数据传输)"| D_DIN
+    E_4 -->|"SCK (8MHz 时钟)"| D_SCK
+    E_7 -->|"CS (片选使能)"| D_CS
+    E_1 -->|"DC (数据/命令)"| D_DC
+    E_2 -->|"RST (硬件复位)"| D_RST
+    D_BSY -->|"BUSY (状态回读)"| E_10
+
+    DRIVER ===|"+22V / -20V / +15V 驱动高压"| FPC
+```
+
 | ESP32-C3 SuperMini 引脚 | 驱动板 (Driver Board) 引脚 | 信号名称 / 作用 | 信号流向 | 底层驱动与硬件逻辑说明 |
 | :---: | :---: | :--- | :---: | :--- |
 | **`3.3`** | **`VCC`** | 3.3V 逻辑与高压升压供电 | ESP32 → 驱动板 | 主控板载 3.3V LDO 稳压输出，为驱动板控制逻辑和升压储能电感供电 |
@@ -79,35 +121,41 @@ hardware/
 
 整机电源管理架构采用“独立充电管理 + 机械硬切断 + LDO 二次稳压”闭环设计：
 
-```text
-       ┌───────────────┐
-       │ 3.7V 锂电池   │
-       │ (带保护板)    │
-       └──┬─────────┬──┘
-      红线(+)     黑线(-)
-          │         │
-          ▼         ▼
-       ┌──┴─────────┴──┐
-       │ B+         B- │
-       │    TP4056     │
-       │  充电管理板   │
-       │ OUT+     OUT- │
-       └──┬─────────┬──┘
-          │         │
-          │         └─────────────────────────┐ (系统总地 GND)
-          ▼                                   ▼
-    ┌───────────┐                         ┌───────┐
-    │ 微型滑动  │                         │       │
-    │ 开关 (SW) │                         │       │
-    └──┬────────┘                         │       │
-       │ (拨至 ON 导通)                   │       │
-       ▼                                  │ESP32- │
-    ┌───────┐                             │  C3   │
-    │  5V   │ ──────────────────────────> │ Super │
-    │ (VIN) │                             │ Mini  │
-    └───────┘                             │       │
-                                          │   G   │ ◄─── (接 OUT-)
-                                          └───────┘
+```mermaid
+flowchart TD
+    subgraph BATT_MOD["🔋 电池端"]
+        BAT["3.7V 聚合物锂电池<br>(带充放电保护板)"]
+    end
+
+    subgraph TP_MOD["⚡ 充电与管理板 (TP4056)"]
+        TP_USB["侧面 Type-C 接口<br>(5V 充电源输入)"]
+        TP_BP["B+ (电池正极)"]
+        TP_BM["B- (电池负极)"]
+        TP_OUTP["OUT+ (输出正极)"]
+        TP_OUTM["OUT- (总地输出)"]
+    end
+
+    subgraph SW_MOD["🔘 机械硬切断开关"]
+        SW["微型滑动开关<br>(SS12D00 / SS12F15)"]
+    end
+
+    subgraph MCU_MOD["💻 主控与核心系统 (ESP32-C3)"]
+        MCU_VIN["5V / VIN (电源输入端)"]
+        MCU_LDO["板载 3.3V LDO 降压"]
+        MCU_GND["G (GND 系统总地)"]
+        MCU_3V3["3.3V (系统主供电轨)"]
+    end
+
+    BAT -->|"红线 (+)"| TP_BP
+    BAT -->|"黑线 (-)"| TP_BM
+    TP_USB -.->|"插入充电器"| TP_MOD
+
+    TP_OUTP -->|"3.7V~4.2V"| SW
+    SW -->|"拨至 ON 闭合导通"| MCU_VIN
+    MCU_VIN --> MCU_LDO
+    MCU_LDO --> MCU_3V3
+
+    TP_OUTM ==>|"系统总接地"| MCU_GND
 ```
 
 #### 详细接线步骤：
