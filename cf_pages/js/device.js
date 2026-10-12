@@ -915,6 +915,51 @@ const DeviceManager = {
     throw new Error('未连接任何单片机设备（请先连接蓝牙或局域网）');
   },
 
+  async fetchPresetBitmapStream(id, onProgress) {
+    if (!id) throw new Error('预设 ID 不能为空');
+    if (!this.lanIp) throw new Error('未设置局域网设备 IP，请先在顶部填入设备 IP');
+
+    const url = `http://${this.lanIp}/api/presets/bitmap?id=${encodeURIComponent(id)}`;
+    const fetchOpts = { signal: AbortSignal.timeout(15000) };
+    try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
+
+    const res = await fetch(url, fetchOpts);
+    if (!res.ok) {
+      throw new Error(`单片机返回错误 (HTTP ${res.status})，未找到指定点阵`);
+    }
+
+    if (!res.body || !res.body.getReader) {
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength !== 105984) {
+        throw new Error(`点阵数据大小不正确: ${buf.byteLength} 字节 (应为 105984 字节)`);
+      }
+      onProgress?.(100, buf.byteLength, buf.byteLength);
+      return new Uint8Array(buf);
+    }
+
+    const reader = res.body.getReader();
+    const totalBytes = 105984;
+    const fullData = new Uint8Array(totalBytes);
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        fullData.set(value, received);
+        received += value.length;
+        const pct = Math.min(100, Math.round((received / totalBytes) * 100));
+        onProgress?.(pct, received, totalBytes);
+      }
+    }
+
+    if (received !== totalBytes) {
+      throw new Error(`接收点阵数据不完整: 仅接收 ${received}/${totalBytes} 字节`);
+    }
+
+    return fullData;
+  },
+
   async fetchPresets() {
     if (this.isLanConnected && this.lanIp) {
       try {

@@ -419,10 +419,13 @@ const App = {
     });
 
     listEl.querySelectorAll('.preset-preview-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         const preset = PresetHub.presets.find(p => p.id === id);
-        if (preset && preset.raw_bitmap && this.modalCanvas) {
+        if (!preset) return;
+
+        // If local preset draft or already has raw_bitmap in memory, render instantly!
+        if (preset.raw_bitmap && preset.raw_bitmap.length === 105984 && this.modalCanvas) {
           BWRY.render2bppToCanvas(this.modalCanvas, new Uint8Array(preset.raw_bitmap));
           UI._activeDitherPacked = new Uint8Array(preset.raw_bitmap);
           UI._activePreset = preset;
@@ -434,11 +437,108 @@ const App = {
           const pushBtn = document.getElementById('modalPushDitherBtn');
           if (pushBtn) {
             pushBtn.textContent = preset.is_offline ? '🚀 屏幕推送' : '🚀 内部直推至墨水屏';
+            pushBtn.disabled = false;
           }
 
           UI.openModal('ditherPreviewModal');
-        } else {
-          UI.showToast('该预设未包含点阵位图数据', 'warning');
+          return;
+        }
+
+        // Hardware preset from MCU Flash: open preview modal and pull data with progress bar!
+        UI._activePreset = preset;
+        UI._activeDitherPacked = null;
+
+        const modalTitle = document.querySelector('#ditherPreviewModal .modal-title');
+        if (modalTitle) {
+          modalTitle.textContent = `⏳ 正在读取单片机点阵 - ${preset.name}`;
+        }
+        const pushBtn = document.getElementById('modalPushDitherBtn');
+        if (pushBtn) {
+          pushBtn.textContent = '🚀 内部直推至墨水屏';
+          pushBtn.disabled = false;
+        }
+
+        UI.openModal('ditherPreviewModal');
+
+        const canvas = this.modalCanvas;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const drawProgress = (pct, loadedBytes, totalBytes) => {
+          ctx.fillStyle = '#111318';
+          ctx.fillRect(0, 0, 768, 552);
+
+          // Title
+          ctx.fillStyle = '#e2e2e6';
+          ctx.font = 'bold 22px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`📟 正在从单片机 Flash 读取显存点阵`, 384, 200);
+
+          ctx.fillStyle = '#a8c7fa';
+          ctx.font = 'bold 18px sans-serif';
+          ctx.fillText(`「${preset.name}」`, 384, 238);
+
+          // Progress bar track
+          const barX = 184;
+          const barY = 275;
+          const barW = 400;
+          const barH = 14;
+          const radius = 7;
+
+          ctx.fillStyle = '#282a2f';
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, barW, barH, radius);
+          ctx.fill();
+
+          // Progress bar fill
+          const fillW = Math.max(radius * 2, Math.round(barW * (pct / 100)));
+          ctx.fillStyle = '#4caf50';
+          ctx.beginPath();
+          ctx.roundRect(barX, barY, fillW, barH, radius);
+          ctx.fill();
+
+          // Percentage text
+          ctx.fillStyle = '#c4c6d0';
+          ctx.font = '14px sans-serif';
+          ctx.fillText(`${pct}% (${(loadedBytes / 1024).toFixed(1)} KB / 103.5 KB)`, 384, 320);
+
+          ctx.fillStyle = '#8e9099';
+          ctx.font = '12px sans-serif';
+          ctx.fillText(`流式网络分块调步传输 · SPIFFS 硬件直读`, 384, 355);
+        };
+
+        drawProgress(0, 0, 105984);
+
+        try {
+          const bytes = await DeviceManager.fetchPresetBitmapStream(preset.id, (pct, loaded, total) => {
+            drawProgress(pct, loaded, total);
+          });
+
+          // Successfully pulled 105,984 bytes from MCU Flash!
+          BWRY.render2bppToCanvas(canvas, bytes);
+          UI._activeDitherPacked = bytes;
+          preset.raw_bitmap = Array.from(bytes);
+
+          if (modalTitle) {
+            modalTitle.textContent = `👁️ 单片机点阵预览 - ${preset.name}`;
+          }
+        } catch (err) {
+          console.error('[PresetPreview] Pull failed:', err);
+          ctx.fillStyle = '#111318';
+          ctx.fillRect(0, 0, 768, 552);
+
+          ctx.fillStyle = '#f44336';
+          ctx.font = 'bold 22px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`⚠️ 读取单片机点阵失败`, 384, 220);
+
+          ctx.fillStyle = '#c4c6d0';
+          ctx.font = '15px sans-serif';
+          ctx.fillText(err.message, 384, 265);
+
+          ctx.fillStyle = '#8e9099';
+          ctx.font = '13px sans-serif';
+          ctx.fillText(`单片机内部仍完整保留该预设，您仍可点击下方按钮直接命令硬件内部直推！`, 384, 320);
         }
       });
     });

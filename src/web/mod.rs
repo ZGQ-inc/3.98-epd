@@ -1031,35 +1031,63 @@ impl WebServer {
             }
 
             if let Ok(p) = serde_json::from_slice::<PushPresetPayload>(&body) {
-                let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, p.id);
-                if let Ok(content) = std::fs::read_to_string(&meta_path) {
-                    if let Some(meta) = crate::storage::parse_preset_meta(&content) {
-                        let mut ok = false;
-                        if meta.bitmap_file.is_some() || meta.preset_type == "bitmap" {
-                            if crate::storage::load_preset_to_framebuffer(&meta.id).is_ok() {
-                                ok = crate::display::request_direct_bitmap();
-                            }
-                        } else if let Some(ref m_id) = meta.mode_id {
-                            ok = crate::display::request_mode(m_id.clone());
-                        } else if let Some(ref fabric) = meta.fabric_json {
-                            ok = crate::display::request_layout(fabric.clone());
-                        }
+                let id = p.id.trim();
+                let meta_path = if std::path::Path::new(&format!("{}/{}.json", crate::storage::PRESETS_DIR, id)).exists() {
+                    Some(format!("{}/{}.json", crate::storage::PRESETS_DIR, id))
+                } else if id.starts_with("p_") && std::path::Path::new(&format!("{}/{}.json", crate::storage::PRESETS_DIR, &id[2..])).exists() {
+                    Some(format!("{}/{}.json", crate::storage::PRESETS_DIR, &id[2..]))
+                } else if std::path::Path::new(&format!("{}/p_{}.json", crate::storage::PRESETS_DIR, id)).exists() {
+                    Some(format!("{}/p_{}.json", crate::storage::PRESETS_DIR, id))
+                } else {
+                    None
+                };
 
-                        let resp_data = serde_json::json!({
-                            "status": if ok { "ok" } else { "busy" },
-                            "message": if ok { "预设效果已一键推送，正在执行16秒硬件波形刷新！" } else { "显示引擎正忙，请稍候重试" }
-                        });
-                        let json = serde_json::to_vec(&resp_data)?;
-                        let len_str = json.len().to_string();
-                        let mut resp = req.into_response(200, None, &[
-                            ("Content-Type", "application/json; charset=utf-8"),
-                            ("Content-Length", &len_str),
-                            ("Access-Control-Allow-Origin", "*"),
-                            ("Connection", "close"),
-                        ])?;
-                        resp.write_all(&json)?;
-                        return Ok(());
+                let mut ok = false;
+                let mut handled = false;
+
+                if let Some(path) = meta_path {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        if let Some(meta) = crate::storage::parse_preset_meta(&content) {
+                            handled = true;
+                            if meta.bitmap_file.is_some() || meta.preset_type == "bitmap" {
+                                if crate::storage::load_preset_to_framebuffer(&meta.id).is_ok()
+                                    || crate::storage::load_preset_to_framebuffer(id).is_ok()
+                                {
+                                    ok = crate::display::request_direct_bitmap();
+                                }
+                            } else if let Some(ref m_id) = meta.mode_id {
+                                ok = crate::display::request_mode(m_id.clone());
+                            } else if let Some(ref fabric) = meta.fabric_json {
+                                ok = crate::display::request_layout(fabric.clone());
+                            }
+                        }
                     }
+                }
+
+                // If not handled by metadata JSON, fallback to direct bitmap loading from Flash (.2bpp)
+                if !handled {
+                    if crate::storage::load_preset_to_framebuffer(id).is_ok() {
+                        handled = true;
+                        ok = crate::display::request_direct_bitmap();
+                    }
+                }
+
+                if handled {
+                    let resp_data = serde_json::json!({
+                        "status": if ok { "ok" } else { "busy" },
+                        "message": if ok { "预设效果已内部直推，正在执行16秒硬件波形刷新！" } else { "显示引擎正忙，请稍候重试" }
+                    });
+                    let json = serde_json::to_vec(&resp_data)?;
+                    let len_str = json.len().to_string();
+                    let mut resp = req.into_response(200, None, &[
+                        ("Content-Type", "application/json; charset=utf-8"),
+                        ("Content-Length", &len_str),
+                        ("Access-Control-Allow-Origin", "*"),
+                        ("Access-Control-Allow-Private-Network", "true"),
+                        ("Connection", "close"),
+                    ])?;
+                    resp.write_all(&json)?;
+                    return Ok(());
                 }
             }
 
@@ -1073,6 +1101,7 @@ impl WebServer {
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
@@ -1230,26 +1259,45 @@ impl WebServer {
 
             if !preset_id.is_empty() {
                 let bmp_path = format!("{}/{}.2bpp", crate::storage::PRESETS_DIR, preset_id);
-                if let Ok(mut f) = std::fs::File::open(&bmp_path) {
-                    if let Ok(metadata) = f.metadata() {
-                        let len_str = metadata.len().to_string();
-                        let mut resp = req.into_response(200, None, &[
-                            ("Content-Type", "application/octet-stream"),
-                            ("Content-Length", &len_str),
-                            ("Access-Control-Allow-Origin", "*"),
-                            ("Connection", "close"),
-                        ])?;
-                        let mut buf = [0u8; 1024];
-                        use std::io::Read;
-                        loop {
-                            let n = f.read(&mut buf)?;
-                            if n == 0 {
-                                break;
+                let resolved_path = if std::path::Path::new(&bmp_path).exists() {
+                    Some(bmp_path)
+                } else {
+                    let alt = if preset_id.starts_with("p_") {
+                        format!("{}/{}.2bpp", crate::storage::PRESETS_DIR, &preset_id[2..])
+                    } else {
+                        format!("{}/p_{}.2bpp", crate::storage::PRESETS_DIR, preset_id)
+                    };
+                    if std::path::Path::new(&alt).exists() {
+                        Some(alt)
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some(path) = resolved_path {
+                    if let Ok(mut f) = std::fs::File::open(&path) {
+                        if let Ok(metadata) = f.metadata() {
+                            let len_str = metadata.len().to_string();
+                            let mut resp = req.into_response(200, None, &[
+                                ("Content-Type", "application/octet-stream"),
+                                ("Content-Length", &len_str),
+                                ("Access-Control-Allow-Origin", "*"),
+                                ("Access-Control-Allow-Private-Network", "true"),
+                                ("Cache-Control", "no-cache"),
+                                ("Connection", "close"),
+                            ])?;
+                            let mut buf = [0u8; 2048];
+                            use std::io::Read;
+                            loop {
+                                let n = f.read(&mut buf)?;
+                                if n == 0 {
+                                    break;
+                                }
+                                resp.write_all(&buf[..n]).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+                                std::thread::sleep(std::time::Duration::from_millis(2));
                             }
-                            resp.write_all(&buf[..n]).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                            std::thread::sleep(std::time::Duration::from_millis(1));
+                            return Ok(());
                         }
-                        return Ok(());
                     }
                 }
             }
@@ -1257,6 +1305,7 @@ impl WebServer {
             let mut resp = req.into_response(404, None, &[
                 ("Content-Type", "text/plain"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(b"Preset bitmap not found")?;

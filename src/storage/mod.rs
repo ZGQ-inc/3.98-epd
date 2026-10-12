@@ -517,10 +517,21 @@ pub fn parse_preset_meta(content: &str) -> Option<PresetMeta> {
 pub fn load_preset_to_framebuffer(id: &str) -> Result<(), String> {
     let _guard = STORAGE_LOCK.lock().unwrap();
     let bitmap_path = format!("{}/{}.2bpp", PRESETS_DIR, id);
-    if !Path::new(&bitmap_path).exists() {
-        return Err(format!("Bitmap file for preset {} not found", id));
-    }
-    let mut f = File::open(&bitmap_path).map_err(|e| format!("Open error: {:?}", e))?;
+    let resolved_path = if Path::new(&bitmap_path).exists() {
+        bitmap_path
+    } else {
+        let alt_path = if id.starts_with("p_") {
+            format!("{}/{}.2bpp", PRESETS_DIR, &id[2..])
+        } else {
+            format!("{}/p_{}.2bpp", PRESETS_DIR, id)
+        };
+        if Path::new(&alt_path).exists() {
+            alt_path
+        } else {
+            return Err(format!("Bitmap file for preset {} not found", id));
+        }
+    };
+    let mut f = File::open(&resolved_path).map_err(|e| format!("Open error: {:?}", e))?;
     let raw_fb = crate::display::framebuffer::get_raw_slice_mut();
     f.read_exact(raw_fb).map_err(|e| format!("Read error: {:?}", e))?;
     Ok(())
@@ -530,10 +541,21 @@ pub fn load_preset_to_framebuffer(id: &str) -> Result<(), String> {
 pub fn get_preset_bitmap(id: &str) -> Result<Vec<u8>, String> {
     let _guard = STORAGE_LOCK.lock().unwrap();
     let bitmap_path = format!("{}/{}.2bpp", PRESETS_DIR, id);
-    if !Path::new(&bitmap_path).exists() {
-        return Err(format!("Bitmap file for preset {} not found", id));
-    }
-    let mut f = File::open(&bitmap_path).map_err(|e| format!("Open error: {:?}", e))?;
+    let resolved_path = if Path::new(&bitmap_path).exists() {
+        bitmap_path
+    } else {
+        let alt_path = if id.starts_with("p_") {
+            format!("{}/{}.2bpp", PRESETS_DIR, &id[2..])
+        } else {
+            format!("{}/p_{}.2bpp", PRESETS_DIR, id)
+        };
+        if Path::new(&alt_path).exists() {
+            alt_path
+        } else {
+            return Err(format!("Bitmap file for preset {} not found", id));
+        }
+    };
+    let mut f = File::open(&resolved_path).map_err(|e| format!("Open error: {:?}", e))?;
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).map_err(|e| format!("Read error: {:?}", e))?;
     Ok(buf)
