@@ -651,7 +651,7 @@ const UI = {
         document.getElementById('diagMac').textContent = data.mac_address || '--:--:--:--:--:--';
       }
       if (document.getElementById('diagRssi')) {
-        document.getElementById('diagRssi').textContent = data.wifi_rssi ? `${data.wifi_rssi} dBm (📶 信号良好)` : 'BLE 无线模式 (无需 Wi-Fi)';
+        document.getElementById('diagRssi').textContent = data.wifi_rssi ? `${data.wifi_rssi} dBm` : 'BLE 无线模式';
       }
       if (document.getElementById('diagIp')) {
         const ip = data.ip_address || window.DeviceManager.lanIp || '0.0.0.0';
@@ -761,7 +761,7 @@ const UI = {
     const bA0 = document.getElementById('opt-panel-a0');
     const bA1 = document.getElementById('opt-panel-a1');
     if (badge) {
-      badge.textContent = this._panelVersion === 'A1' ? 'A1 走线' : 'A0 走线 (默认)';
+      badge.textContent = this._panelVersion === 'A1' ? 'A1 走线' : 'A0 走线';
       badge.style.background = this._panelVersion === 'A1' ? 'var(--md-sys-color-tertiary-container, #ffd8e4)' : 'var(--md-sys-color-primary-container)';
       badge.style.color = this._panelVersion === 'A1' ? 'var(--md-sys-color-on-tertiary-container, #31111d)' : 'var(--md-sys-color-on-primary-container)';
     }

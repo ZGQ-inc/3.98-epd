@@ -722,27 +722,27 @@
             <tr><td>NTP 时间 (UTC+8)</td><td id="diagNtpTime">--</td></tr>
             <tr><td>可用堆内存 (SRAM)</td><td id="diagHeap">--</td></tr>
             <tr><td>SPI Flash 闪存规格</td><td id="diagFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
-            <tr><td>内部存储分区 (storage)</td><td id="diagStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
-            <tr><td>参数配置分区 (nvs)</td><td id="diagNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>
+            <tr><td>内部存储分区 (storage)</td><td id="diagStorage">总量 1632 KB · 剩余可用约 - KB</td></tr>
+            <tr><td>参数配置分区 (nvs)</td><td id="diagNvs">总量 24 KB · 剩余可用约 - KB</td></tr>
             <tr><td>墨水屏硬件与控制器</td><td id="diagPanel">SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)</td></tr>
-            <tr><td>屏幕物理扫描走线版本</td><td id="diagPanelVersion">A0 (倒序互换扫描 Gate 映射)</td></tr>
+            <tr><td>屏幕物理扫描走线版本</td><td id="diagPanelVersion">--</td></tr>
             <tr><td>硬件接口总线</td><td id="diagBus">Hardware SPI 8MHz (SCK=4, MOSI=6, CS=7, DC=1, RST=2, BUSY=10)</td></tr>
             <tr><td>中文字库方案</td><td id="diagFont">Flash MMU 零内存占用标准点阵中文字库 (7445字)</td></tr>
-            <tr><td>无线通信工作模式</td><td id="diagWirelessMode">智能自动 (Auto)</td></tr>
-            <tr><td>蓝牙 BLE 5.0 运行状态</td><td id="diagBleStatus">广播中 (ADV · EPD-Smart-Display)</td></tr>
-            <tr><td>已连接蓝牙客户端数</td><td id="diagBleClients">0 台客户端在线</td></tr>
+            <tr><td>无线通信工作模式</td><td id="diagWirelessMode">--</td></tr>
+            <tr><td>蓝牙 BLE 5.0 运行状态</td><td id="diagBleStatus">--</td></tr>
+            <tr><td>已连接蓝牙客户端数</td><td id="diagBleClients">- 台客户端在线</td></tr>
             <tr><td>WebBLE 传输 MTU 规格</td><td id="diagBleMtu">247 字节 (GATT Data Payload: 240B, 极速直推)</td></tr>
             <tr><td>GATT 自定义服务 UUID</td><td id="diagBleService">0x00FF (RX: 0xFF01 Write / TX: 0xFF02 Notify)</td></tr>
-            <tr><td>WebBLE 双模物理链路</td><td id="diagBleConnLink">待机就绪 (等待 WebBLE 主机连接)</td></tr>
+            <tr><td>WebBLE 双模物理链路</td><td id="diagBleConnLink">--</td></tr>
             <tr><td>BLE 射频功率与协议层</td><td id="diagBlePower">+9 dBm · BLE 5.0 PHY 1Mbps / 2Mbps</td></tr>
             <tr><td>屏显 Debug 叠加条状态</td><td id="diagDebugOverlay">已关闭</td></tr>
-            <tr><td>电池状态与电量预警</td><td id="diagBattery">供电正常 (USB 5V / 3.3V LDO)</td></tr>
-            <tr><td>最近系统复位原因</td><td id="diagResetReason">Power-on / Normal</td></tr>
+            <tr><td>电池状态与电量预警</td><td id="diagBattery">-- (USB 5V / 3.3V LDO)</td></tr>
+            <tr><td>最近系统复位原因</td><td id="diagResetReason">--</td></tr>
           </tbody>
         </table>
         <div style="display:flex; gap:10px; margin-top:16px;">
           <button class="m3-btn danger small" onclick="UI.rebootDevice()">软重启设备</button>
-          <button class="m3-btn outlined small" onclick="UI.factoryReset()">恢复出厂设置 (清空WiFi)</button>
+          <button class="m3-btn outlined small" onclick="UI.factoryReset()">恢复出厂设置 (清空 storage & nvs 分区)</button>
         </div>
       </div>
 
@@ -976,10 +976,6 @@
       <a href="https://github.com/ZGQ-inc/3.98-epd" target="_blank" rel="noopener noreferrer">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
         GitHub 开源仓库
-      </a>
-      <span class="footer-sep">·</span>
-      <a href="https://github.com/ZGQ-inc/3.98-epd/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">
-        📄 MIT 许可证
       </a>
       <span class="footer-sep">·</span>
       <a href="https://domain.zgqinc.gq/" target="_blank" rel="noopener noreferrer">
