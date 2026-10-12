@@ -102,6 +102,28 @@ const App = {
   },
 
   /*  3. Image Lab (9 Algorithms & Sliders)  */
+  loadImageFile(file) {
+    if (!file) return;
+    if (file.type && !file.type.startsWith('image/')) {
+      UI.showToast('请拖入有效的图片文件 (PNG / JPG / WEBP / BMP)', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        this.uploadedImg = img;
+        this.renderImageLab();
+        UI.showToast(`🎉 已成功载入图片「${file.name || '相册图片'}」(${img.width}×${img.height})`, 'success');
+      };
+      img.onerror = () => {
+        UI.showToast('图片解析失败，请检查文件格式', 'error');
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+
   renderImageLab() {
     if (!this.imageLabCanvas) return;
     const canvas = this.imageLabCanvas;
@@ -119,9 +141,9 @@ const App = {
       ctx.fillStyle = '#f5f5f5';
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#8e9099';
-      ctx.font = '22px "PingFang SC", sans-serif';
+      ctx.font = '20px "PingFang SC", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('📷 请先上传相册照片 (PNG / JPG / WEBP)', w / 2, h / 2);
+      ctx.fillText('📷 点击右侧上传或直接将图片拖入此处 (PNG / JPG / WEBP)', w / 2, h / 2);
       ctx.textAlign = 'left';
       return;
     }
@@ -729,25 +751,51 @@ const App = {
       if (valBadge) valBadge.textContent = `${val}px`;
     });
 
-    // 4. Image Lab Controls
+    // 4. Image Lab Controls & Drag and Drop Support
     const imageUploadInput = document.getElementById('imageUploadInput') || document.getElementById('labImgInput');
+    const imageDropZone = document.getElementById('imageDropZone');
+    const imagePreviewContainer = document.getElementById('imageLabPreviewContainer');
+    const imageTabPane = document.getElementById('tab-image');
+
     if (imageUploadInput) {
       imageUploadInput.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            this.uploadedImg = img;
-            this.renderImageLab();
-            UI.showToast(`已载入图片 (${img.width}×${img.height})`, 'success');
-          };
-          img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+        if (file) this.loadImageFile(file);
       });
     }
+
+    const dropTargets = [imageDropZone, imagePreviewContainer, this.imageLabCanvas, imageTabPane].filter(Boolean);
+    dropTargets.forEach(target => {
+      ['dragenter', 'dragover'].forEach(name => {
+        target.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          imageDropZone?.classList.add('dragover');
+          imagePreviewContainer?.classList.add('drag-active');
+        });
+      });
+
+      ['dragleave', 'dragend'].forEach(name => {
+        target.addEventListener(name, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          imageDropZone?.classList.remove('dragover');
+          imagePreviewContainer?.classList.remove('drag-active');
+        });
+      });
+
+      target.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        imageDropZone?.classList.remove('dragover');
+        imagePreviewContainer?.classList.remove('drag-active');
+
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          this.loadImageFile(files[0]);
+        }
+      });
+    });
 
     document.getElementById('imageAlgoSelect')?.addEventListener('change', () => this.renderImageLab());
     ['imageContrastSlider', 'imageBrightnessSlider', 'imageRedBoostSlider', 'imageYellowBoostSlider'].forEach(id => {

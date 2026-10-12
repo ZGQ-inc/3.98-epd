@@ -386,7 +386,7 @@
           <div class="card-title">
             <span>👁️ 4色微粒物理量化效果</span>
           </div>
-          <div class="preview-container">
+          <div class="preview-container" id="imageLabPreviewContainer">
             <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552"></canvas>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -405,8 +405,13 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">选择本地图片 (PNG / JPG / WEBP)</label>
-            <input type="file" id="imageUploadInput" class="m3-input" accept="image/*">
+            <label class="form-label">选择或拖入本地图片 (PNG / JPG / WEBP / BMP)</label>
+            <div class="image-upload-zone file-drop-area" id="imageDropZone" title="点击选择文件或直接将图片拖拽至此处">
+              <span class="itabag-upload-icon">🖼️</span>
+              <span class="itabag-upload-title">点击选择图片 或 直接拖拽图片至此处</span>
+              <span class="itabag-upload-desc">亦支持将图片直接拖入左侧画布 · 自动等比缩放适应 768×552</span>
+              <input type="file" id="imageUploadInput" class="itabag-file-input" accept="image/*">
+            </div>
           </div>
 
           <div class="form-group">
@@ -498,25 +503,6 @@
             <button class="mode-card-btn" data-mode-cmd="stock">📈 股票加密行情</button>
             <button class="mode-card-btn" data-mode-cmd="countdown">⏳ 纪念日倒计时</button>
             <button class="mode-card-btn" data-mode-cmd="battery_warning">⚠️ 欠压低电告警</button>
-          </div>
-
-          <div class="card-title" style="margin-top:16px;">
-            <span>📡 射频与固件工作模式 (4种)</span>
-          </div>
-          <div class="rf-mode-grid">
-            <button class="rf-btn" data-rf-cmd="auto">🔄 智能共存 (Auto)</button>
-            <button class="rf-btn" data-rf-cmd="ble">🔵 仅蓝牙 (BLE Only)</button>
-            <button class="rf-btn" data-rf-cmd="wifi">📶 仅 Wi-Fi (WiFi Only)</button>
-            <button class="rf-btn" data-rf-cmd="dual">🌐 双模并发 (Dual Mode)</button>
-          </div>
-
-          <div class="card-title" style="margin-top:16px;">
-            <span>💾 2bpp 原始显存裸流导入与导出</span>
-          </div>
-          <div class="bin-tools-row">
-            <button class="m3-btn tonal" id="btnExportBin">💾 下载 .BIN 文件</button>
-            <button class="m3-btn tonal" id="btnImportBin">📥 导入 .BIN 推送</button>
-            <input type="file" id="importBinInput" accept=".bin" style="display:none;">
           </div>
         </div>
 
@@ -657,7 +643,23 @@
         </div>
       </div>
 
-      <!-- 3. ⚙️ 系统硬件指标与实时底层诊断 (18项完整指标) -->
+      <!-- 3. 💾 2bpp 原始显存裸流导入与导出卡片 -->
+      <div class="m3-card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="margin:0; font-size:15px; font-weight:700;">💾 2bpp 原始显存裸流导入与导出</h3>
+          <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:var(--md-sys-color-surface-container); color:var(--md-sys-color-primary); font-weight:700;">768×552 · 105,984 字节</span>
+        </div>
+        <div class="card-subtitle" style="margin-bottom:12px;">
+          导出当前墨水屏物理显存裸流 (.bin) 进行本地归档，或直接导入 .bin 文件秒级直推屏幕
+        </div>
+        <div class="bin-tools-row">
+          <button class="m3-btn tonal" id="btnExportBin">💾 下载当前显存 .BIN 文件</button>
+          <button class="m3-btn tonal" id="btnImportBin">📥 导入本地 .BIN 直推屏幕</button>
+          <input type="file" id="importBinInput" accept=".bin" style="display:none;">
+        </div>
+      </div>
+
+      <!-- 4. ⚙️ 系统硬件指标与实时底层诊断 (18项完整指标) -->
       <div class="m3-card" style="margin-bottom:14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h3 style="margin:0; font-size:15px; font-weight:700;">⚙️ 系统硬件指标与实时底层诊断</h3>
@@ -937,15 +939,15 @@
   </footer>
 
   <!-- Modular Scripts -->
-  <script src="./js/qrcode.js?v=2.8"></script>
-  <script src="./js/dither.js?v=2.8"></script>
-  <script src="./js/device.js?v=2.8"></script>
-  <script src="./js/presets.js?v=2.8"></script>
-  <script src="./js/canvas.js?v=2.8"></script>
-  <script src="./js/itabag.js?v=2.8"></script>
-  <script src="./js/scenes.js?v=2.8"></script>
-  <script src="./js/studio.js?v=2.8"></script>
-  <script src="./js/ui.js?v=2.8"></script>
-  <script src="./js/app.js?v=2.8"></script>
+  <script src="./js/qrcode.js?v=2.9"></script>
+  <script src="./js/dither.js?v=2.9"></script>
+  <script src="./js/device.js?v=2.9"></script>
+  <script src="./js/presets.js?v=2.9"></script>
+  <script src="./js/canvas.js?v=2.9"></script>
+  <script src="./js/itabag.js?v=2.9"></script>
+  <script src="./js/scenes.js?v=2.9"></script>
+  <script src="./js/studio.js?v=2.9"></script>
+  <script src="./js/ui.js?v=2.9"></script>
+  <script src="./js/app.js?v=2.9"></script>
 </body>
 </html>

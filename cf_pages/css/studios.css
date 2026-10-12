@@ -130,6 +130,12 @@
   color: var(--md-sys-color-on-primary-container);
 }
 
+.preview-container.drag-active {
+  outline: 2px dashed var(--md-sys-color-primary);
+  outline-offset: -4px;
+  background: rgba(168, 199, 250, 0.05);
+}
+
 .itabag-upload-icon {
   font-size: 30px;
   line-height: 1;

@@ -529,11 +529,48 @@ const UI = {
   },
 
   /*  10. 2bpp BIN Export & Import  */
-  exportCanvasAsBin() {
+  async exportCanvasAsBin() {
     const activePane = document.querySelector('.tab-pane.active, .tab-view.active');
-    const canvas = activePane ? activePane.querySelector('canvas') : document.getElementById('badgePreviewCanvas');
+    const isSystemTab = activePane && activePane.id === 'tab-system';
+
+    // If on hardware diagnostics tab and connected to device, pull the true physical framebuffer!
+    if (isSystemTab && window.DeviceManager.isLanConnected && window.DeviceManager.lanIp) {
+      try {
+        this.showToast('正在从单片机读取当前物理显存 105,984 字节...', 'info', 3000);
+        const res = await fetch(`http://${window.DeviceManager.lanIp}/api/display/raw`, {
+          signal: AbortSignal.timeout(10000)
+        });
+        if (res.ok) {
+          const isCompressed = res.headers.get('x-compression') === 'packbits';
+          const buf = await res.arrayBuffer();
+          const raw = new Uint8Array(buf);
+          const packed = (isCompressed || raw.length < 105984)
+            ? window.DeviceManager.unpackBits(raw, 105984)
+            : raw;
+
+          const blob = new Blob([packed], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `epd_device_framebuffer_${Date.now()}.bin`;
+          a.click();
+          URL.revokeObjectURL(url);
+          this.showToast('✅ 成功导出单片机当前物理显存 105,984 字节 (.bin)！', 'success', 3500);
+          return;
+        }
+      } catch (e) {
+        console.warn('Pull raw fb failed, falling back to canvas:', e);
+      }
+    }
+
+    const canvas = (activePane && !isSystemTab) ? activePane.querySelector('canvas') : (
+      document.getElementById('imageLabCanvas') ||
+      document.getElementById('scenesPreviewCanvas') ||
+      document.getElementById('badgePreviewCanvas') ||
+      document.querySelector('canvas')
+    );
     if (!canvas) {
-      this.showToast('未找到当前画布', 'warning');
+      this.showToast('未找到可导出的画布', 'warning');
       return;
     }
 
@@ -546,7 +583,7 @@ const UI = {
     a.download = `epd_framebuffer_rot${this.orientation}_${Date.now()}.bin`;
     a.click();
     URL.revokeObjectURL(url);
-    this.showToast(`✅ 已下载 105,984 字节 2bpp 固件显存文件 (朝向: ${this.orientation}°)！`, 'success', 3500);
+    this.showToast(`✅ 已下载 105,984 字节 2bpp 显存文件 (朝向: ${this.orientation}°)！`, 'success', 3500);
   },
 
   async handleImportBinFile(e) {
