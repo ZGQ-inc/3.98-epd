@@ -181,12 +181,94 @@
       if (document.getElementById('itaStyleSelect')?.value) this.config.style = document.getElementById('itaStyleSelect').value;
       if (document.getElementById('itaBorderSelect')?.value) this.config.borderStyle = document.getElementById('itaBorderSelect').value;
 
-      // 10. Reset button
+      // 10. Zoom buttons & reset
+      document.getElementById('itaZoomInBtn')?.addEventListener('click', () => {
+        this.config.scale = Math.min(4.0, (this.config.scale || 1.0) * 1.15);
+        this._updateScaleDisplay();
+        this.renderPreview();
+      });
+
+      document.getElementById('itaZoomOutBtn')?.addEventListener('click', () => {
+        this.config.scale = Math.max(0.2, (this.config.scale || 1.0) * 0.85);
+        this._updateScaleDisplay();
+        this.renderPreview();
+      });
+
+      document.getElementById('itaResetTransformBtn')?.addEventListener('click', () => {
+        this.config.scale = 1.0;
+        this.config.offsetX = 0;
+        this.config.offsetY = 0;
+        this._updateScaleDisplay();
+        this.renderPreview();
+        if (window.UI?.showToast) window.UI.showToast('立绘已重置为居中自适应');
+      });
+
+      // 11. Interactive Canvas Pointer Dragging & Empty Click
+      const canvas = this.canvas;
+      if (canvas) {
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let startOffX = 0, startOffY = 0;
+        let activePointerId = null;
+
+        canvas.addEventListener('pointerdown', (e) => {
+          if (!this.userImage) {
+            // Click empty canvas to upload
+            const fileInput = document.getElementById('itaUploadInput');
+            if (fileInput) fileInput.click();
+            return;
+          }
+          e.preventDefault();
+          isDragging = true;
+          activePointerId = e.pointerId;
+          startX = e.clientX;
+          startY = e.clientY;
+          startOffX = this.config.offsetX || 0;
+          startOffY = this.config.offsetY || 0;
+          try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+          canvas.style.cursor = 'grabbing';
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (!isDragging) return;
+          e.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const scaleRatioX = canvas.width / rect.width;
+          const scaleRatioY = canvas.height / rect.height;
+          this.config.offsetX = startOffX + (e.clientX - startX) * scaleRatioX;
+          this.config.offsetY = startOffY + (e.clientY - startY) * scaleRatioY;
+          this.renderPreview();
+        });
+
+        const stopDrag = (e) => {
+          if (isDragging) {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+            if (activePointerId !== null) {
+              try { canvas.releasePointerCapture(activePointerId); } catch (_) {}
+              activePointerId = null;
+            }
+          }
+        };
+        canvas.addEventListener('pointerup', stopDrag);
+        canvas.addEventListener('pointercancel', stopDrag);
+
+        canvas.addEventListener('wheel', (e) => {
+          if (!this.userImage) return;
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 1.08 : 0.92;
+          this.config.scale = Math.min(4.0, Math.max(0.2, (this.config.scale || 1.0) * delta));
+          this._updateScaleDisplay();
+          this.renderPreview();
+        }, { passive: false });
+      }
+
+      // 12. Reset button
       document.getElementById('itaResetBtn')?.addEventListener('click', () => {
         this.reset();
       });
 
-      // 11. Listen to tabchange
+      // 13. Listen to tabchange
       window.addEventListener('tabchange', (e) => {
         if (e.detail && e.detail.tabId === 'itabag') {
           this.renderPreview();
@@ -194,6 +276,7 @@
       });
 
       // Trigger initial render
+      this._updateScaleDisplay();
       this.renderPreview();
       console.log('[ItaBagStudio] Ready!');
     },
@@ -220,14 +303,16 @@
           this.userImage = img;
           this.config.offsetX = 0;
           this.config.offsetY = 0;
+          this.config.scale = 1.0;
+          this._updateScaleDisplay();
           if (window.UI?.showToast) {
-            window.UI.showToast(`图片「${file.name}」已载入 (${img.width}×${img.height})`, 'success', 2500);
+            window.UI.showToast(`角色立绘「${file.name}」已载入 (${img.width}×${img.height})`, 'success', 2500);
           }
           this.renderPreview();
         };
         img.onerror = () => {
           if (window.UI?.showToast) {
-            window.UI.showToast('图片加载失败，请检查文件格式', 'error');
+            window.UI.showToast('立绘加载失败，请检查文件格式', 'error');
           }
         };
         img.src = loadEvent.target.result;
@@ -263,16 +348,32 @@
       // 2. Character Image or Cute Placeholder
       if (this.userImage) {
         ctx.save();
-        // Inner clipping boundary (below top banner, above bottom dialogue)
+        const isClean = (style === 'clean' || style === 'none');
+        const clipX = 16;
+        const clipY = 58;
+        const clipW = w - 32;
+        const clipH = isClean 
+          ? (h - 72)
+          : (isPortrait ? (h - 210) : 456);
+
         ctx.beginPath();
-        const clipH = isPortrait ? (h - 210) : 456;
-        this._roundRect(ctx, 16, 58, w - 32, clipH, 12);
+        this._roundRect(ctx, clipX, clipY, clipW, clipH, 12);
         ctx.clip();
 
+        // Proportional auto-contain base scale so any resolution character fits comfortably inside frame
+        const targetViewH = isClean 
+          ? (h - 76) 
+          : (isPortrait ? (h - 220) : 340);
+        const baseScale = Math.min((clipW - 16) / this.userImage.width, targetViewH / this.userImage.height);
+        const totalScale = baseScale * (scale || 1.0);
+
         const cx = (w / 2) + (offsetX || 0);
-        const cy = (isPortrait ? 340 : 275) + (offsetY || 0);
+        const cy = isClean 
+          ? ((clipY + clipH / 2) + (offsetY || 0))
+          : ((isPortrait ? 330 : 230) + (offsetY || 0));
+
         ctx.translate(cx, cy);
-        ctx.scale(scale || 1.0, scale || 1.0);
+        ctx.scale(totalScale, totalScale);
         ctx.drawImage(this.userImage, -this.userImage.width / 2, -this.userImage.height / 2);
         ctx.restore();
       } else {
@@ -394,11 +495,11 @@
 
       ctx.fillStyle = YELLOW;
       ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
-      ctx.fillText('📷 点击或拖拽上传自定义立绘照片', cx, cy + 92);
+      ctx.fillText('📷 点击此处或拖拽上传角色立绘照片', cx, cy + 92);
 
       ctx.fillStyle = '#777777';
       ctx.font = '12px -apple-system, sans-serif';
-      ctx.fillText('支持 PNG / JPG / WEBP · 50%~250% 无级缩放', cx, cy + 128);
+      ctx.fillText('支持透明 PNG / JPG / WEBP · 画布手势直接拖拽平移与自由缩放', cx, cy + 128);
 
       ctx.textAlign = 'left';
       ctx.textBaseline = 'alphabetic';
@@ -473,9 +574,29 @@
      */
     _drawBottomBanner(ctx, w = 768, h = 552, isPortrait = false) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
-      const charName = this.config.title ? this.config.title.trim() : '角色名';
+      const charName = this.config.title ? this.config.title.trim() : '角色立绘';
       const quoteText = this.config.quote ? this.config.quote.trim() : '专属台词 / 签名题字';
-      const isBubble = this.config.style === 'bubble';
+      const style = this.config.style;
+
+      if (style === 'clean' || style === 'none') {
+        // Pure character standee mode: minimalist badge in bottom corner so full-body立绘 is not blocked
+        const px = isPortrait ? 20 : 28;
+        const py = h - 46;
+        const sourceText = this.config.source ? this.config.source.trim() : '';
+        const tagText = '★ ' + charName + (sourceText ? ` · ${sourceText}` : '');
+        ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        const tw = ctx.measureText(tagText).width;
+        ctx.fillStyle = BLACK;
+        this._roundRect(ctx, px, py - 4, tw + 24, 26, 13, true, false);
+        ctx.fillStyle = YELLOW;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tagText, px + 12, py + 9);
+        ctx.textBaseline = 'alphabetic';
+        return;
+      }
+
+      const isBubble = style === 'bubble';
 
       if (isBubble) {
         // Comic Dialogue Speech Bubble
@@ -649,7 +770,12 @@
      * Update scale slider text badge if element exists
      */
     _updateScaleDisplay() {
-      const val = `${this.config.scale.toFixed(1)}x`;
+      const pct = Math.round((this.config.scale || 1.0) * 100);
+      const val = `${pct}%`;
+      const slider = document.getElementById('itaScaleInput');
+      if (slider) slider.value = (this.config.scale || 1.0);
+      const badge = document.getElementById('itaZoomBadge');
+      if (badge) badge.textContent = val;
       document.querySelectorAll('#itaScaleVal, #itaScaleValue, .ita-scale-val').forEach(el => {
         el.textContent = val;
       });

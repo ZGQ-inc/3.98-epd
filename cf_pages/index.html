@@ -93,7 +93,7 @@
     <div class="tab-scroll-container">
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="badge">📇 智能工牌</button>
-        <button class="tab-btn" data-tab="itabag">🎒 兽聚痛卡</button>
+        <button class="tab-btn" data-tab="itabag">🎒 痛卡立绘</button>
         <button class="tab-btn" data-tab="memo">📝 随身便签</button>
         <button class="tab-btn" data-tab="paint">🎨 手绘画板</button>
         <button class="tab-btn" data-tab="image">🖼️ 图片调色</button>
@@ -184,19 +184,24 @@
     </div>
 
     <!-- 
-     * TAB 2: 🎒 兽聚痛卡 / 角色立绘随身挂饰
+     * TAB 2: 🎒 角色立绘与痛卡随身挂饰
      *  -->
     <div class="tab-pane" id="tab-itabag">
       <div class="grid-2col">
         <div class="m3-card">
-          <div class="card-title">
-            <span>👁️ 痛卡点阵预览</span>
-            <span class="itabag-lanyard-tag">外壳挂孔适用</span>
+          <div class="card-title image-lab-card-title">
+            <span>👁️ 痛卡立绘点阵预览</span>
+            <div class="canvas-zoom-toolbar" id="itaZoomToolbar">
+              <button class="m3-btn small outlined" id="itaZoomInBtn" title="放大 (+15%)">➕ 放大</button>
+              <button class="m3-btn small outlined" id="itaZoomOutBtn" title="缩小 (-15%)">➖ 缩小</button>
+              <button class="m3-btn small outlined" id="itaResetTransformBtn" title="重置立绘居中与初始大小">↺ 居中自适应</button>
+              <span id="itaZoomBadge" class="slider-val-badge" style="font-size:12px; padding:3px 8px;" title="当前缩放倍率">100%</span>
+            </div>
           </div>
           <div class="itabag-preview-frame">
             <div class="itabag-bezel">
               <div class="itabag-window-glare"></div>
-              <canvas id="itaPreviewCanvas" class="preview-canvas" width="768" height="552"></canvas>
+              <canvas id="itaPreviewCanvas" class="preview-canvas" width="768" height="552" style="cursor:grab; touch-action:none;"></canvas>
             </div>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
@@ -211,14 +216,14 @@
             <span>🎒 角色立绘与挂饰排版定制</span>
           </div>
           <div class="card-subtitle">
-            专为痛包、钥匙扣与挂绳随身携带设计！支持相册选图、4色微粒物理抖动还原与专属题字
+            专为二次元/毛毛 OC 角色立绘、痛包与挂件随身携带设计！支持透明 PNG 立绘、画布触控拖拽平移、4色微粒物理抖动与个性题字
           </div>
 
           <!-- Upload Dropzone -->
           <div class="itabag-upload-zone file-drop-area">
             <span class="itabag-upload-icon">📷</span>
             <span class="itabag-upload-title">点击或拖拽上传角色立绘 / 照片</span>
-            <span class="itabag-upload-desc">支持 PNG / JPG / WEBP，自动适配四色墨水屏</span>
+            <span class="itabag-upload-desc">完美支持透明 PNG / JPG / WEBP · 点击上方画布亦可快速选图</span>
             <input type="file" id="itaUploadInput" class="itabag-file-input" accept="image/*">
           </div>
 
@@ -239,8 +244,8 @@
           </div>
 
           <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label">立绘缩放比例 (50% ~ 250%)</label>
-            <input type="range" id="itaScaleInput" min="0.5" max="2.5" step="0.05" value="1.0">
+            <label class="form-label">立绘缩放比例 (20% ~ 400%)</label>
+            <input type="range" id="itaScaleInput" min="0.2" max="4.0" step="0.05" value="1.0">
           </div>
 
           <div class="grid-2col" style="gap:10px;">
@@ -249,6 +254,7 @@
               <select id="itaStyleSelect" class="m3-select itabag-input">
                 <option value="bubble">漫画对话气泡 (Speech Bubble)</option>
                 <option value="banner">底部铭牌横幅 (Subtitle Banner)</option>
+                <option value="clean">纯享角色立绘 (无台词遮挡 · 满幅全身展示)</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;">
@@ -423,11 +429,11 @@
             <span>🖼️ 图片上传与 9 种微粒算法调校</span>
           </div>
           <div class="card-subtitle">
-            将任意相册图片精准转为 768×552 物理点阵 · 支持四周圆点缩放、画布平移与双指/滚轮自由缩放
+            将任意相册图片与角色立绘精准转为 768×552 物理点阵 · 支持四周圆点缩放、画布平移与双指/滚轮自由缩放
           </div>
 
           <div class="form-group">
-            <label class="form-label">选择或拖入本地图片 (PNG / JPG / WEBP / BMP)</label>
+            <label class="form-label">选择或拖入本地图片 / 角色立绘 (PNG / JPG / WEBP / BMP)</label>
             <div class="image-upload-zone file-drop-area" id="imageDropZone" title="点击选择文件或直接将图片拖拽至此处">
               <span class="itabag-upload-icon">🖼️</span>
               <span class="itabag-upload-title">点击选择图片 或 直接拖拽图片至此处</span>
