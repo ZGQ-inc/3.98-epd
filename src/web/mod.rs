@@ -917,18 +917,21 @@ impl WebServer {
         })?;
         let config_mgr_rst = config_mgr.clone();
         server.fn_handler("/api/system/reset", Method::Post, move |req| -> anyhow::Result<()> {
-            println!("  [sys-api] POST /api/system/reset received! Clearing NVS...");
+            println!("  [sys-api] POST /api/system/reset received! Clearing NVS & storage partitions...");
             let default_cfg = AppConfig::default();
             let _ = config_mgr_rst.lock().unwrap().save(&default_cfg);
+            let _ = crate::storage::clear_all_storage();
             std::thread::spawn(|| {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 unsafe { esp_idf_sys::esp_restart() };
             });
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
-            resp.write_all(b"{\"status\":\"ok\",\"message\":\"Factory reset complete. Rebooting into AP mode...\"}")?;
+            resp.write_all(b"{\"status\":\"ok\",\"message\":\"Factory reset complete. Cleared NVS and storage, rebooting into AP mode...\"}")?;
             Ok(())
         })?;
 

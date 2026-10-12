@@ -925,10 +925,10 @@ const UI = {
   },
 
   async factoryReset() {
-    if (!confirm('⚠️ 警告：恢复出厂设置将清除设备中保存的 Wi-Fi 密码并重启进入 AP 热点配网模式并开启蓝牙广播，确认继续吗？')) return;
+    if (!confirm('⚠️ 警告：恢复出厂设置将同时彻底清空设备的 NVS 参数配置与 Storage 效果库预设分区，并重启进入出厂初始态，确认继续吗？')) return;
     try {
       await window.DeviceManager.factoryReset();
-      this.showToast('⚡ 已恢复出厂设置，设备正在重启...', 'warning', 6000);
+      this.showToast('⚡ 已恢复出厂设置 (已清空 NVS 与 Storage 分区)，设备正在重启...', 'warning', 6000);
     } catch (e) {
       this.showToast(`操作失败: ${e.message}`, 'error', 3500);
     }

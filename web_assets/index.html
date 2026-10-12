@@ -137,7 +137,7 @@
     </table>
     <div style="display:flex; gap:8px; margin-top:12px;">
       <button class="btn btn-tonal" onclick="reboot()">软重启设备</button>
-      <button class="btn btn-danger" onclick="factoryReset()">恢复出厂设置 (清空WiFi)</button>
+      <button class="btn btn-danger" onclick="factoryReset()">恢复出厂设置 (清空 NVS & Storage)</button>
     </div>
   </div>
 
@@ -444,9 +444,9 @@
     }
 
     async function factoryReset() {
-      if (confirm('警告：确认清除 WiFi 密码并恢复出厂设置？')) {
+      if (confirm('警告：确认恢复出厂设置？将同时彻底清空 NVS 参数配置与 Storage 效果库预设！')) {
         await fetch('/api/system/reset', { method:'POST' });
-        alert('已恢复出厂，正在重启...');
+        alert('已恢复出厂设置 (清空 NVS 与 Storage 分区)，设备正在重启...');
       }
     }
 

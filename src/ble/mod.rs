@@ -374,17 +374,17 @@ impl BleManager {
                             unsafe { esp_idf_sys::esp_restart() };
                         });
                     } else if text == "sys:reset" || text == "factory_reset" {
-                        println!("  [ble-rx] Factory reset requested via BLE...");
+                        println!("  [ble-rx] Factory reset requested via BLE (clearing NVS & storage)...");
                         let ble_self = BleManager::global();
                         if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
                             let mut cfg = ac.lock().unwrap();
-                            cfg.wifi_ssid.clear();
-                            cfg.wifi_pass.clear();
+                            *cfg = crate::config::AppConfig::default();
                             if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
                                 let mut mgr = cm.lock().unwrap();
                                 let _ = mgr.save(&cfg);
                             }
                         }
+                        let _ = crate::storage::clear_all_storage();
                         ble_self.notify_bytes(b"SYS_RESET:OK");
                         std::thread::spawn(|| {
                             std::thread::sleep(std::time::Duration::from_millis(800));

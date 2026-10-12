@@ -203,28 +203,27 @@ esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-f
 
 ### 6. 连电脑用命令恢复出厂设置与防死锁救砖 (Factory Reset & Unbricking)
 
-如果在操作射频模式时不慎将 Wi-Fi 与蓝牙设置为死锁/失联状态（例如在未配置路由器 Wi-Fi 时误切为仅 Wi-Fi，或蓝牙不可达），可通过 Type-C 数据线将 ESP32-C3 连接至电脑，使用以下命令免拆机 1 秒恢复出厂设置：
+系统在 PWA / 本地 Web 控制台 / 蓝牙 BLE 发起「恢复出厂设置」时，**会同时彻底清空 NVS 参数配置分区与 Storage 效果库预设分区**（恢复至裸机出厂态，并重启进入 AP 配网热点与 BLE 广播）。
 
-#### 方案一：仅清除配置参数（最推荐 · 保留固件与中文字库）
-只需擦除 `0x9000` 处的 NVS 分区（大小 24 KB），设备即可在**不损坏主固件与字库**的前提下重置为出厂初始态（自动重置为双模并发模式，并开启 `EPD-Display-Setup` 配网热点与 BLE 广播）：
+若在操作射频模式时不慎将 Wi-Fi 与蓝牙设置为死锁/失联状态，可通过 Type-C 数据线将 ESP32-C3 连接至电脑，使用以下命令免拆机 1 秒恢复出厂设置：
+
+#### 方案一：彻底恢复出厂设置（同时擦除 NVS 参数配置与 Storage 效果库）
 ```bash
-# 推荐方式 A：使用本工程内置的 espflash 工具（一行命令自动识别分区并复位）：
+# 擦除 0x9000 (NVS 24KB) 与 0x268000 (Storage 1632KB)
+python -m esptool --chip esp32c3 -p <PORT> erase_region 0x9000 0x6000
+python -m esptool --chip esp32c3 -p <PORT> erase_region 0x268000 0x198000
+```
+
+#### 方案二：仅清除配置参数（保留已保存的效果库预设文件）
+只需擦除 `0x9000` 处的 NVS 分区（大小 24 KB），设备即可在**不损坏主固件、字库与已保存预设**的前提下重置 Wi-Fi/模式参数：
+```bash
+# 推荐方式 A：使用本工程内置的 espflash 工具：
 espflash erase-parts --port COM17 --partition-table partitions.csv nvs
 
 # 方式 B：使用 Python esptool 工具：
-# Windows (以 COM17 为例，请替换为您的实际端口)
 python -m esptool --chip esp32c3 -p COM17 erase_region 0x9000 0x6000
-
-# Linux / macOS
-esptool.py --chip esp32c3 -p /dev/ttyUSB0 erase_region 0x9000 0x6000
 ```
 执行完毕后，重新插拔 USB 或按一下板载 Reset 键，设备即以出厂默认状态启动。
-
-#### 方案二：清空单片机内部效果库预设分区（可选）
-若 Flash 预设库中产生了异常孤儿数据或需要彻底清空存储空间：
-```bash
-python -m esptool --chip esp32c3 -p <PORT> erase_region 0x268000 0x198000
-```
 
 #### 方案三：全片擦除并重新刷机（终极救砖）
 ```bash
