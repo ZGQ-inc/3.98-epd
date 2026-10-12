@@ -17,6 +17,9 @@ const App = {
   imageScale: 1.0,
   isDraggingImage: false,
   imageDragStart: { clientX: 0, clientY: 0, panX: 0, panY: 0 },
+  isDraggingHandle: false,
+  activeHandleType: null,
+  handleDragStart: null,
   _ditherDebounceTimer: null,
   _activeImageLabPacked: null,
 
@@ -142,6 +145,36 @@ const App = {
     }
   },
 
+  updateImageSelectBox() {
+    const box = document.getElementById('imageSelectBox');
+    const canvas = this.imageLabCanvas;
+    if (!box || !canvas || !this.uploadedImg) {
+      if (box) box.style.display = 'none';
+      return;
+    }
+
+    const isPortrait = (UI.orientation === 90 || UI.orientation === 270);
+    const w = isPortrait ? 552 : 768;
+    const h = isPortrait ? 768 : 552;
+
+    const baseScale = Math.min(w / this.uploadedImg.width, h / this.uploadedImg.height);
+    const totalScale = baseScale * (this.imageScale || 1.0);
+    const dw = this.uploadedImg.width * totalScale;
+    const dh = this.uploadedImg.height * totalScale;
+    const dx = (w - dw) / 2 + (this.imagePanX || 0);
+    const dy = (h - dh) / 2 + (this.imagePanY || 0);
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / w;
+    const scaleY = rect.height / h;
+
+    box.style.display = 'block';
+    box.style.left = `${dx * scaleX}px`;
+    box.style.top = `${dy * scaleY}px`;
+    box.style.width = `${dw * scaleX}px`;
+    box.style.height = `${dh * scaleY}px`;
+  },
+
   renderImageLab(fastPreview = false) {
     if (!this.imageLabCanvas) return;
     const canvas = this.imageLabCanvas;
@@ -161,8 +194,12 @@ const App = {
       ctx.fillStyle = '#8e9099';
       ctx.font = '20px "PingFang SC", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('📷 点击右侧上传或直接将图片拖入此处 (PNG / JPG / WEBP)', w / 2, h / 2);
+      ctx.fillText('📷 点击此处上传或拖入图片 (PNG / JPG / WEBP)', w / 2, h / 2 - 12);
+      ctx.font = '15px "PingFang SC", sans-serif';
+      ctx.fillStyle = '#a0a2ab';
+      ctx.fillText('支持四周小圆点缩放 · 画布任意拖动平移', w / 2, h / 2 + 18);
       ctx.textAlign = 'left';
+      this.updateImageSelectBox();
       return;
     }
 
@@ -175,6 +212,7 @@ const App = {
     const dy = (h - dh) / 2 + (this.imagePanY || 0);
 
     ctx.drawImage(this.uploadedImg, dx, dy, dw, dh);
+    this.updateImageSelectBox();
 
     if (fastPreview) {
       // 快速拖拽平移与滚轮缩放时仅实时绘制几何变换，保持 60fps 流畅手感
@@ -197,6 +235,7 @@ const App = {
     });
     this._activeImageLabPacked = packed;
     BWRY.render2bppToCanvas(canvas, packed);
+    this.updateImageSelectBox();
   },
 
   /*  4. Push & Presets Engine  */
@@ -847,6 +886,13 @@ const App = {
     if (this.imageLabCanvas) {
       const imgCanvas = this.imageLabCanvas;
 
+      // Click to upload when empty (Mobile & Desktop friendly)
+      imgCanvas.addEventListener('click', () => {
+        if (!this.uploadedImg) {
+          imageUploadInput?.click();
+        }
+      });
+
       imgCanvas.addEventListener('pointerdown', (e) => {
         if (!this.uploadedImg) return;
         this.isDraggingImage = true;
@@ -870,10 +916,12 @@ const App = {
         this.imagePanX = this.imageDragStart.panX + dx;
         this.imagePanY = this.imageDragStart.panY + dy;
 
+        this.updateImageSelectBox();
         this.renderImageLab(true);
         clearTimeout(this._ditherDebounceTimer);
         this._ditherDebounceTimer = setTimeout(() => {
           this.renderImageLab(false);
+          this.updateImageSelectBox();
         }, 80);
       });
 
@@ -884,6 +932,7 @@ const App = {
           imgCanvas.style.cursor = 'grab';
           clearTimeout(this._ditherDebounceTimer);
           this.renderImageLab(false);
+          this.updateImageSelectBox();
         }
       };
       imgCanvas.addEventListener('pointerup', handlePointerEnd);
@@ -910,23 +959,197 @@ const App = {
         this.imageScale = newScale;
 
         this.updateImageZoomBadge();
+        this.updateImageSelectBox();
         this.renderImageLab(true);
         clearTimeout(this._ditherDebounceTimer);
         this._ditherDebounceTimer = setTimeout(() => {
           this.renderImageLab(false);
+          this.updateImageSelectBox();
         }, 80);
       }, { passive: false });
+
+      // Keep selection box synced on window/orientation resize
+      window.addEventListener('resize', () => {
+        this.updateImageSelectBox();
+      });
     }
+
+    // Interactive 4 Corner & 4 Edge Handle Dots Dragging (四周小圆点交互缩放)
+    document.querySelectorAll('.select-handle').forEach(handle => {
+      handle.addEventListener('pointerdown', (e) => {
+        if (!this.uploadedImg) return;
+        e.stopPropagation();
+        const handleType = handle.getAttribute('data-handle');
+        this.isDraggingHandle = true;
+        this.activeHandleType = handleType;
+        try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+        handle.classList.add('active');
+
+        const canvas = this.imageLabCanvas;
+        const isPortrait = (UI.orientation === 90 || UI.orientation === 270);
+        const cw = isPortrait ? 552 : 768;
+        const ch = isPortrait ? 768 : 552;
+
+        const baseScale = Math.min(cw / this.uploadedImg.width, ch / this.uploadedImg.height);
+        const totalScale = baseScale * (this.imageScale || 1.0);
+        const dw = this.uploadedImg.width * totalScale;
+        const dh = this.uploadedImg.height * totalScale;
+        const dx = (cw - dw) / 2 + (this.imagePanX || 0);
+        const dy = (ch - dh) / 2 + (this.imagePanY || 0);
+
+        this.handleDragStart = {
+          handle,
+          pointerId: e.pointerId,
+          cw, ch, baseScale,
+          w_img: this.uploadedImg.width,
+          h_img: this.uploadedImg.height,
+          dx, dy, dw, dh,
+          panX: this.imagePanX || 0,
+          panY: this.imagePanY || 0,
+          scale: this.imageScale || 1.0
+        };
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!this.isDraggingHandle || !this.handleDragStart) return;
+        e.stopPropagation();
+        const s = this.handleDragStart;
+        const canvas = this.imageLabCanvas;
+        const rect = canvas.getBoundingClientRect();
+        const cursorCanvasX = (e.clientX - rect.left) * (s.cw / rect.width);
+        const cursorCanvasY = (e.clientY - rect.top) * (s.ch / rect.height);
+
+        let newScale = s.scale;
+        let newPanX = s.panX;
+        let newPanY = s.panY;
+        let dw_new = s.dw;
+        let dh_new = s.dh;
+
+        switch (this.activeHandleType) {
+          case 'br': {
+            dw_new = Math.max(20, cursorCanvasX - s.dx);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = s.dx - (s.cw - dw_new) / 2;
+            newPanY = s.dy - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'tl': {
+            const anchorR = s.dx + s.dw;
+            const anchorB = s.dy + s.dh;
+            dw_new = Math.max(20, anchorR - cursorCanvasX);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = anchorR - dw_new - (s.cw - dw_new) / 2;
+            newPanY = anchorB - dh_new - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'tr': {
+            const anchorB = s.dy + s.dh;
+            dw_new = Math.max(20, cursorCanvasX - s.dx);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = s.dx - (s.cw - dw_new) / 2;
+            newPanY = anchorB - dh_new - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'bl': {
+            const anchorR = s.dx + s.dw;
+            dw_new = Math.max(20, anchorR - cursorCanvasX);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = anchorR - dw_new - (s.cw - dw_new) / 2;
+            newPanY = s.dy - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'bc': {
+            dh_new = Math.max(20, cursorCanvasY - s.dy);
+            newScale = Math.min(8.0, Math.max(0.1, dh_new / (s.h_img * s.baseScale)));
+            dw_new = s.w_img * s.baseScale * newScale;
+            dh_new = s.h_img * s.baseScale * newScale;
+            newPanX = s.panX;
+            newPanY = s.dy - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'tc': {
+            const anchorB = s.dy + s.dh;
+            dh_new = Math.max(20, anchorB - cursorCanvasY);
+            newScale = Math.min(8.0, Math.max(0.1, dh_new / (s.h_img * s.baseScale)));
+            dw_new = s.w_img * s.baseScale * newScale;
+            dh_new = s.h_img * s.baseScale * newScale;
+            newPanX = s.panX;
+            newPanY = anchorB - dh_new - (s.ch - dh_new) / 2;
+            break;
+          }
+          case 'mr': {
+            dw_new = Math.max(20, cursorCanvasX - s.dx);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = s.dx - (s.cw - dw_new) / 2;
+            newPanY = s.panY;
+            break;
+          }
+          case 'ml': {
+            const anchorR = s.dx + s.dw;
+            dw_new = Math.max(20, anchorR - cursorCanvasX);
+            newScale = Math.min(8.0, Math.max(0.1, dw_new / (s.w_img * s.baseScale)));
+            dh_new = s.h_img * s.baseScale * newScale;
+            dw_new = s.w_img * s.baseScale * newScale;
+            newPanX = anchorR - dw_new - (s.cw - dw_new) / 2;
+            newPanY = s.panY;
+            break;
+          }
+        }
+
+        this.imageScale = newScale;
+        this.imagePanX = newPanX;
+        this.imagePanY = newPanY;
+
+        this.updateImageZoomBadge();
+        this.updateImageSelectBox();
+        this.renderImageLab(true);
+
+        clearTimeout(this._ditherDebounceTimer);
+        this._ditherDebounceTimer = setTimeout(() => {
+          this.renderImageLab(false);
+          this.updateImageSelectBox();
+        }, 80);
+      });
+
+      const handlePointerUp = (e) => {
+        if (this.isDraggingHandle) {
+          this.isDraggingHandle = false;
+          if (this.handleDragStart?.handle) {
+            try { this.handleDragStart.handle.releasePointerCapture(this.handleDragStart.pointerId); } catch (_) {}
+            this.handleDragStart.handle.classList.remove('active');
+          }
+          this.handleDragStart = null;
+          this.activeHandleType = null;
+          clearTimeout(this._ditherDebounceTimer);
+          this.renderImageLab(false);
+          this.updateImageSelectBox();
+        }
+      };
+      handle.addEventListener('pointerup', handlePointerUp);
+      handle.addEventListener('pointercancel', handlePointerUp);
+    });
 
     document.getElementById('imageZoomInBtn')?.addEventListener('click', () => {
       this.imageScale = Math.min(8.0, (this.imageScale || 1.0) * 1.25);
       this.updateImageZoomBadge();
+      this.updateImageSelectBox();
       this.renderImageLab(false);
     });
 
     document.getElementById('imageZoomOutBtn')?.addEventListener('click', () => {
       this.imageScale = Math.max(0.15, (this.imageScale || 1.0) * 0.8);
       this.updateImageZoomBadge();
+      this.updateImageSelectBox();
       this.renderImageLab(false);
     });
 
@@ -935,6 +1158,7 @@ const App = {
       this.imagePanY = 0;
       this.imageScale = 1.0;
       this.updateImageZoomBadge();
+      this.updateImageSelectBox();
       this.renderImageLab(false);
       UI.showToast('已重置为自适应居中');
     });
@@ -946,6 +1170,7 @@ const App = {
       this.imagePanX = 0;
       this.imagePanY = 0;
       this.updateImageZoomBadge();
+      this.updateImageSelectBox();
       this.renderImageLab(false);
       UI.showToast('已切换为 1:1 物理像素原图大小');
     });

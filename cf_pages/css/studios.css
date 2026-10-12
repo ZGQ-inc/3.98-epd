@@ -645,3 +645,121 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 
+ * 10. Image Lab Interactive Transform Selector Box & Mobile Adaptations
+ *  */
+.canvas-interactive-wrapper {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 100%;
+  line-height: 0;
+  user-select: none;
+}
+
+.image-select-box {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  box-sizing: border-box;
+}
+
+.select-box-border {
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed var(--md-sys-color-primary, #1e90ff);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+.select-handle {
+  position: absolute;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border: 2.5px solid var(--md-sys-color-primary, #1e90ff);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  touch-action: none;
+  cursor: pointer;
+  z-index: 6;
+  transition: transform 0.1s, background-color 0.1s, border-color 0.1s;
+}
+
+/* Touch hit-area expansion for mobile */
+.select-handle::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+}
+
+.select-handle:hover,
+.select-handle.active {
+  transform: translate(-50%, -50%) scale(1.3);
+  background: #e8f0fe;
+  border-color: #0b57d0;
+}
+
+/* Corner Handles */
+.select-handle.handle-tl { top: 0; left: 0; cursor: nwse-resize; }
+.select-handle.handle-tr { top: 0; left: 100%; cursor: nesw-resize; }
+.select-handle.handle-br { top: 100%; left: 100%; cursor: nwse-resize; }
+.select-handle.handle-bl { top: 100%; left: 0; cursor: nesw-resize; }
+
+/* Edge Midpoint Handles */
+.select-handle.handle-tc { top: 0; left: 50%; cursor: ns-resize; }
+.select-handle.handle-bc { top: 100%; left: 50%; cursor: ns-resize; }
+.select-handle.handle-ml { top: 50%; left: 0; cursor: ew-resize; }
+.select-handle.handle-mr { top: 50%; left: 100%; cursor: ew-resize; }
+
+.image-lab-card-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canvas-zoom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .image-lab-card-title {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .canvas-zoom-toolbar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .canvas-zoom-toolbar .m3-btn.small {
+    padding: 6px 6px;
+    font-size: 11px;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+  .select-handle {
+    width: 16px;
+    height: 16px;
+    border-width: 3px;
+  }
+  .select-handle::after {
+    top: -15px;
+    left: -15px;
+    right: -15px;
+    bottom: -15px;
+  }
+}

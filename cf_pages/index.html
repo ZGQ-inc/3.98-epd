@@ -383,9 +383,9 @@
     <div class="tab-pane" id="tab-image">
       <div class="grid-2col">
         <div class="m3-card">
-          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div class="card-title image-lab-card-title">
             <span>👁️ 4色微粒物理量化效果</span>
-            <div class="canvas-zoom-toolbar" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div class="canvas-zoom-toolbar" id="imageZoomToolbar">
               <button class="m3-btn small outlined" id="imageZoomInBtn" title="放大 (+25%)">➕ 放大</button>
               <button class="m3-btn small outlined" id="imageZoomOutBtn" title="缩小 (-25%)">➖ 缩小</button>
               <button class="m3-btn small outlined" id="imageResetTransformBtn" title="默认不遮挡自适应居中">↺ 自适应居中</button>
@@ -393,10 +393,22 @@
               <span id="imageZoomBadge" class="slider-val-badge" style="font-size:12px; padding:3px 8px;" title="当前缩放倍率">100%</span>
             </div>
           </div>
-          <div class="preview-container" id="imageLabPreviewContainer" style="position:relative;">
-            <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552" style="cursor:grab; touch-action:none;"></canvas>
-            <div class="canvas-drag-hint" style="position:absolute; bottom:8px; right:12px; background:rgba(0,0,0,0.65); color:#ffffff; font-size:11px; padding:3px 10px; border-radius:12px; pointer-events:none; backdrop-filter:blur(4px); user-select:none;">
-              ✋ 拖动画布平移 · 滚轮缩放
+          <div class="preview-container" id="imageLabPreviewContainer">
+            <div class="canvas-interactive-wrapper" id="imageInteractiveWrapper">
+              <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552" style="cursor:grab; touch-action:none;"></canvas>
+              <!-- 交互式四角圆点缩放框 (Image Transform Selector Box) -->
+              <div id="imageSelectBox" class="image-select-box" style="display:none;">
+                <div class="select-box-border"></div>
+                <!-- 四周圆点 (Corner & Edge Handles) -->
+                <div class="select-handle handle-tl" data-handle="tl" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-tr" data-handle="tr" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-br" data-handle="br" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-bl" data-handle="bl" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-tc" data-handle="tc" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-bc" data-handle="bc" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-ml" data-handle="ml" title="按住拖拽缩放"></div>
+                <div class="select-handle handle-mr" data-handle="mr" title="按住拖拽缩放"></div>
+              </div>
             </div>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -411,7 +423,7 @@
             <span>🖼️ 图片上传与 9 种微粒算法调校</span>
           </div>
           <div class="card-subtitle">
-            将任意相册图片精准转为 768×552 物理点阵，提供对比度、亮度、红黄灵敏度阈值微调
+            将任意相册图片精准转为 768×552 物理点阵 · 支持四周圆点缩放、画布平移与双指/滚轮自由缩放
           </div>
 
           <div class="form-group">
@@ -419,7 +431,7 @@
             <div class="image-upload-zone file-drop-area" id="imageDropZone" title="点击选择文件或直接将图片拖拽至此处">
               <span class="itabag-upload-icon">🖼️</span>
               <span class="itabag-upload-title">点击选择图片 或 直接拖拽图片至此处</span>
-              <span class="itabag-upload-desc">亦支持将图片直接拖入左侧画布 · 自动等比缩放适应 768×552</span>
+              <span class="itabag-upload-desc">亦支持直接点击或拖入上方画布 · 默认不遮挡自适应长宽</span>
               <input type="file" id="imageUploadInput" class="itabag-file-input" accept="image/*">
             </div>
           </div>
