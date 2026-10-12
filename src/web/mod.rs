@@ -935,8 +935,17 @@ impl WebServer {
             Ok(())
         })?;
 
-        // 13. POST /api/display/bitmap & /api/display/raw — Direct 1:1 Pixel Bitmap from Web Studio / PWA (105,984 bytes)
-        for path in &["/api/display/bitmap", "/api/display/raw", "/api/display/bitmap*", "/api/display/raw*"] {
+        // 13. POST /api/display/bitmap, /api/display/raw, /api/push/raw, /api/push — Direct 1:1 Pixel Bitmap HTTP Push (105,984 bytes)
+        for path in &[
+            "/api/display/bitmap",
+            "/api/display/raw",
+            "/api/display/bitmap*",
+            "/api/display/raw*",
+            "/api/push/raw",
+            "/api/push/raw*",
+            "/api/push",
+            "/api/push*",
+        ] {
             server.fn_handler(path, Method::Post, move |mut req| -> anyhow::Result<()> {
                 let should_refresh = !req.uri().contains("refresh=false")
                     && req.header("X-Refresh").unwrap_or("true") != "false";
@@ -958,11 +967,16 @@ impl WebServer {
                         true
                     };
                     let json = serde_json::to_vec(&serde_json::json!({
+                        "success": ok,
                         "status": if ok { "ok" } else { "busy" },
-                        "message": if should_refresh {
-                            "1:1 高保真画板点阵已推送成功，正在执行16秒硬件波形刷新..."
+                        "message": if ok {
+                            if should_refresh {
+                                "1:1 高保真画板点阵已推送成功，正在执行16秒硬件波形刷新..."
+                            } else {
+                                "1:1 点阵已写入显存缓冲区 (未触发硬件刷新)"
+                            }
                         } else {
-                            "1:1 点阵已写入显存缓冲区 (未触发硬件刷新)"
+                            "墨水屏硬件驱动当前繁忙（正在物理刷新中），请稍候重试！"
                         }
                     }))?;
                     let len_str = json.len().to_string();
@@ -976,6 +990,7 @@ impl WebServer {
                     resp.write_all(&json)?;
                 } else {
                     let json = serde_json::to_vec(&serde_json::json!({
+                        "success": false,
                         "status": "error",
                         "message": format!("数据长度不匹配：预期 105984 字节，实际接收 {} 字节", total_read)
                     }))?;

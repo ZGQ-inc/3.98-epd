@@ -76,6 +76,10 @@
 │   ├── icon-192.svg        # 192x192 矢量图标
 │   └── icon-512.svg        # 512x512 高清矢量图标
 │
+├── tools/                  # 开放式 HTTP 2bpp 推送工具箱与 Python 示例
+│   ├── README.md           # 详细 REST API 接口规范与第三方生态接入指引
+│   └── epd_push.py         # 任意图片转 2bpp / 自动立绘旋转 / HTTP 推送 CLI & SDK
+│
 ├── firmware/               # 预编译纯净固件与刷机指南
 │   ├── README.md           # 详细环境配置与烧录步骤
 │   └── epd-firmware.bin    # 预编译好的 1.76MB 裸机启动镜像 (即刷即用)
@@ -252,6 +256,54 @@ python -m esptool --chip esp32c3 -p <PORT> write_flash 0x20000 firmware/epd-firm
    - 在控制台系统诊断区域直接点击 **A0 / A1** 单选按钮即可立即生效。
 3. **固件默认值修改（可选编译配置）**：
    - 固件源码中默认采用 `A0` 规格；若希望编译一份开机即默认以 `A1` 运行的固件，可直接修改 `src/config/mod.rs` 中的 `default_panel_version()` 返回值为 `"A1"`。
+
+---
+
+## 🌐 开放式 HTTP 2bpp 点阵推送 API (Open REST API)
+
+为方便任意外部系统（**Home Assistant 智能家居、iOS 快捷指令、Python 脚本、树莓派、cURL、服务器监控**）向工牌推送显示内容，固件原生提供免绑定的 **RESTful HTTP 原始位图裸推接口**：
+
+* **API 端点**: `POST http://<设备IP或域名>/api/push/raw` *(支持 mDNS: `http://epd-display.local/api/push/raw`)*
+* **请求头**: `Content-Type: application/octet-stream`
+* **数据规格**: 严格 **105,984 字节** 的 2bpp 二进制流（768×552 BWRY 4色点阵，每字节打包 4 像素）
+* **参数选项**: `?refresh=false` 或 `X-Refresh: false`（仅写入显存，暂不触发 16 秒硬件波形刷新）
+
+### ⚡ 3 种极简调用示例
+
+#### 1. cURL 单行命令直接推送现有点阵文件
+```bash
+curl -X POST --data-binary @image.2bpp http://epd-display.local/api/push/raw
+```
+
+#### 2. Python 转换任意图片并推送 (推荐使用内置工具)
+本项目在 `tools/` 目录提供了全功能的图片转 2bpp 及网络推送工具：
+```bash
+# 安装依赖
+pip install pillow requests
+
+# 一键推送任意图片至工牌
+python tools/epd_push.py photo.png --host epd-display.local
+
+# 兽聚痛卡 / 二次元竖屏立绘自适应旋转模式 (-p)
+python tools/epd_push.py character.png -p --host epd-display.local
+
+# 仅导出 .2bpp 二进制文件与四色预览图 (不发送请求)
+python tools/epd_push.py input.jpg -o output.2bpp --preview preview.png --dry-run
+```
+
+#### 3. Python SDK 代码集成
+```python
+from tools.epd_push import image_to_2bpp, push_to_epd
+
+# 转换图片为 105KB 2bpp 点阵
+raw_bytes = image_to_2bpp("avatar.png", portrait=True, dither="floyd")
+
+# 推送至局域网工牌
+res = push_to_epd(raw_bytes, host="epd-display.local")
+print(res)  # {'success': True, 'status': 'ok', 'message': '...'}
+```
+
+👉 **更详细的接口规范、2bpp 像素位编码格式与 Home Assistant 自动化配置，请参阅：[开放式 HTTP 推送 API 与工具箱文档 (tools/README.md)](tools/README.md)**
 
 ---
 
