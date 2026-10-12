@@ -424,6 +424,18 @@ const App = {
         const preset = PresetHub.presets.find(p => p.id === id);
         if (preset && preset.raw_bitmap && this.modalCanvas) {
           BWRY.render2bppToCanvas(this.modalCanvas, new Uint8Array(preset.raw_bitmap));
+          UI._activeDitherPacked = new Uint8Array(preset.raw_bitmap);
+          UI._activePreset = preset;
+
+          const modalTitle = document.querySelector('#ditherPreviewModal .modal-title');
+          if (modalTitle) {
+            modalTitle.textContent = `👁️ 预设点阵物理预览 - ${preset.name}`;
+          }
+          const pushBtn = document.getElementById('modalPushDitherBtn');
+          if (pushBtn) {
+            pushBtn.textContent = preset.is_offline ? '🚀 屏幕推送' : '🚀 内部直推至墨水屏';
+          }
+
           UI.openModal('ditherPreviewModal');
         } else {
           UI.showToast('该预设未包含点阵位图数据', 'warning');

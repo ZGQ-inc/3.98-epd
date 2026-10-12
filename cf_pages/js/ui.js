@@ -473,10 +473,48 @@ const UI = {
     BWRY.render2bppToCanvas(modalCanvas, packed, this.orientation);
 
     this._activeDitherPacked = packed;
+    this._activePreset = null;
+
+    const modalTitle = document.querySelector('#ditherPreviewModal .modal-title');
+    if (modalTitle) {
+      modalTitle.textContent = '👁️ 抖动点阵物理仿真预览 (768×552)';
+    }
+    const pushBtn = document.getElementById('modalPushDitherBtn');
+    if (pushBtn) {
+      pushBtn.textContent = '🚀 推送此点阵至墨水屏';
+    }
+
     this.openModal(document.getElementById('ditherPreviewModal') ? 'ditherPreviewModal' : 'presetPreviewModal');
   },
 
   async pushModalDither() {
+    if (this._activePreset) {
+      const preset = this._activePreset;
+      const isHardwareConnected = (window.DeviceManager.isBleConnected && window.DeviceManager.bleDevice?.gatt?.connected)
+        || (window.DeviceManager.isLanConnected && !!window.DeviceManager.lanIp);
+
+      if (!isHardwareConnected) {
+        this.showToast('⚠️ 未连通单片机硬件，无法执行内部直推！请先在顶部连接蓝牙或局域网', 'warning', 4000);
+        return;
+      }
+
+      try {
+        if (!preset.is_offline) {
+          this.showToast(`正在通知单片机内部读取预设「${preset.name}」...`, 'info', 3000);
+          await window.DeviceManager.pushPreset(preset.id);
+          this.showToast(`🎉 单片机已内部加载 Flash 预设「${preset.name}」并启动墨水屏全屏物理刷新！`, 'success', 5000);
+        } else if (preset.raw_bitmap) {
+          this.showToast(`正在点对点推送本地离线草稿「${preset.name}」至墨水屏...`, 'info', 4000);
+          await window.DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
+          this.showToast(`🎉 离线预设「${preset.name}」推送成功！`, 'success', 4000);
+        }
+        this.closeModal('ditherPreviewModal');
+      } catch (err) {
+        this.showToast(`推送失败: ${err.message}`, 'error', 4000);
+      }
+      return;
+    }
+
     if (!this._activeDitherPacked) {
       this.showToast('未生成点阵数据', 'warning');
       return;
