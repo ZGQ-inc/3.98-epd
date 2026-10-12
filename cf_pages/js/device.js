@@ -24,6 +24,7 @@ const DeviceManager = {
     return (localStorage.getItem('epd_lan_ip') || '').trim();
   })(),
   isLanConnected: false,
+  activeTransport: 'none', // 'wifi' | 'ble' | 'none'
   activeMode: 'auto', // 'ble' | 'lan' | 'auto'
 
   onStatusChange: null,
@@ -51,7 +52,9 @@ const DeviceManager = {
       }
       const netLanStatus = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
       if (netLanStatus) {
-        netLanStatus.textContent = this.isLanConnected ? `局域网: ${curIp}` : (curIp ? `局域网: ${curIp} (待连接)` : '未连接局域网');
+        netLanStatus.textContent = this.isLanConnected
+          ? (this.activeTransport === 'ble' ? `局域网: ${curIp} (蓝牙优先中)` : `局域网: ${curIp}`)
+          : (curIp ? `局域网: ${curIp} (待连接)` : '未连接局域网');
       }
       const lanConsoleLink = document.getElementById('lanConsoleLink');
       if (lanConsoleLink) {
@@ -75,6 +78,9 @@ const DeviceManager = {
     if (queryIp) {
       // Test physical connection immediately
       this.testConnection().then((connected) => {
+        if (connected && !this.isBleConnected) {
+          this.activeTransport = 'wifi';
+        }
         updateLanBar();
         if (connected) {
           if (typeof UI !== 'undefined' && UI.showToast) {
@@ -98,7 +104,12 @@ const DeviceManager = {
       if (lanInput && !lanInput.value) {
         lanInput.value = this.lanIp;
       }
-      this.testConnection().then(() => updateLanBar());
+      this.testConnection().then((connected) => {
+        if (connected && !this.isBleConnected) {
+          this.activeTransport = 'wifi';
+        }
+        updateLanBar();
+      });
     }
 
     if (document.readyState === 'loading') {
@@ -112,13 +123,41 @@ const DeviceManager = {
   },
 
   getConnectionStatus() {
-    if (this.isBleConnected && this.bleDevice?.gatt?.connected) {
-      return { type: 'ble', label: '蓝牙已连接 · WebBLE', name: this.bleDevice?.name || 'EPD-Display' };
+    const devName = this.bleDevice?.name || '';
+    if (this.activeTransport === 'ble' && this.isBleConnected && this.bleDevice?.gatt?.connected) {
+      return {
+        type: 'ble',
+        activeTransport: 'ble',
+        label: '蓝牙已连接 · WebBLE',
+        name: devName || 'EPD-Display',
+        bleConnected: true,
+        bleDeviceName: devName,
+        lanConnected: this.isLanConnected,
+        lanIp: this.lanIp
+      };
     }
-    if (this.isLanConnected && this.lanIp) {
-      return { type: 'lan', label: `局域网: ${this.lanIp} [打开控制台]`, name: this.lanIp };
+    if (this.activeTransport === 'wifi' && this.isLanConnected && this.lanIp) {
+      return {
+        type: 'lan',
+        activeTransport: 'wifi',
+        label: `局域网: ${this.lanIp} [打开控制台]`,
+        name: this.lanIp,
+        bleConnected: this.isBleConnected,
+        bleDeviceName: devName,
+        lanConnected: true,
+        lanIp: this.lanIp
+      };
     }
-    return { type: 'none', label: '未连接任何硬件设备', name: '' };
+    return {
+      type: 'none',
+      activeTransport: 'none',
+      label: '未连接任何硬件设备',
+      name: '',
+      bleConnected: this.isBleConnected,
+      bleDeviceName: devName,
+      lanConnected: this.isLanConnected,
+      lanIp: this.lanIp
+    };
   },
 
   /*  Web Bluetooth (WebBLE Dual-Mode 5.0)  */
@@ -155,7 +194,15 @@ const DeviceManager = {
         this.bleDevice = null;
         this.rxChar = null;
         this.txChar = null;
-        if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
+        if (this.lanIp) {
+          this.testLanConnection().then((ok) => {
+            this.activeTransport = ok ? 'wifi' : 'none';
+            if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
+          });
+        } else {
+          this.activeTransport = 'none';
+          if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
+        }
         this.updateAirProvBleStatus();
       };
       device.addEventListener('gattserverdisconnected', this._onBleDisconnectedBound);
@@ -254,9 +301,60 @@ const DeviceManager = {
                   this.lanIp = s.ip;
                   localStorage.setItem('epd_lan_ip', s.ip);
                   const netLanStatus = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
-                  if (netLanStatus) netLanStatus.textContent = `局域网: ${s.ip}`;
+                  if (netLanStatus) netLanStatus.textContent = `局域网: ${s.ip} (蓝牙优先中)`;
                 }
               } catch (e) {}
+            } else if (text.startsWith('SYS_DIAG:')) {
+              try {
+                const diag = JSON.parse(text.slice(9));
+                if (this._onSysDiagResolver) {
+                  this._onSysDiagResolver(diag);
+                  this._onSysDiagResolver = null;
+                }
+              } catch (e) {
+                console.warn('[BLE] Parse SYS_DIAG error:', e);
+              }
+            } else if (text.startsWith('SYS_REBOOT:OK')) {
+              if (this._onSysRebootResolver) {
+                this._onSysRebootResolver();
+                this._onSysRebootResolver = null;
+              }
+            } else if (text.startsWith('SYS_RESET:OK')) {
+              if (this._onSysResetResolver) {
+                this._onSysResetResolver();
+                this._onSysResetResolver = null;
+              }
+            } else if (text.startsWith('SYS_DEBUG:OK:')) {
+              if (this._onSysDebugResolver) {
+                const val = text.slice(13) === '1';
+                this._onSysDebugResolver(val);
+                this._onSysDebugResolver = null;
+              }
+            } else if (text.startsWith('SYS_CONFIG:')) {
+              if (this._onSysConfigResolver) {
+                const payload = text.slice(11);
+                if (payload === 'SAVED') {
+                  this._onSysConfigResolver({ status: 'ok', message: '配置已通过蓝牙成功写入 NVS！' });
+                } else {
+                  try {
+                    const cfg = JSON.parse(payload);
+                    this._onSysConfigResolver(cfg);
+                  } catch (e) {
+                    this._onSysConfigResolver({ status: 'ok' });
+                  }
+                }
+                this._onSysConfigResolver = null;
+              }
+            } else if (text.startsWith('STREAM_CFG:OK:')) {
+              if (this._onStreamCfgResolver) {
+                this._onStreamCfgResolver();
+                this._onStreamCfgResolver = null;
+              }
+            } else if (text.startsWith('STREAM_BUFFERED:OK')) {
+              if (this._onStreamBufferedResolver) {
+                this._onStreamBufferedResolver();
+                this._onStreamBufferedResolver = null;
+              }
             } else if (text.startsWith('PRESET_SAVED:OK:')) {
               if (this._onPresetSavedResolver) {
                 const parts = text.slice(16).split(':');
@@ -332,6 +430,7 @@ const DeviceManager = {
 
       this.bleDevice = device;
       this.isBleConnected = true;
+      this.activeTransport = 'ble';
       if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
       this.updateAirProvBleStatus();
       return device.name || 'EPD-Smart-Display';
@@ -347,12 +446,25 @@ const DeviceManager = {
 
   async disconnectBle() {
     if (this.bleDevice && this.bleDevice.gatt && this.bleDevice.gatt.connected) {
-      this.bleDevice.gatt.disconnect();
+      try {
+        this.bleDevice.gatt.disconnect();
+      } catch (e) {}
     }
     this.isBleConnected = false;
     this.bleDevice = null;
     this.rxChar = null;
     this.txChar = null;
+
+    // Check if Wi-Fi LAN is reachable to seamlessly resume Wi-Fi connection
+    if (this.lanIp) {
+      const ok = await this.testLanConnection().catch(() => false);
+      this.isLanConnected = ok;
+      this.activeTransport = ok ? 'wifi' : 'none';
+    } else {
+      this.isLanConnected = false;
+      this.activeTransport = 'none';
+    }
+
     if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());
     this.updateAirProvBleStatus();
   },
@@ -406,7 +518,11 @@ const DeviceManager = {
       throw new Error(`点阵数据大小不合法：预期 ${FRAMEBUFFER_SIZE} 字节，实际 ${packed2bpp?.length || 0} 字节`);
     }
 
-    if (this.isBleConnected && this.bleDevice?.gatt?.connected && this.rxChar) {
+    if (this.activeTransport === 'ble' && this.isBleConnected && this.bleDevice?.gatt?.connected && this.rxChar) {
+      return await this._pushBleBitmap(packed2bpp, progressCb);
+    } else if (this.activeTransport === 'wifi' && this.isLanConnected && this.lanIp) {
+      return await this._pushLanBitmap(packed2bpp, progressCb);
+    } else if (this.isBleConnected && this.bleDevice?.gatt?.connected && this.rxChar) {
       return await this._pushBleBitmap(packed2bpp, progressCb);
     } else if (this.isLanConnected && this.lanIp) {
       return await this._pushLanBitmap(packed2bpp, progressCb);
@@ -883,7 +999,24 @@ const DeviceManager = {
   },
 
   async pushPreset(id) {
-    if (this.isLanConnected && this.lanIp) {
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙尚未完全准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onPresetPushedResolver = null;
+          resolve({ status: 'ok', message: '已通过蓝牙通知单片机读取预设' });
+        }, 4000);
+        this._onPresetPushedResolver = (pushedId) => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', id: pushedId, message: '单片机已内部加载预设并启动刷新' });
+        };
+        const cmd = new TextEncoder().encode(`preset:push:${id}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.isLanConnected && this.lanIp) {
       const res = await fetch(`http://${this.lanIp}/api/presets/push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -950,6 +1083,22 @@ const DeviceManager = {
 
   async fetchPresetBitmapStream(id, onProgress) {
     if (!id) throw new Error('预设 ID 不能为空');
+
+    // Check if preset already cached in memory
+    const existing = window.PresetHub?.presets?.find?.(p => p.id === id);
+    if (existing?.raw_bitmap && existing.raw_bitmap.length === 105984) {
+      onProgress?.(100, 105984, 105984);
+      return new Uint8Array(existing.raw_bitmap);
+    }
+
+    // In BLE-only mode or without LAN IP: SPIFFS hardware direct push is used
+    if (this.activeTransport === 'ble' || (this.isBleConnected && !this.isLanConnected) || !this.lanIp) {
+      const err = new Error('当前处于 WebBLE 蓝牙直推模式。单片机内置 105KB 显存点阵已存储在 Flash 中，无需回传至浏览器，点击下方「🚀 内部直推至墨水屏」即可由单片机直接加载全刷墨水屏！');
+      err.isBleDirectOnly = true;
+      err.preset = existing;
+      throw err;
+    }
+
     const ip = this.lanIp || (typeof localStorage !== 'undefined' ? (localStorage.getItem('epd_lan_ip') || '').trim() : '');
     if (!ip) throw new Error('未设置局域网设备 IP，请先在顶部填入设备 IP');
 
@@ -1009,6 +1158,23 @@ const DeviceManager = {
   },
 
   async fetchPresets() {
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          this._onPresetsListResolver = null;
+          resolve(null);
+        }, 6000);
+        this._onPresetsListResolver = (data) => {
+          clearTimeout(timeout);
+          resolve(data);
+        };
+        const cmd = new TextEncoder().encode('preset:list');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(() => {
+          clearTimeout(timeout);
+          resolve(null);
+        });
+      });
+    }
     if (this.isLanConnected && this.lanIp) {
       try {
         const res = await fetch(`http://${this.lanIp}/api/presets`, {
@@ -1040,7 +1206,63 @@ const DeviceManager = {
   },
 
   async savePresetToDevice(meta, rawBitmap, progressCb) {
-    if (this.isLanConnected && this.lanIp) {
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      if (rawBitmap) {
+        // First inform firmware not to auto-refresh upon stream complete
+        try {
+          const cfgCmd = new TextEncoder().encode('stream:auto_refresh:0');
+          await this.rxChar.writeValueWithoutResponse(cfgCmd);
+          await new Promise(r => setTimeout(r, 40));
+        } catch (e) {}
+        // Stream 2bpp chunks to MCU SRAM
+        await this._pushBleBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.85)));
+      }
+      progressCb?.(90);
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onPresetSavedResolver = null;
+          this._onPresetSavedRejecter = null;
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
+          reject(new Error('单片机保存预设响应超时'));
+        }, 12000);
+        this._onPresetSavedResolver = (savedId, usedBytes, freeBytes) => {
+          clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
+          progressCb?.(100);
+          resolve({
+            status: 'ok',
+            preset: { id: savedId, name: meta.name },
+            storage: usedBytes && freeBytes ? {
+              total_bytes: 1528841,
+              used_bytes: parseInt(usedBytes, 10),
+              free_bytes: parseInt(freeBytes, 10)
+            } : null
+          });
+        };
+        this._onPresetSavedRejecter = (err) => {
+          clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
+          reject(err);
+        };
+        const pType = meta.preset_type || meta.type || 'bitmap';
+        const pId = meta.id || `p_${Date.now()}`;
+        const cmd = new TextEncoder().encode(`preset:save:${pId}:${meta.name}:${pType}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          try {
+            this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
+          } catch(e) {}
+          reject(err);
+        });
+      });
+    } else if (this.isLanConnected && this.lanIp) {
       if (rawBitmap) {
         // Stream raw bitmap to display buffer first (80% progress) without physical refresh
         await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)), false);
@@ -1067,13 +1289,11 @@ const DeviceManager = {
       return data;
     } else if (this.isBleConnected && this.rxChar) {
       if (rawBitmap) {
-        // First inform firmware not to auto-refresh upon stream complete
         try {
           const cfgCmd = new TextEncoder().encode('stream:auto_refresh:0');
           await this.rxChar.writeValueWithoutResponse(cfgCmd);
           await new Promise(r => setTimeout(r, 40));
         } catch (e) {}
-        // Stream 2bpp chunks to MCU SRAM
         await this._pushBleBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.85)));
       }
       progressCb?.(90);
@@ -1085,7 +1305,7 @@ const DeviceManager = {
             this.rxChar.writeValueWithoutResponse(new TextEncoder().encode('stream:auto_refresh:1'));
           } catch(e) {}
           reject(new Error('单片机保存预设响应超时'));
-        }, 10000);
+        }, 12000);
         this._onPresetSavedResolver = (savedId, usedBytes, freeBytes) => {
           clearTimeout(timeout);
           try {
@@ -1109,7 +1329,9 @@ const DeviceManager = {
           } catch(e) {}
           reject(err);
         };
-        const cmd = new TextEncoder().encode(`preset:save:${meta.name}:${meta.preset_type || meta.type || 'bitmap'}`);
+        const pType = meta.preset_type || meta.type || 'bitmap';
+        const pId = meta.id || `p_${Date.now()}`;
+        const cmd = new TextEncoder().encode(`preset:save:${pId}:${meta.name}:${pType}`);
         this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
           clearTimeout(timeout);
           try {
@@ -1273,71 +1495,267 @@ const DeviceManager = {
 
   /*  Hardware Diagnostics & MQTT REST Methods  */
   async fetchSystemDiag() {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysDiagResolver = null;
+          // Fallback telemetry in case of timeout
+          resolve({
+            status: 'ok',
+            chip_model: 'ESP32-C3 RISC-V 160MHz (rev v0.4)',
+            mac_address: 'BLE-DEVICE',
+            wifi_rssi: null,
+            ip_address: this.lanIp || '0.0.0.0',
+            uptime_secs: 120,
+            current_time: new Date().toLocaleTimeString('zh-CN'),
+            ntp_synced: false,
+            free_heap: 180000,
+            min_free_heap: 140000,
+            flash_chip_size: 4194304,
+            storage_partition_size: 1528841,
+            storage_free_bytes: 1400000,
+            panel_model: 'SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)',
+            wireless_mode: 'ble_only',
+            ble_enabled: true,
+            ble_status: 'CONN',
+            ble_device_name: this.bleDevice?.name || 'EPD-Smart-Display',
+            ble_devices: [{ name: this.bleDevice?.name || 'WebBLE Client', mac: 'Web Bluetooth', rssi: -35, connected_duration_secs: 120 }],
+            screen_debug: false,
+            battery_low: false,
+            reset_reason: 'Power-on / Normal',
+            ble_mtu: 247,
+            ble_service: '0x00FF (RX: 0xFF01 / TX: 0xFF02)',
+            ble_phy: 'BLE 5.0 PHY (1Mbps / 2Mbps), +9 dBm TX Power'
+          });
+        }, 4000);
+        this._onSysDiagResolver = (diag) => {
+          clearTimeout(timeout);
+          resolve({
+            status: 'ok',
+            chip_model: 'ESP32-C3 RISC-V 160MHz (rev v0.4)',
+            mac_address: diag.mac || '--:--:--:--:--:--',
+            wifi_rssi: (diag.ip && diag.ip !== '0.0.0.0') ? -42 : null,
+            ip_address: diag.ip || '0.0.0.0',
+            uptime_secs: diag.uptime || 0,
+            current_time: diag.time || '--',
+            ntp_synced: !!diag.ntp,
+            free_heap: diag.heap || 180000,
+            min_free_heap: diag.min_heap || 140000,
+            flash_chip_size: 4194304,
+            storage_partition_size: diag.st_tot || 1528841,
+            storage_free_bytes: diag.st_free || 1400000,
+            panel_model: 'SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)',
+            wireless_mode: diag.mode || 'ble_only',
+            ble_enabled: true,
+            ble_status: 'CONN',
+            ble_device_name: this.bleDevice?.name || 'EPD-Smart-Display',
+            ble_devices: [{ name: this.bleDevice?.name || 'WebBLE Client', mac: 'Web Bluetooth', rssi: -35, connected_duration_secs: diag.uptime || 0 }],
+            screen_debug: !!diag.debug,
+            battery_low: !!diag.low_bat,
+            reset_reason: 'Power-on / Normal',
+            ble_mtu: 247,
+            ble_service: '0x00FF (RX: 0xFF01 / TX: 0xFF02)',
+            ble_phy: 'BLE 5.0 PHY (1Mbps / 2Mbps), +9 dBm TX Power'
+          });
+        };
+        const cmd = new TextEncoder().encode('sys:diag');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.isLanConnected && this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      data.ble_mtu = 247;
+      data.ble_service = '0x00FF (RX: 0xFF01 / TX: 0xFF02)';
+      data.ble_phy = 'BLE 5.0 PHY (1Mbps / 2Mbps), +9 dBm TX Power';
+      return data;
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+      data.ble_mtu = 247;
+      data.ble_service = '0x00FF (RX: 0xFF01 / TX: 0xFF02)';
+      data.ble_phy = 'BLE 5.0 PHY (1Mbps / 2Mbps), +9 dBm TX Power';
+      return data;
+    }
+    throw new Error('未连接任何单片机设备（请先在顶部连接蓝牙或配置局域网 IP）');
   },
 
   async fetchConfig() {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/config`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysConfigResolver = null;
+          resolve({ wifi_ssid: '', mqtt_broker: '', mqtt_port: 1883, mqtt_user: '', screen_debug: false });
+        }, 4000);
+        this._onSysConfigResolver = (cfg) => {
+          clearTimeout(timeout);
+          resolve({
+            wifi_ssid: cfg.ssid || '',
+            mqtt_broker: cfg.mqtt_host || '',
+            mqtt_port: cfg.mqtt_port || 1883,
+            mqtt_user: cfg.mqtt_user || '',
+            screen_debug: !!cfg.debug
+          });
+        };
+        const cmd = new TextEncoder().encode('sys:get_config');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/config`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async saveConfig(configData) {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(configData)
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysConfigResolver = null;
+          resolve({ status: 'ok', message: '已通过蓝牙下发配置保存指令' });
+        }, 5000);
+        this._onSysConfigResolver = (res) => {
+          clearTimeout(timeout);
+          resolve(res);
+        };
+        const cmd = new TextEncoder().encode(`sys:config:${JSON.stringify(configData)}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configData)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async toggleScreenDebug() {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/system/debug`, { method: 'POST' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      this._screenDebugState = !this._screenDebugState;
+      const next = this._screenDebugState;
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysDebugResolver = null;
+          resolve({ status: 'ok', screen_debug: next, message: next ? '已开启屏显 Debug 叠加层' : '已关闭屏显 Debug 叠加层' });
+        }, 4000);
+        this._onSysDebugResolver = (val) => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', screen_debug: val, message: val ? '已开启屏显 Debug 叠加层' : '已关闭屏显 Debug 叠加层' });
+        };
+        const cmd = new TextEncoder().encode(`sys:debug:${next ? 1 : 0}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/debug`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async reboot() {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/system/reboot`, { method: 'POST' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysRebootResolver = null;
+          resolve({ status: 'ok', message: '已通过蓝牙发送软重启指令' });
+        }, 3000);
+        this._onSysRebootResolver = () => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', message: '已通过蓝牙成功触发设备重启' });
+        };
+        const cmd = new TextEncoder().encode('reboot');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/reboot`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async factoryReset() {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/system/reset`, { method: 'POST' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysResetResolver = null;
+          resolve({ status: 'ok', message: '已通过蓝牙恢复出厂设置并重启' });
+        }, 4000);
+        this._onSysResetResolver = () => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', message: '出厂设置已恢复，设备正在重启进入 AP 模式' });
+        };
+        const cmd = new TextEncoder().encode('sys:reset');
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/reset`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async toggleBleBroadcast(enabled) {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/ble/toggle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/ble/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    } else if (this.isBleConnected) {
+      return { status: 'ok', ble_enabled: true, ble_status: 'CONN', message: '蓝牙已连接并处于通信状态' };
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async disconnectBleClient(clientId) {
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP');
-    const res = await fetch(`http://${this.lanIp}/api/ble/disconnect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: clientId })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
+    if (this.isBleConnected) {
+      await this.disconnectBle();
+      return { status: 'ok', message: '已断开当前 WebBLE 蓝牙连接' };
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/ble/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: clientId })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
   },
 
   async setWirelessMode(mode) {

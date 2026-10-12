@@ -638,8 +638,11 @@ const UI = {
   _screenDebugEnabled: false,
 
   async pollSystemDiag() {
-    if (!window.DeviceManager?.lanIp) {
-      this.showToast('请先输入或连接局域网设备 IP', 'info');
+    const isConn = (window.DeviceManager?.isBleConnected && window.DeviceManager?.bleDevice?.gatt?.connected)
+      || (window.DeviceManager?.isLanConnected && !!window.DeviceManager?.lanIp)
+      || !!window.DeviceManager?.lanIp;
+    if (!isConn) {
+      this.showToast('请先连接蓝牙或配置局域网设备 IP', 'info');
       return;
     }
     try {
@@ -653,10 +656,15 @@ const UI = {
         document.getElementById('diagMac').textContent = data.mac_address || '--:--:--:--:--:--';
       }
       if (document.getElementById('diagRssi')) {
-        document.getElementById('diagRssi').textContent = `${data.wifi_rssi || -42} dBm (📶 信号良好)`;
+        document.getElementById('diagRssi').textContent = data.wifi_rssi ? `${data.wifi_rssi} dBm (📶 信号良好)` : 'BLE 无线模式 (无需 Wi-Fi)';
       }
       if (document.getElementById('diagIp')) {
-        document.getElementById('diagIp').innerHTML = `<a href="http://${data.ip_address || window.DeviceManager.lanIp}/" target="_blank" style="color:var(--md-sys-color-primary);">http://${data.ip_address || window.DeviceManager.lanIp}/</a> · http://epd-display.local`;
+        const ip = data.ip_address || window.DeviceManager.lanIp || '0.0.0.0';
+        if (ip && ip !== '0.0.0.0') {
+          document.getElementById('diagIp').innerHTML = `<a href="http://${ip}/" target="_blank" style="color:var(--md-sys-color-primary);">http://${ip}/</a> · http://epd-display.local`;
+        } else {
+          document.getElementById('diagIp').textContent = '未分配 (纯 BLE 模式离线运行中)';
+        }
       }
 
       // Format Uptime
@@ -669,7 +677,7 @@ const UI = {
         document.getElementById('diagUptime').textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
       }
       if (document.getElementById('diagNtpTime')) {
-        const ntpStatus = data.ntp_synced ? '✅ 阿里云 NTP 已授时' : '⏳ 正在同步阿里云 NTP...';
+        const ntpStatus = data.ntp_synced ? '✅ 阿里云 NTP 已授时' : (data.current_time?.includes('BLE') ? '⚡ 蓝牙直连 (免NTP)' : '⏳ 同步阿里云 NTP 中...');
         document.getElementById('diagNtpTime').textContent = data.current_time ? `${data.current_time} (${ntpStatus})` : ntpStatus;
       }
 
@@ -718,6 +726,24 @@ const UI = {
       }
       if (document.getElementById('diagResetReason')) {
         document.getElementById('diagResetReason').textContent = data.reset_reason || 'Power-on / Normal';
+      }
+
+      // Populate BLE-specific rows
+      if (document.getElementById('diagBleMtu')) {
+        document.getElementById('diagBleMtu').textContent = `${data.ble_mtu || 247} 字节 (GATT Data Payload: 240B, 极速直推)`;
+      }
+      if (document.getElementById('diagBleService')) {
+        document.getElementById('diagBleService').textContent = data.ble_service || '0x00FF (RX: 0xFF01 Write / TX: 0xFF02 Notify)';
+      }
+      if (document.getElementById('diagBleConnLink')) {
+        const isBle = window.DeviceManager?.isBleConnected;
+        document.getElementById('diagBleConnLink').textContent = isBle
+          ? '已建立高可靠双工无线链路 (WebBLE Dual-Mode 5.0)'
+          : '待机就绪 (等待 WebBLE 主机连接)';
+        document.getElementById('diagBleConnLink').style.color = isBle ? '#4caf50' : 'inherit';
+      }
+      if (document.getElementById('diagBlePower')) {
+        document.getElementById('diagBlePower').textContent = data.ble_phy || '+9 dBm · BLE 5.0 PHY 1Mbps / 2Mbps';
       }
 
       // Update BLE status UI

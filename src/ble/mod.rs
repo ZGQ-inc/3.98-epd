@@ -164,8 +164,8 @@ impl BleManager {
             let data = args.recv_data();
             if data.is_empty() { return; }
 
-            // Check if string command or JSON (< 120 bytes). Binary chunks (240 bytes) must NEVER reset offset!
-            let is_text_cmd = data.len() < 120 && (
+            // Check if string command or JSON (< 240 bytes). Binary chunks (240 bytes) must NEVER reset offset!
+            let is_text_cmd = data.len() < 240 && (
                 data[0] == b'{'
                 || data.starts_with(b"refresh")
                 || data.starts_with(b"mode:")
@@ -174,6 +174,10 @@ impl BleManager {
                 || data.starts_with(b"status")
                 || data.starts_with(b"get_")
                 || data.starts_with(b"preset:")
+                || data.starts_with(b"stream:")
+                || data.starts_with(b"sys:")
+                || data.starts_with(b"reboot")
+                || data.starts_with(b"storage:")
             );
 
             if is_text_cmd {
@@ -264,12 +268,21 @@ impl BleManager {
                             tx.lock().notify();
                         }
                     } else if text.starts_with("preset:save:") {
-                        let parts: Vec<&str> = text[12..].splitn(2, ':').collect();
-                        let name = parts[0].trim();
-                        let p_type = if parts.len() > 1 { parts[1].trim() } else { "bitmap" };
+                        let sub = &text[12..];
+                        let parts: Vec<&str> = sub.split(':').collect();
+                        let (preset_id, preset_name, p_type) = if parts.len() >= 3 {
+                            (parts[0].trim().to_string(), parts[1].trim().to_string(), parts[2].trim())
+                        } else {
+                            let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                            let name = if parts.is_empty() || parts[0].trim().is_empty() {
+                                format!("预设效果_{}", now_ts)
+                            } else {
+                                parts[0].trim().to_string()
+                            };
+                            let t = if parts.len() > 1 { parts[1].trim() } else { "bitmap" };
+                            (format!("p_{}", now_ts), name, t)
+                        };
                         let now_ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                        let preset_id = format!("p_{}", now_ts);
-                        let preset_name = if name.is_empty() { format!("预设效果_{}", now_ts) } else { name.to_string() };
                         let meta = crate::storage::PresetMeta {
                             id: preset_id.clone(),
                             name: preset_name,
@@ -283,9 +296,9 @@ impl BleManager {
                                 "scenes" => "场景模式".to_string(),
                                 _ => "位图图像".to_string(),
                             },
-                            size_bytes: 0,
-                            size_str: "106 KB".to_string(),
-                            created_at: now_ts,
+                            size_bytes: 105984,
+                            size_str: "106.0 KB".to_string(),
+                            created_at: if now_ts > 1000000 { now_ts } else { 1770000000 },
                             created_str: format!("{}", now_ts),
                             mode_id: None,
                             mode_params: None,
@@ -294,7 +307,7 @@ impl BleManager {
                             text_content: None,
                             preview_thumb: None,
                             bitmap_file: None,
-                            is_complete: false,
+                            is_complete: true,
                             is_orphan: false,
                         };
                         let raw_fb = Some(crate::display::framebuffer::get_raw_slice());
@@ -312,10 +325,131 @@ impl BleManager {
                         }
                     } else if text == "stream:auto_refresh:0" {
                         STREAM_AUTO_REFRESH.store(false, Ordering::Relaxed);
-                        println!("  [ble-rx] Stream auto-refresh disabled (buffered only)");
+                        STREAM_OFFSET.store(0, Ordering::Relaxed);
+                        println!("  [ble-rx] Stream auto-refresh disabled (buffered only), offset reset to 0");
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            tx.lock().set_value(b"STREAM_CFG:OK:0");
+                            tx.lock().notify();
+                        }
                     } else if text == "stream:auto_refresh:1" {
                         STREAM_AUTO_REFRESH.store(true, Ordering::Relaxed);
-                        println!("  [ble-rx] Stream auto-refresh enabled");
+                        STREAM_OFFSET.store(0, Ordering::Relaxed);
+                        println!("  [ble-rx] Stream auto-refresh enabled, offset reset to 0");
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            tx.lock().set_value(b"STREAM_CFG:OK:1");
+                            tx.lock().notify();
+                        }
+                    } else if text == "sys:diag" || text == "get_diag" {
+                        let ble_self = BleManager::global();
+                        let free_heap = unsafe { esp_idf_sys::esp_get_free_heap_size() } as usize;
+                        let min_free_heap = unsafe { esp_idf_sys::esp_get_minimum_free_heap_size() } as usize;
+                        let uptime_secs = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+                        let mut mac = [0u8; 6];
+                        unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) };
+                        let mac_str = format!("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                        let ip = ble_self.get_ip_address();
+                        let mode = ble_self.get_wireless_mode();
+                        let ntp_synced = crate::ntp::is_time_synced();
+                        let now = crate::ntp::get_now_info();
+                        let time_str = format!("{} {}", now.date_str, now.time_sec_str);
+                        let storage_stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
+                        });
+                        let screen_debug = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().screen_debug).unwrap_or(false);
+                        let diag_json = format!(
+                            "SYS_DIAG:{{\"heap\":{},\"min_heap\":{},\"uptime\":{},\"mac\":\"{}\",\"ip\":\"{}\",\"mode\":\"{}\",\"ntp\":{},\"time\":\"{}\",\"st_tot\":{},\"st_free\":{},\"debug\":{},\"low_bat\":{}}}",
+                            free_heap, min_free_heap, uptime_secs, mac_str, ip, mode, ntp_synced, time_str,
+                            storage_stats.total_bytes, storage_stats.free_bytes, screen_debug,
+                            crate::power::PowerManager::is_low_battery()
+                        );
+                        ble_self.notify_str(&diag_json);
+                    } else if text == "reboot" || text == "sys:reboot" {
+                        println!("  [ble-rx] Reboot requested via BLE...");
+                        BleManager::global().notify_bytes(b"SYS_REBOOT:OK");
+                        std::thread::spawn(|| {
+                            std::thread::sleep(std::time::Duration::from_millis(600));
+                            unsafe { esp_idf_sys::esp_restart() };
+                        });
+                    } else if text == "sys:reset" || text == "factory_reset" {
+                        println!("  [ble-rx] Factory reset requested via BLE...");
+                        let ble_self = BleManager::global();
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            cfg.wifi_ssid.clear();
+                            cfg.wifi_pass.clear();
+                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                let mut mgr = cm.lock().unwrap();
+                                let _ = mgr.save(&cfg);
+                            }
+                        }
+                        ble_self.notify_bytes(b"SYS_RESET:OK");
+                        std::thread::spawn(|| {
+                            std::thread::sleep(std::time::Duration::from_millis(800));
+                            unsafe { esp_idf_sys::esp_restart() };
+                        });
+                    } else if text.starts_with("sys:debug:") {
+                        let en = text.ends_with(":1") || text.ends_with(":true");
+                        let ble_self = BleManager::global();
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            cfg.screen_debug = en;
+                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                let mut mgr = cm.lock().unwrap();
+                                let _ = mgr.save(&cfg);
+                            }
+                        }
+                        let resp = format!("SYS_DEBUG:OK:{}", if en { "1" } else { "0" });
+                        ble_self.notify_str(&resp);
+                    } else if text == "sys:get_config" {
+                        let ble_self = BleManager::global();
+                        let json = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let cfg = ac.lock().unwrap();
+                            Some(format!(
+                                "SYS_CONFIG:{{\"ssid\":\"{}\",\"mqtt_host\":\"{}\",\"mqtt_port\":{},\"mqtt_user\":\"{}\",\"debug\":{}}}",
+                                cfg.wifi_ssid, cfg.mqtt_broker, cfg.mqtt_port, cfg.mqtt_user, cfg.screen_debug
+                            ))
+                        } else {
+                            None
+                        };
+                        if let Some(j) = json {
+                            ble_self.notify_str(&j);
+                        }
+                    } else if text.starts_with("sys:config:") {
+                        let cfg_json = &text[11..];
+                        let ble_self = BleManager::global();
+                        let mut ok = false;
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(cfg_json) {
+                            if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                let mut cfg = ac.lock().unwrap();
+                                if let Some(s) = val.get("wifi_ssid").and_then(|v| v.as_str()) {
+                                    cfg.wifi_ssid = s.to_string();
+                                }
+                                if let Some(p) = val.get("wifi_pass").and_then(|v| v.as_str()) {
+                                    cfg.wifi_pass = p.to_string();
+                                }
+                                if let Some(m) = val.get("mqtt_broker").and_then(|v| v.as_str()) {
+                                    cfg.mqtt_broker = m.to_string();
+                                }
+                                if let Some(port) = val.get("mqtt_port").and_then(|v| v.as_u64()) {
+                                    cfg.mqtt_port = port as u16;
+                                }
+                                if let Some(u) = val.get("mqtt_user").and_then(|v| v.as_str()) {
+                                    cfg.mqtt_user = u.to_string();
+                                }
+                                if let Some(pw) = val.get("mqtt_pass").and_then(|v| v.as_str()) {
+                                    cfg.mqtt_pass = pw.to_string();
+                                }
+                                if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                    let mut mgr = cm.lock().unwrap();
+                                    if mgr.save(&cfg).is_ok() {
+                                        ok = true;
+                                    }
+                                }
+                            }
+                        }
+                        let resp = if ok { "SYS_CONFIG:SAVED" } else { "ERROR:CONFIG_SAVE_FAILED" };
+                        ble_self.notify_str(resp);
                     } else if text == "preset:list" || text == "get_presets" {
                         let list = crate::storage::list_presets();
                         let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
@@ -590,6 +724,20 @@ impl BleManager {
             let json = format!("STATUS:{{\"ip\":\"{}\",\"is_ap\":{},\"mode\":\"{}\"}}", ip, is_ap, mode);
             println!("  [ble-tx] Notifying client status: {}", json);
             tx.lock().set_value(json.as_bytes());
+            tx.lock().notify();
+        }
+    }
+
+    pub fn notify_str(&self, text: &str) {
+        if let Some(ref tx) = *self.tx_char.lock().unwrap() {
+            tx.lock().set_value(text.as_bytes());
+            tx.lock().notify();
+        }
+    }
+
+    pub fn notify_bytes(&self, data: &[u8]) {
+        if let Some(ref tx) = *self.tx_char.lock().unwrap() {
+            tx.lock().set_value(data);
             tx.lock().notify();
         }
     }
