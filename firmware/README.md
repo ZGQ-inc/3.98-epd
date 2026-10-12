@@ -74,6 +74,6 @@ esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-f
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `nvs` | data | nvs | `0x9000` | 24 KB (`0x6000`) | 存储 Wi-Fi 凭据、蓝牙设备名与模式配置 |
 | `phy_init` | data | phy | `0x11000` | 4 KB (`0x1000`) | 射频初始化校准数据 |
-| `factory` | app | factory | `0x20000` | 2048 KB (`0x200000`, 2.0MB) | Rust ESP-IDF 完整主固件镜像 (当前约占 84%) |
+| `factory` | app | factory | `0x20000` | 2048 KB (`0x200000`, 2.0MB) | Rust ESP-IDF 完整主固件镜像 |
 | `font` | data | 0x01 | `0x220000` | 288 KB (`0x48000`) | Flash MMU 零内存占用标准点阵中文字库 |
 | `storage` | data | spiffs | `0x268000` | 1632 KB (`0x198000`, ~1.6MB)| 单片机内置 SPIFFS 效果库 (真实物理存储) |

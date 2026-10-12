@@ -35,13 +35,13 @@
 ## 🚀 1分钟部署到 Cloudflare Pages (Deploy Guide)
 
 ### 方式一：一键自动部署 (Recommended)
-1. 将本仓库 `cf_pages/` 目录推送到你自己的 GitHub 仓库。
+1. Fork 本仓库。
 2. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)，进入 **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**。
 3. 选择你的仓库，配置如下：
    - **Framework preset**: `None`
    - **Build command**: *(留空)*
-   - **Build output directory**: `.` (或填写 `cf_pages`)
-4. 点击 **Save and Deploy**，30 秒内即可获得专属于你的全球 HTTPS 地址（如 `https://my-epd-badge.pages.dev`）！
+   - **Build output directory**: `cf_pages`
+4. 点击 **Save and Deploy**，30 秒内即可获得专属于你的全球 HTTPS 地址！
 
 ### 方式二：Cloudflare Wrangler CLI 部署
 ```bash
@@ -57,7 +57,7 @@ wrangler pages deploy . --project-name=epd-badge
 | 平台 / 操作系统 | 推荐浏览器 | Web Bluetooth 支持情况 |
 | :--- | :--- | :--- |
 | **Android** | Google Chrome / Edge / Opera | ✅ 开箱即用 (原生支持 WebBLE) |
-| **Windows / macOS** | Google Chrome / Microsoft Edge | ✅ 开箱即用 (需系统支持蓝牙 4.0+) |
+| **Windows** | Google Chrome / Microsoft Edge | ✅ 开箱即用 (需系统支持蓝牙 4.0+) |
 | **Linux** | Google Chrome / Chromium | ✅ 需开启 `chrome://flags/#enable-web-bluetooth` |
 
 ---

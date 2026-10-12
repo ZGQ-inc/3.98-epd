@@ -49,7 +49,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass-through for local hardware REST API calls (like http://192.168.x.x/api/...)
+  // Pass-through for local hardware REST API calls
   const url = new URL(event.request.url);
   if (url.pathname.startsWith('/api/') || url.port === '80') {
     return;
