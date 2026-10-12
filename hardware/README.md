@@ -62,44 +62,38 @@ hardware/
 
 ```mermaid
 flowchart LR
-    subgraph ESP32["ESP32-C3 SuperMini"]
+    subgraph ESP32["ESP32-C3 SuperMini (主控开发板)"]
         direction TB
-        E_3V3["3.3 (3.3V)"]
-        E_GND["G (GND)"]
-        E_6["6 (GPIO 6)"]
-        E_4["4 (GPIO 4)"]
-        E_7["7 (GPIO 7)"]
-        E_1["1 (GPIO 1)"]
-        E_2["2 (GPIO 2)"]
-        E_10["10 (GPIO 10)"]
+        E1["3.3 (3.3V 电源输出)"]
+        E2["G (GND 系统总地)"]
+        E3["6 (GPIO 6 / MOSI)"]
+        E4["4 (GPIO 4 / SCK)"]
+        E5["7 (GPIO 7 / CS)"]
+        E6["1 (GPIO 1 / DC)"]
+        E7["2 (GPIO 2 / RST)"]
+        E8["10 (GPIO 10 / BUSY)"]
     end
 
-    subgraph DRIVER["高压驱动板 (flamj0)"]
+    subgraph DRIVER["高压驱动板 (flamj0 转接驱动)"]
         direction TB
-        D_VCC["VCC"]
-        D_GND["GND"]
-        D_DIN["DIN"]
-        D_SCK["SCK"]
-        D_CS["CS"]
-        D_DC["DC"]
-        D_RST["RST"]
-        D_BSY["BSY"]
+        D1["VCC (3.3V 逻辑/升压)"]
+        D2["GND (参考总地)"]
+        D3["DIN (SPI 数据接收)"]
+        D4["SCK (SPI 时钟同步)"]
+        D5["CS (片选低有效)"]
+        D6["DC (数据/命令寄存器)"]
+        D7["RST (外部复位)"]
+        D8["BSY (Busy 状态输出)"]
     end
 
-    subgraph SCREEN["3.98寸 BWRY 墨水屏"]
-        FPC["24-Pin 0.8mm FPC<br>(回流焊 / JLC SMT)"]
-    end
-
-    E_3V3 ==>|"3.3V 逻辑与电荷泵"| D_VCC
-    E_GND ==>|"系统公共地"| D_GND
-    E_6 -->|"MOSI (数据传输)"| D_DIN
-    E_4 -->|"SCK (8MHz 时钟)"| D_SCK
-    E_7 -->|"CS (片选使能)"| D_CS
-    E_1 -->|"DC (数据/命令)"| D_DC
-    E_2 -->|"RST (硬件复位)"| D_RST
-    D_BSY -->|"BUSY (状态回读)"| E_10
-
-    DRIVER ===|"+22V / -20V / +15V 驱动高压"| FPC
+    E1 ==>|"3.3V 逻辑供电"| D1
+    E2 ==>|"系统公共地"| D2
+    E3 -->|"MOSI (数据传输)"| D3
+    E4 -->|"SCK (8MHz 时钟)"| D4
+    E5 -->|"CS (片选使能)"| D5
+    E6 -->|"DC (数据/命令)"| D6
+    E7 -->|"RST (硬件复位)"| D7
+    E8 ---|"BUSY (状态检测回读)"| D8
 ```
 
 | ESP32-C3 SuperMini 引脚 | 驱动板 (Driver Board) 引脚 | 信号名称 / 作用 | 信号流向 | 底层驱动与硬件逻辑说明 |
