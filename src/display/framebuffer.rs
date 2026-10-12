@@ -221,5 +221,3 @@ pub fn get_raw_slice() -> &'static [u8] {
 pub fn get_raw_slice_mut() -> &'static mut [u8] {
     unsafe { &mut EPD_STATIC_BUFFER }
 }
-
-

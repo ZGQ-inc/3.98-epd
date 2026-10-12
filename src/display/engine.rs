@@ -106,7 +106,7 @@ pub fn overlay_low_battery_warning(fb: &mut Framebuffer) {
         fb,
         tx,
         card_y + 128,
-        "请及时连接 Type-C 充电器为设备充饱电！",
+        "请及时连接 Type-C 充电器为设备充电！",
         BwryColor::Red,
         1,
     );
@@ -119,7 +119,7 @@ pub fn overlay_low_battery_warning(fb: &mut Framebuffer) {
         fb,
         card_x + 24,
         card_y + 196,
-        "• 检测机制: ESP32-C3 内部硬件欠压探测器 (BOD Reset / Level 7 临界监控)",
+        "检测机制: ESP32-C3 内部硬件欠压探测器",
         BwryColor::Black,
         1,
     );
@@ -127,7 +127,7 @@ pub fn overlay_low_battery_warning(fb: &mut Framebuffer) {
         fb,
         card_x + 24,
         card_y + 222,
-        "• 墨水屏双稳态特性: 当前提示已物理保持在屏幕上，断电永不消失",
+        "(BOD Reset / Level 7 临界监控)",
         BwryColor::Black,
         1,
     );
@@ -135,7 +135,7 @@ pub fn overlay_low_battery_warning(fb: &mut Framebuffer) {
         fb,
         card_x + 24,
         card_y + 248,
-        "• 充饱电后请按复位键 (RST) 或重新插拔电源即可恢复正常工作",
+        "充饱电后重启即可恢复正常工作",
         BwryColor::Black,
         1,
     );

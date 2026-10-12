@@ -234,9 +234,7 @@ pub fn draw_chinese_text_centered(
     draw_chinese_text(fb, x, y, text, color, scale);
 }
 
-// ---------------------------------------------------------------------
 // Compatibility Adapter for FontHelper & FontSize callers
-// ---------------------------------------------------------------------
 #[derive(Clone, Copy, Debug)]
 pub enum FontSize {
     Small,      // 1x scale (8x16 ASCII, 16x16 Chinese)

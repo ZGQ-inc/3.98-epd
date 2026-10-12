@@ -151,7 +151,7 @@ impl BleManager {
             BleManager::global().on_ble_client_disconnected_all();
         });
 
-        // ── Custom GATT Service (0x00FF) ───────────────────────────────────────
+        // Custom GATT Service (0x00FF) ───────────────────────────────────────
         let service = server.create_service(BleUuid::from_uuid16(0x00FF));
 
         // RX Characteristic (0xFF01): WRITE | WRITE_NO_RSP
@@ -588,7 +588,7 @@ impl BleManager {
         tx_char.lock().set_value(b"EPD_ONLINE");
         *self.tx_char.lock().unwrap() = Some(tx_char);
 
-        // ── Device Information Service (0x180A) ─────────────────────────────────
+        // Device Information Service (0x180A) ─────────────────────────────────
         let dis_svc = server.create_service(BleUuid::from_uuid16(0x180A));
         let model_char = dis_svc.lock().create_characteristic(
             BleUuid::from_uuid16(0x2A24),

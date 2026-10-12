@@ -63,7 +63,7 @@ pub trait DisplayMode: Send + Sync {
     fn render(&self, fb: &mut Framebuffer, ctx: &ModeContext) -> anyhow::Result<()>;
 }
 
-// ── Shared UI Drawing Helpers ────────────────────────────────────────────────
+// Shared UI Drawing Helpers
 fn draw_top_banner(fb: &mut Framebuffer, title: &str, right_sub: &str) {
     let header = Rectangle::new(Point::new(0, 0), Size::new(EPD_WIDTH as u32, 50))
         .into_styled(PrimitiveStyleBuilder::new().fill_color(BwryColor::Black).build());
@@ -81,7 +81,7 @@ fn draw_bottom_bar(fb: &mut Framebuffer, footer: &str) {
     FontHelper::draw_centered_text(fb, footer, (EPD_WIDTH / 2) as i32, (EPD_HEIGHT - 12) as i32, BwryColor::White, FontSize::Small);
 }
 
-// ── Mode 1: Memo / Bulletin ───────────────────────────────────────────────────
+// Mode 1: Memo / Bulletin
 pub struct MemoMode;
 impl DisplayMode for MemoMode {
     fn id(&self) -> &'static str { "memo" }
@@ -126,7 +126,7 @@ impl DisplayMode for MemoMode {
     }
 }
 
-// ── Mode 2: Calendar & Almanac ────────────────────────────────────────────────
+// Mode 2: Calendar & Almanac
 pub struct CalendarMode;
 impl DisplayMode for CalendarMode {
     fn id(&self) -> &'static str { "calendar" }
@@ -163,7 +163,7 @@ impl DisplayMode for CalendarMode {
     }
 }
 
-// ── Mode 3: Photo Frame ───────────────────────────────────────────────────────
+// Mode 3: Photo Frame
 pub struct PhotoFrameMode;
 impl DisplayMode for PhotoFrameMode {
     fn id(&self) -> &'static str { "photo" }
@@ -191,7 +191,7 @@ impl DisplayMode for PhotoFrameMode {
     }
 }
 
-// ── Mode 4: OpenWeather Comprehensive Weather ────────────────────────────────
+// Mode 4: OpenWeather Comprehensive Weather
 pub struct WeatherMode;
 impl DisplayMode for WeatherMode {
     fn id(&self) -> &'static str { "weather" }
@@ -235,7 +235,7 @@ impl DisplayMode for WeatherMode {
     }
 }
 
-// ── Mode 5: RSS Digest ────────────────────────────────────────────────────────
+// Mode 5: RSS Digest
 pub struct RssMode;
 impl DisplayMode for RssMode {
     fn id(&self) -> &'static str { "rss" }
@@ -273,7 +273,7 @@ impl DisplayMode for RssMode {
     }
 }
 
-// ── Mode 6: Fridge & Workshop Board ───────────────────────────────────────────
+// Mode 6: Fridge & Workshop Board
 pub struct FridgeBoardMode;
 impl DisplayMode for FridgeBoardMode {
     fn id(&self) -> &'static str { "fridge_board" }
@@ -367,7 +367,7 @@ impl DisplayMode for FridgeBoardMode {
     }
 }
 
-// ── Mode 7: QR Information ───────────────────────────────────────────────────
+// Mode 7: QR Information
 pub struct QrCodeMode;
 impl DisplayMode for QrCodeMode {
     fn id(&self) -> &'static str { "qrcode" }
@@ -405,7 +405,7 @@ impl DisplayMode for QrCodeMode {
     }
 }
 
-// ── Mode 8: Countdown ────────────────────────────────────────────────────────
+// Mode 8: Countdown
 pub struct CountdownMode;
 impl DisplayMode for CountdownMode {
     fn id(&self) -> &'static str { "countdown" }
@@ -423,7 +423,7 @@ impl DisplayMode for CountdownMode {
     }
 }
 
-// ── Mode 9: Habit Heatmap ────────────────────────────────────────────────────
+// Mode 9: Habit Heatmap
 pub struct HabitMode;
 impl DisplayMode for HabitMode {
     fn id(&self) -> &'static str { "habit" }
@@ -469,7 +469,7 @@ impl DisplayMode for HabitMode {
     }
 }
 
-// ── Mode 10: Poetry & Quotes ─────────────────────────────────────────────────
+// Mode 10: Poetry & Quotes
 pub struct PoetryMode;
 impl DisplayMode for PoetryMode {
     fn id(&self) -> &'static str { "poetry" }
@@ -492,7 +492,7 @@ impl DisplayMode for PoetryMode {
     }
 }
 
-// ── Mode 11: This Day in History ─────────────────────────────────────────────
+// Mode 11: This Day in History
 pub struct HistoryMode;
 impl DisplayMode for HistoryMode {
     fn id(&self) -> &'static str { "history" }
@@ -525,7 +525,7 @@ impl DisplayMode for HistoryMode {
     }
 }
 
-// ── Mode 12: Life Progress Bar ───────────────────────────────────────────────
+// Mode 12: Life Progress Bar
 pub struct LifeProgressBarMode;
 impl DisplayMode for LifeProgressBarMode {
     fn id(&self) -> &'static str { "life_progress" }
@@ -566,7 +566,7 @@ impl DisplayMode for LifeProgressBarMode {
     }
 }
 
-// ── Mode 13: Moon Phase ──────────────────────────────────────────────────────
+// Mode 13: Moon Phase
 pub struct MoonPhaseMode;
 impl DisplayMode for MoonPhaseMode {
     fn id(&self) -> &'static str { "moon_phase" }
@@ -600,7 +600,7 @@ impl DisplayMode for MoonPhaseMode {
     }
 }
 
-// ── Mode 14: Daily Routine Timeline ──────────────────────────────────────────
+// Mode 14: Daily Routine Timeline
 pub struct DailyRoutineMode;
 impl DisplayMode for DailyRoutineMode {
     fn id(&self) -> &'static str { "daily_routine" }
@@ -633,7 +633,7 @@ impl DisplayMode for DailyRoutineMode {
     }
 }
 
-// ── Mode 15: Shopping List ───────────────────────────────────────────────────
+// Mode 15: Shopping List
 pub struct ShoppingListMode;
 impl DisplayMode for ShoppingListMode {
     fn id(&self) -> &'static str { "shopping" }
@@ -668,7 +668,7 @@ impl DisplayMode for ShoppingListMode {
     }
 }
 
-// ── Mode 16: Care Reminders ──────────────────────────────────────────────────
+// Mode 16: Care Reminders
 pub struct CareRemindersMode;
 impl DisplayMode for CareRemindersMode {
     fn id(&self) -> &'static str { "care_reminders" }
@@ -702,7 +702,7 @@ impl DisplayMode for CareRemindersMode {
     }
 }
 
-// ── Mode 17: Pomodoro Board ──────────────────────────────────────────────────
+// Mode 17: Pomodoro Board
 pub struct PomodoroMode;
 impl DisplayMode for PomodoroMode {
     fn id(&self) -> &'static str { "pomodoro" }
