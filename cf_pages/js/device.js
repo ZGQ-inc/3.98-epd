@@ -383,10 +383,9 @@ const DeviceManager = {
     try {
       const url = `http://${this.lanIp}/api/system/status`;
       const fetchOpts = {
-        signal: AbortSignal.timeout(3500),
+        signal: AbortSignal.timeout(8000),
         headers: { 'Accept': 'application/json' }
       };
-      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
       const res = await fetch(url, fetchOpts);
       if (res.ok) {
         this.isLanConnected = true;
@@ -488,7 +487,6 @@ const DeviceManager = {
         body: packed2bpp,
         signal: AbortSignal.timeout(25000)
       };
-      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
       res = await fetch(url, fetchOpts);
     } catch (netErr) {
       this.isLanConnected = false;
@@ -915,49 +913,99 @@ const DeviceManager = {
     throw new Error('未连接任何单片机设备（请先连接蓝牙或局域网）');
   },
 
+  unpackBits(compressed, expectedLength = 105984) {
+    const out = new Uint8Array(expectedLength);
+    let outIdx = 0;
+    let inIdx = 0;
+    const len = compressed.length;
+
+    while (inIdx < len) {
+      const b = compressed[inIdx++];
+      if (b <= 127) {
+        const count = b + 1;
+        for (let k = 0; k < count; k++) {
+          if (outIdx < expectedLength) {
+            out[outIdx++] = compressed[inIdx++];
+          } else {
+            inIdx++;
+          }
+        }
+      } else if (b > 128) {
+        const count = 257 - b;
+        const val = compressed[inIdx++];
+        for (let k = 0; k < count; k++) {
+          if (outIdx < expectedLength) {
+            out[outIdx++] = val;
+          }
+        }
+      }
+      // b === 128 is a PackBits no-op
+    }
+
+    if (outIdx < expectedLength) {
+      console.warn(`[DeviceManager.unpackBits] 解压数据量偏小: ${outIdx} < ${expectedLength}`);
+    }
+    return out;
+  },
+
   async fetchPresetBitmapStream(id, onProgress) {
     if (!id) throw new Error('预设 ID 不能为空');
-    if (!this.lanIp) throw new Error('未设置局域网设备 IP，请先在顶部填入设备 IP');
+    const ip = this.lanIp || (typeof localStorage !== 'undefined' ? (localStorage.getItem('epd_lan_ip') || '').trim() : '');
+    if (!ip) throw new Error('未设置局域网设备 IP，请先在顶部填入设备 IP');
 
-    const url = `http://${this.lanIp}/api/presets/bitmap?id=${encodeURIComponent(id)}`;
+    const url = `http://${ip}/api/presets/bitmap?id=${encodeURIComponent(id)}`;
     const fetchOpts = { signal: AbortSignal.timeout(15000) };
-    try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
 
     const res = await fetch(url, fetchOpts);
     if (!res.ok) {
       throw new Error(`单片机返回错误 (HTTP ${res.status})，未找到指定点阵`);
     }
 
+    const isCompressed = res.headers.get('x-compression') === 'packbits';
+
+    let receivedBytes;
     if (!res.body || !res.body.getReader) {
       const buf = await res.arrayBuffer();
-      if (buf.byteLength !== 105984) {
-        throw new Error(`点阵数据大小不正确: ${buf.byteLength} 字节 (应为 105984 字节)`);
+      receivedBytes = new Uint8Array(buf);
+    } else {
+      const reader = res.body.getReader();
+      const chunks = [];
+      let totalReceived = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          totalReceived += value.length;
+          if (!isCompressed) {
+            const pct = Math.min(100, Math.round((totalReceived / 105984) * 100));
+            onProgress?.(pct, totalReceived, 105984);
+          } else {
+            onProgress?.(50, totalReceived, totalReceived);
+          }
+        }
       }
-      onProgress?.(100, buf.byteLength, buf.byteLength);
-      return new Uint8Array(buf);
-    }
-
-    const reader = res.body.getReader();
-    const totalBytes = 105984;
-    const fullData = new Uint8Array(totalBytes);
-    let received = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        fullData.set(value, received);
-        received += value.length;
-        const pct = Math.min(100, Math.round((received / totalBytes) * 100));
-        onProgress?.(pct, received, totalBytes);
+      receivedBytes = new Uint8Array(totalReceived);
+      let offset = 0;
+      for (const chunk of chunks) {
+        receivedBytes.set(chunk, offset);
+        offset += chunk.length;
       }
     }
 
-    if (received !== totalBytes) {
-      throw new Error(`接收点阵数据不完整: 仅接收 ${received}/${totalBytes} 字节`);
+    if (isCompressed || receivedBytes.length < 105984) {
+      console.log(`[DeviceManager] PackBits 解压点阵: 收到 ${receivedBytes.length} 字节 -> 105984 字节`);
+      const decompressed = this.unpackBits(receivedBytes, 105984);
+      onProgress?.(100, 105984, 105984);
+      return decompressed;
     }
 
-    return fullData;
+    if (receivedBytes.length !== 105984) {
+      throw new Error(`点阵数据大小不正确: ${receivedBytes.length} 字节 (应为 105984 字节)`);
+    }
+
+    onProgress?.(100, 105984, 105984);
+    return receivedBytes;
   },
 
   async fetchPresets() {
@@ -1012,7 +1060,6 @@ const DeviceManager = {
         }),
         signal: AbortSignal.timeout(20000)
       };
-      try { fetchOpts.targetAddressSpace = 'local'; } catch(e) {}
       const res = await fetch(`http://${this.lanIp}/api/presets/save`, fetchOpts);
       progressCb?.(100);
       const data = await res.json();

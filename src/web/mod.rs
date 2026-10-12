@@ -52,6 +52,7 @@ impl WebServer {
                 ("Access-Control-Allow-Headers", "*"),
                 ("Access-Control-Allow-Private-Network", "true"),
                 ("Access-Control-Max-Age", "86400"),
+                ("Connection", "close"),
             ])?;
             resp.write_all(b"")?;
             Ok(())
@@ -78,6 +79,7 @@ impl WebServer {
                     ("Content-Type", "text/html; charset=utf-8"),
                     ("Content-Length", &len_str),
                     ("Cache-Control", "no-cache, no-store, must-revalidate"),
+                    ("Connection", "close"),
                 ])?;
                 resp.write_all(CAPTIVE_HTML)?;
                 return Ok(());
@@ -887,7 +889,7 @@ impl WebServer {
         })?;
 
         // 13. POST /api/display/bitmap & /api/display/raw — Direct 1:1 Pixel Bitmap from Web Studio / PWA (105,984 bytes)
-        for path in &["/api/display/bitmap", "/api/display/raw"] {
+        for path in &["/api/display/bitmap", "/api/display/raw", "/api/display/bitmap*", "/api/display/raw*"] {
             server.fn_handler(path, Method::Post, move |mut req| -> anyhow::Result<()> {
                 let should_refresh = !req.uri().contains("refresh=false")
                     && req.header("X-Refresh").unwrap_or("true") != "false";
@@ -945,20 +947,22 @@ impl WebServer {
         }
 
         // 14. GET /api/display/raw — Read current 105,984 bytes framebuffer for 1:1 Web Preview (PackBits compressed)
-        server.fn_handler("/api/display/raw", Method::Get, move |req| -> anyhow::Result<()> {
-            let raw_fb = crate::display::framebuffer::get_raw_slice();
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/octet-stream"),
-                ("X-Compression", "packbits"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Access-Control-Expose-Headers", "X-Compression"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
-                ("Connection", "close"),
-            ])?;
-            let sent = stream_packbits(raw_fb, &mut resp)?;
-            println!("  [web] GET /api/display/raw sent {} bytes (PackBits RLE)", sent);
-            Ok(())
-        })?;
+        for path in &["/api/display/raw", "/api/display/raw*"] {
+            server.fn_handler(path, Method::Get, move |req| -> anyhow::Result<()> {
+                let raw_fb = crate::display::framebuffer::get_raw_slice();
+                let mut resp = req.into_response(200, None, &[
+                    ("Content-Type", "application/octet-stream"),
+                    ("X-Compression", "packbits"),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Access-Control-Expose-Headers", "X-Compression"),
+                    ("Cache-Control", "no-cache, no-store, must-revalidate"),
+                    ("Connection", "close"),
+                ])?;
+                let sent = stream_packbits(raw_fb, &mut resp)?;
+                println!("  [web] GET /api/display/raw sent {} bytes (PackBits RLE)", sent);
+                Ok(())
+            })?;
+        }
 
         // 15. GET /api/presets — List all presets and storage statistics
         server.fn_handler("/api/presets", Method::Get, |req| -> anyhow::Result<()> {
@@ -1284,53 +1288,57 @@ impl WebServer {
         server.fn_handler("/api/presets/clean_orphans", Method::Post, handle_clean_orphans)?;
 
         // 19. GET /api/presets/preview — Get preset details and preview data
-        server.fn_handler("/api/presets/preview", Method::Get, |req| -> anyhow::Result<()> {
-            let query = req.uri();
-            let mut preset_id = String::new();
-            if let Some(pos) = query.find("id=") {
-                preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
-            }
-
-            if !preset_id.is_empty() {
-                let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, preset_id);
-                if let Ok(content) = std::fs::read_to_string(&meta_path) {
-                    let clean_content = if let Some(idx) = content.rfind('}') {
-                        &content[..=idx]
-                    } else {
-                        &content
-                    };
-                    let len_str = clean_content.len().to_string();
-                    let mut resp = req.into_response(200, None, &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Content-Length", &len_str),
-                        ("Access-Control-Allow-Origin", "*"),
-                        ("Connection", "close"),
-                    ])?;
-                    resp.write_all(clean_content.as_bytes())?;
-                    return Ok(());
+        for path in &["/api/presets/preview", "/api/presets/preview*"] {
+            server.fn_handler(path, Method::Get, |req| -> anyhow::Result<()> {
+                let query = req.uri();
+                let mut preset_id = String::new();
+                if let Some(pos) = query.find("id=") {
+                    preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
                 }
-            }
 
-            let resp_data = serde_json::json!({ "status": "error", "message": "预设未找到" });
-            let json = serde_json::to_vec(&resp_data)?;
-            let len_str = json.len().to_string();
-            let mut resp = req.into_response(404, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Content-Length", &len_str),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
-        })?;
+                if !preset_id.is_empty() {
+                    let meta_path = format!("{}/{}.json", crate::storage::PRESETS_DIR, preset_id);
+                    if let Ok(content) = std::fs::read_to_string(&meta_path) {
+                        let clean_content = if let Some(idx) = content.rfind('}') {
+                            &content[..=idx]
+                        } else {
+                            &content
+                        };
+                        let len_str = clean_content.len().to_string();
+                        let mut resp = req.into_response(200, None, &[
+                            ("Content-Type", "application/json; charset=utf-8"),
+                            ("Content-Length", &len_str),
+                            ("Access-Control-Allow-Origin", "*"),
+                            ("Connection", "close"),
+                        ])?;
+                        resp.write_all(clean_content.as_bytes())?;
+                        return Ok(());
+                    }
+                }
+
+                let resp_data = serde_json::json!({ "status": "error", "message": "预设未找到" });
+                let json = serde_json::to_vec(&resp_data)?;
+                let len_str = json.len().to_string();
+                let mut resp = req.into_response(404, None, &[
+                    ("Content-Type", "application/json; charset=utf-8"),
+                    ("Content-Length", &len_str),
+                    ("Access-Control-Allow-Origin", "*"),
+                    ("Connection", "close"),
+                ])?;
+                resp.write_all(&json)?;
+                Ok(())
+            })?;
+        }
 
         // 20. GET /api/presets/bitmap — Stream raw 105,984 bytes 2bpp of a preset for canvas preview
-        server.fn_handler("/api/presets/bitmap", Method::Get, |req| -> anyhow::Result<()> {
-            let query = req.uri();
-            let mut preset_id = String::new();
-            if let Some(pos) = query.find("id=") {
-                preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
-            }
+        for path in &["/api/presets/bitmap", "/api/presets/bitmap*"] {
+            server.fn_handler(path, Method::Get, |req| -> anyhow::Result<()> {
+                let query = req.uri();
+                let mut preset_id = String::new();
+                if let Some(pos) = query.find("id=") {
+                    preset_id = query[pos + 3..].split('&').next().unwrap_or("").to_string();
+                }
+                println!("  [bitmap] Request uri: '{}', parsed preset_id: '{}'", query, preset_id);
 
             if !preset_id.is_empty() {
                 let bmp_path = format!("{}/{}.2bpp", crate::storage::PRESETS_DIR, preset_id);
@@ -1348,35 +1356,33 @@ impl WebServer {
                         None
                     }
                 };
+                println!("  [bitmap] Resolved path: {:?}", resolved_path);
 
                 if let Some(path) = resolved_path {
-                    if let Ok(mut f) = std::fs::File::open(&path) {
-                        if let Ok(metadata) = f.metadata() {
-                            let len_str = metadata.len().to_string();
+                    match std::fs::File::open(&path) {
+                        Ok(mut f) => {
+                            println!("  [bitmap] Opened file '{}', streaming PackBits RLE...", path);
                             let mut resp = req.into_response(200, None, &[
                                 ("Content-Type", "application/octet-stream"),
-                                ("Content-Length", &len_str),
+                                ("X-Compression", "packbits"),
                                 ("Access-Control-Allow-Origin", "*"),
                                 ("Access-Control-Allow-Private-Network", "true"),
+                                ("Access-Control-Expose-Headers", "X-Compression"),
                                 ("Cache-Control", "no-cache"),
                                 ("Connection", "close"),
                             ])?;
-                            let mut buf = [0u8; 2048];
-                            use std::io::Read;
-                            loop {
-                                let n = f.read(&mut buf)?;
-                                if n == 0 {
-                                    break;
-                                }
-                                resp.write_all(&buf[..n]).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-                                std::thread::sleep(std::time::Duration::from_millis(2));
-                            }
+                            let sent = stream_packbits_reader(&mut f, &mut resp)?;
+                            println!("  [bitmap] SUCCESS: Sent {} bytes (PackBits RLE) for preset {}", sent, preset_id);
                             return Ok(());
+                        }
+                        Err(e) => {
+                            println!("  [bitmap] ERROR opening file '{}': {:?}", path, e);
                         }
                     }
                 }
             }
 
+            println!("  [bitmap] NOT FOUND: preset_id: {}", preset_id);
             let mut resp = req.into_response(404, None, &[
                 ("Content-Type", "text/plain"),
                 ("Access-Control-Allow-Origin", "*"),
@@ -1386,6 +1392,7 @@ impl WebServer {
             resp.write_all(b"Preset bitmap not found")?;
             Ok(())
         })?;
+    }
 
         // 21. GET /api/storage/stats — Storage partition details
         server.fn_handler("/api/storage/stats", Method::Get, |req| -> anyhow::Result<()> {
@@ -1536,6 +1543,81 @@ fn stream_packbits<W: esp_idf_svc::io::Write>(data: &[u8], writer: &mut W) -> an
             }
         }
     }
+    cw.flush()?;
+    Ok(cw.total_sent)
+}
+
+/// Zero-heap PackBits RLE stream compressor reading directly from any std::io::Read (e.g. File)
+fn stream_packbits_reader<R: std::io::Read, W: esp_idf_svc::io::Write>(
+    reader: &mut R,
+    writer: &mut W,
+) -> anyhow::Result<usize> {
+    let mut cw = ChunkWriter::new(writer);
+    let mut lit_buf = [0u8; 128];
+    let mut lit_len = 0;
+    let mut rep_byte = 0u8;
+    let mut rep_count = 0usize;
+
+    let mut in_buf = [0u8; 1024];
+    loop {
+        let n = reader.read(&mut in_buf)?;
+        if n == 0 {
+            break;
+        }
+        for &byte in &in_buf[..n] {
+            if rep_count > 0 {
+                if byte == rep_byte && rep_count < 128 {
+                    rep_count += 1;
+                    continue;
+                } else {
+                    let header = (257 - rep_count as u16) as u8;
+                    cw.put(header)?;
+                    cw.put(rep_byte)?;
+                    rep_count = 0;
+                }
+            }
+
+            if lit_len > 0 && lit_buf[lit_len - 1] == byte {
+                lit_len -= 1;
+                if lit_len > 0 {
+                    cw.put((lit_len - 1) as u8)?;
+                    for j in 0..lit_len {
+                        cw.put(lit_buf[j])?;
+                    }
+                    lit_len = 0;
+                }
+                rep_byte = byte;
+                rep_count = 2;
+                continue;
+            }
+
+            lit_buf[lit_len] = byte;
+            lit_len += 1;
+            if lit_len == 128 {
+                cw.put(127)?;
+                for j in 0..128 {
+                    cw.put(lit_buf[j])?;
+                }
+                lit_len = 0;
+            }
+        }
+    }
+
+    if rep_count >= 2 {
+        let header = (257 - rep_count as u16) as u8;
+        cw.put(header)?;
+        cw.put(rep_byte)?;
+    } else if rep_count == 1 {
+        lit_buf[lit_len] = rep_byte;
+        lit_len += 1;
+    }
+    if lit_len > 0 {
+        cw.put((lit_len - 1) as u8)?;
+        for j in 0..lit_len {
+            cw.put(lit_buf[j])?;
+        }
+    }
+
     cw.flush()?;
     Ok(cw.total_sent)
 }

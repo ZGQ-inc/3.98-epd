@@ -510,9 +510,74 @@ const App = {
         drawProgress(0, 0, 105984);
 
         try {
-          const bytes = await DeviceManager.fetchPresetBitmapStream(preset.id, (pct, loaded, total) => {
-            drawProgress(pct, loaded, total);
-          });
+          let bytes;
+          if (typeof DeviceManager.fetchPresetBitmapStream === 'function') {
+            bytes = await DeviceManager.fetchPresetBitmapStream(preset.id, (pct, loaded, total) => {
+              drawProgress(pct, loaded, total);
+            });
+          } else {
+            // Direct streaming fallback in case DeviceManager was cached by browser
+            const ip = DeviceManager.lanIp || (typeof localStorage !== 'undefined' ? (localStorage.getItem('epd_lan_ip') || '').trim() : '');
+            if (!ip) throw new Error('未设置局域网设备 IP，请先在顶部设置设备 IP');
+            const res = await fetch(`http://${ip}/api/presets/bitmap?id=${encodeURIComponent(preset.id)}`, {
+              signal: AbortSignal.timeout(15000)
+            });
+            if (!res.ok) throw new Error(`单片机返回错误 (HTTP ${res.status})，未找到指定点阵`);
+            const isPackBits = res.headers.get('x-compression') === 'packbits';
+            let receivedData;
+            if (res.body && res.body.getReader) {
+              const reader = res.body.getReader();
+              const chunks = [];
+              let received = 0;
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) {
+                  chunks.push(value);
+                  received += value.length;
+                  if (!isPackBits) {
+                    const pct = Math.min(100, Math.round((received / 105984) * 100));
+                    drawProgress(pct, received, 105984);
+                  } else {
+                    drawProgress(50, received, received);
+                  }
+                }
+              }
+              receivedData = new Uint8Array(received);
+              let offset = 0;
+              for (const c of chunks) {
+                receivedData.set(c, offset);
+                offset += c.length;
+              }
+            } else {
+              const buf = await res.arrayBuffer();
+              receivedData = new Uint8Array(buf);
+            }
+
+            if (isPackBits || receivedData.length < 105984) {
+              if (typeof DeviceManager.unpackBits === 'function') {
+                bytes = DeviceManager.unpackBits(receivedData, 105984);
+              } else {
+                // Inline unpackBits fallback
+                const out = new Uint8Array(105984);
+                let outIdx = 0, inIdx = 0;
+                while (inIdx < receivedData.length) {
+                  const b = receivedData[inIdx++];
+                  if (b <= 127) {
+                    const cnt = b + 1;
+                    for (let k = 0; k < cnt; k++) if (outIdx < 105984) out[outIdx++] = receivedData[inIdx++]; else inIdx++;
+                  } else if (b > 128) {
+                    const cnt = 257 - b;
+                    const val = receivedData[inIdx++];
+                    for (let k = 0; k < cnt; k++) if (outIdx < 105984) out[outIdx++] = val;
+                  }
+                }
+                bytes = out;
+              }
+            } else {
+              bytes = receivedData;
+            }
+          }
 
           // Successfully pulled 105,984 bytes from MCU Flash!
           BWRY.render2bppToCanvas(canvas, bytes);
