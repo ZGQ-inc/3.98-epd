@@ -197,7 +197,7 @@
         const secs = up % 60;
         if (document.getElementById('dUptime')) document.getElementById('dUptime').textContent = `${days}天 ${hours}小时 ${mins}分 ${secs}秒`;
         if (document.getElementById('dNtpTime')) {
-          const ntpDesc = d.ntp_synced ? '✅ 阿里云 NTP 已授时' : '⏳ 正在校时...';
+          const ntpDesc = d.ntp_synced ? '✅ NTP 已授时' : '⏳ 正在校时...';
           document.getElementById('dNtpTime').textContent = d.current_time ? `${d.current_time} (${ntpDesc})` : ntpDesc;
         }
 

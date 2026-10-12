@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-title" content="墨水屏工坊">
   <meta name="description" content="专为 3.98 英寸四色墨水屏打造的蓝牙与局域网双模独立控制端 PWA。">
 
-  <!-- Modular Stylesheets (Material Web 3.0 Tokens) -->
+  <!-- Material Web 3.0 Tokens -->
   <link rel="stylesheet" href="./css/theme.css?v=2.5">
   <link rel="stylesheet" href="./css/layout.css?v=2.5">
   <link rel="stylesheet" href="./css/components.css?v=2.5">
@@ -93,7 +93,7 @@
     <div class="tab-scroll-container">
       <nav class="tab-nav">
         <button class="tab-btn active" data-tab="badge">📇 智能工牌</button>
-        <button class="tab-btn" data-tab="itabag">🎒 痛卡立绘</button>
+        <button class="tab-btn" data-tab="itabag">🎒 兽聚痛卡</button>
         <button class="tab-btn" data-tab="memo">📝 随身便签</button>
         <button class="tab-btn" data-tab="paint">🎨 手绘画板</button>
         <button class="tab-btn" data-tab="image">🖼️ 图片调色</button>
@@ -302,8 +302,8 @@
           <div class="form-group">
             <label class="form-label">待办事项（每行一项，自动生成复选框）</label>
             <textarea id="memoItems" class="m3-textarea memo-input" style="min-height:140px;">出门记得带钥匙和工牌
-晚上 8 点智能门禁固件升级
-给痛包充好电备战周末漫展</textarea>
+晚上 8 点 HA 系统升级
+给痛卡充好电备战周末兽聚</textarea>
           </div>
           <div class="form-group">
             <label class="form-label">底部便签提示语</label>
@@ -329,7 +329,7 @@
 
         <!-- Palette & Tools Toolbar -->
         <div class="palette-box">
-          <div class="palette-group-title">纯色基础墨水 (Pure Inks) & 取色器:</div>
+          <div class="palette-group-title">纯色基础墨水 & 取色器:</div>
           <div class="swatch-row">
             <span class="color-swatch swatch-item active" style="background-color:#000000;" data-color="#000000" title="纯黑"></span>
             <span class="color-swatch swatch-item" style="background-color:#ffffff; border-color:#888;" data-color="#ffffff" title="纯白"></span>
@@ -356,7 +356,7 @@
             </div>
           </div>
 
-          <div class="palette-group-title" style="margin-top:10px;">10 种物理微粒混色与精选灰阶 (Mixed BWRY):</div>
+          <div class="palette-group-title" style="margin-top:10px;">10 种物理微粒混色与精选灰阶:</div>
           <div class="swatch-row">
             <span class="color-swatch swatch-item" style="background-color:#ff8c00;" data-color="#ff8c00" title="亮橙 (红+黄混色)"></span>
             <span class="color-swatch swatch-item" style="background-color:#ff9999;" data-color="#ff9999" title="浅粉 (红+白混色)"></span>
@@ -687,7 +687,7 @@
         </div>
       </div>
 
-      <!-- 4. ⚙️ 系统硬件指标与实时底层诊断 (18项完整指标) -->
+      <!-- 4. ⚙️ 系统硬件指标与实时底层诊断 -->
       <div class="m3-card" style="margin-bottom:14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h3 style="margin:0; font-size:15px; font-weight:700;">⚙️ 系统硬件指标与实时底层诊断</h3>
@@ -696,12 +696,12 @@
         <table class="diag-table">
           <tbody>
             <tr><td>主控芯片架构 (SoC)</td><td id="diagChip">ESP32-C3 RISC-V 160MHz, Rev v0.4</td></tr>
-            <tr><td>物理网卡 MAC 地址</td><td id="diagMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
+            <tr><td>MAC 地址</td><td id="diagMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
             <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="diagRssi">-- dBm</td></tr>
             <tr><td>当前局域网 IP / 域名</td><td id="diagIp">http://&lt;DEVICE_IP&gt; / http://epd-display.local</td></tr>
-            <tr><td>系统连续运行时间 (Uptime)</td><td id="diagUptime">--</td></tr>
-            <tr><td>北京时间 (阿里云 NTP)</td><td id="diagNtpTime">--</td></tr>
-            <tr><td>实时可用堆内存 (SRAM)</td><td id="diagHeap">--</td></tr>
+            <tr><td>系统连续运行时间</td><td id="diagUptime">--</td></tr>
+            <tr><td>NTP 时间 (UTC+8)</td><td id="diagNtpTime">--</td></tr>
+            <tr><td>可用堆内存 (SRAM)</td><td id="diagHeap">--</td></tr>
             <tr><td>SPI Flash 闪存规格</td><td id="diagFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
             <tr><td>内部存储分区 (storage)</td><td id="diagStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
             <tr><td>参数配置分区 (nvs)</td><td id="diagNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>

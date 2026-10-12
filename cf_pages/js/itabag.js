@@ -13,7 +13,6 @@
     ctx: null,
     userImage: null,
 
-    // Config parameters
     config: {
       scale: 1.0,           // 0.5 ~ 2.5
       offsetX: 0,           // -300 ~ +300 px
@@ -21,12 +20,11 @@
       title: '初音未来 / Hatsune Miku',
       source: 'VOCALOID',
       quote: '用歌声连接整个世界的奇迹！',
-      style: 'bubble',      // 'bubble' (漫画对话气泡) | 'banner' (铭牌台词卡)
-      borderStyle: 'charm', // 'charm' (挂饰金属铆钉) | 'stars' (星芒护角)
+      style: 'bubble',      // 'bubble' | 'banner'
+      borderStyle: 'charm', // 'charm' | 'stars'
       showLanyard: true     // Top lanyard hanging hole
     },
 
-    // BWRY 4-Color Palette
     COLORS: {
       RED: '#d32f2f',
       YELLOW: '#f4c430',
@@ -40,7 +38,6 @@
     init() {
       console.log('[ItaBagStudio] Initializing Ita-Bag Charm Studio...');
 
-      // Target canvas: #itaPreviewCanvas (or fallback creation)
       this.canvas = document.getElementById('itaPreviewCanvas');
       if (!this.canvas) {
         console.warn('[ItaBagStudio] #itaPreviewCanvas not found in DOM yet; creating fallback canvas.');
@@ -51,7 +48,6 @@
       this.canvas.height = 552;
       this.ctx = this.canvas.getContext('2d');
 
-      // 1. File input listeners (supports multiple selector aliases)
       const fileInputs = [
         document.getElementById('itaUploadInput'),
         document.getElementById('itaImageInput'),
@@ -63,7 +59,6 @@
         input.addEventListener('change', (e) => this.handleImageUpload(e));
       });
 
-      // 2. Drag & Drop on drop zones
       const dropZones = [
         document.querySelector('.itabag-upload-zone'),
         document.querySelector('.file-drop-area'),
@@ -87,7 +82,6 @@
         });
       });
 
-      // 3. Scale slider (0.5 ~ 2.5x)
       const scaleInputs = [
         document.getElementById('itaScaleInput'),
         document.getElementById('itaScaleSlider'),
@@ -103,7 +97,6 @@
         });
       });
 
-      // 4. Title / Character Name input
       const titleInputs = [
         document.getElementById('itaTitleInput'),
         document.getElementById('itaCharName'),
@@ -118,7 +111,6 @@
         });
       });
 
-      // 5. Source / Work title input
       const sourceInputs = [
         document.getElementById('itaSourceInput'),
         document.getElementById('itaWorkInput'),
@@ -132,7 +124,6 @@
         });
       });
 
-      // 6. Quote / Dialogue input
       const quoteInputs = [
         document.getElementById('itaQuoteInput'),
         document.getElementById('itaDialogueInput'),
@@ -146,7 +137,6 @@
         });
       });
 
-      // 7. Style selection (bubble vs banner)
       const styleSelects = [
         document.getElementById('itaBubbleSelect'),
         document.getElementById('itaStyleSelect'),
@@ -160,7 +150,6 @@
         });
       });
 
-      // 8. Border style selection
       const borderSelects = [
         document.getElementById('itaBorderSelect'),
         document.getElementById('itaBorderStyle')
@@ -173,7 +162,6 @@
         });
       });
 
-      // 9. Sync initial DOM values if preset in HTML
       if (document.getElementById('itaTitle')?.value) this.config.title = document.getElementById('itaTitle').value;
       if (document.getElementById('itaSource')?.value) this.config.source = document.getElementById('itaSource').value;
       if (document.getElementById('itaQuote')?.value) this.config.quote = document.getElementById('itaQuote').value;
@@ -181,7 +169,6 @@
       if (document.getElementById('itaStyleSelect')?.value) this.config.style = document.getElementById('itaStyleSelect').value;
       if (document.getElementById('itaBorderSelect')?.value) this.config.borderStyle = document.getElementById('itaBorderSelect').value;
 
-      // 10. Zoom buttons & reset
       document.getElementById('itaZoomInBtn')?.addEventListener('click', () => {
         this.config.scale = Math.min(4.0, (this.config.scale || 1.0) * 1.15);
         this._updateScaleDisplay();
@@ -203,7 +190,6 @@
         if (window.UI?.showToast) window.UI.showToast('立绘已重置为居中自适应');
       });
 
-      // 11. Interactive Canvas Pointer Dragging & Empty Click
       const canvas = this.canvas;
       if (canvas) {
         let isDragging = false;
@@ -213,7 +199,6 @@
 
         canvas.addEventListener('pointerdown', (e) => {
           if (!this.userImage) {
-            // Click empty canvas to upload
             const fileInput = document.getElementById('itaUploadInput');
             if (fileInput) fileInput.click();
             return;
@@ -263,19 +248,16 @@
         }, { passive: false });
       }
 
-      // 12. Reset button
       document.getElementById('itaResetBtn')?.addEventListener('click', () => {
         this.reset();
       });
 
-      // 13. Listen to tabchange
       window.addEventListener('tabchange', (e) => {
         if (e.detail && e.detail.tabId === 'itabag') {
           this.renderPreview();
         }
       });
 
-      // Trigger initial render
       this._updateScaleDisplay();
       this.renderPreview();
       console.log('[ItaBagStudio] Ready!');
@@ -341,11 +323,9 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       const { scale, offsetX, offsetY, title, source, quote, style } = this.config;
 
-      // 1. Fill clean White base
       ctx.fillStyle = WHITE;
       ctx.fillRect(0, 0, w, h);
 
-      // 2. Character Image or Cute Placeholder
       if (this.userImage) {
         ctx.save();
         const isClean = (style === 'clean' || style === 'none');
@@ -360,7 +340,6 @@
         this._roundRect(ctx, clipX, clipY, clipW, clipH, 12);
         ctx.clip();
 
-        // Proportional auto-contain base scale so any resolution character fits comfortably inside frame
         const targetViewH = isClean 
           ? (h - 76) 
           : (isPortrait ? (h - 220) : 340);
@@ -380,16 +359,12 @@
         this._drawPlaceholder(ctx, w, h, isPortrait);
       }
 
-      // 3. Bottom Subtitle Banner or Speech Bubble (character name + dialogue)
       this._drawBottomBanner(ctx, w, h, isPortrait);
 
-      // 4. Top Banner with Red/Yellow BWRY accents and Lanyard hole
       this._drawTopBanner(ctx, w, h);
 
-      // 5. Four Corner Decorative Badge Marks & Protective Border
       this._drawBadgeDecorations(ctx, w, h);
 
-      // 6. Bottom spec footer
       this._drawFooterSpec(ctx, w, h);
     },
 
@@ -405,11 +380,9 @@
       const cx = w / 2;
       const cy = cardY + cardH / 2;
 
-      // Full-bleed clean card container (no wasted whitespace)
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(cardX, cardY, cardW, cardH);
 
-      // Geometric grid accent
       ctx.strokeStyle = '#f0f0f2';
       ctx.lineWidth = 1;
       for (let x = cardX; x <= cardX + cardW; x += 36) {
@@ -425,12 +398,10 @@
         ctx.stroke();
       }
 
-      // Elegant inner border frame
       ctx.strokeStyle = BLACK;
       ctx.lineWidth = 3;
       ctx.strokeRect(cardX + 8, cardY + 8, cardW - 16, cardH - 16);
 
-      // Corner accent brackets in Red and Yellow
       const cornerLen = 28;
       const bx = cardX + 8;
       const by = cardY + 8;
@@ -438,58 +409,48 @@
       const bh = cardH - 16;
 
       ctx.lineWidth = 5;
-      // Top-Left (RED)
       ctx.strokeStyle = RED;
       ctx.beginPath();
       ctx.moveTo(bx + cornerLen, by); ctx.lineTo(bx, by); ctx.lineTo(bx, by + cornerLen);
       ctx.stroke();
 
-      // Top-Right (YELLOW)
       ctx.strokeStyle = YELLOW;
       ctx.beginPath();
       ctx.moveTo(bx + bw - cornerLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cornerLen);
       ctx.stroke();
 
-      // Bottom-Left (YELLOW)
       ctx.strokeStyle = YELLOW;
       ctx.beginPath();
       ctx.moveTo(bx, by + bh - cornerLen); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cornerLen, by + bh);
       ctx.stroke();
 
-      // Bottom-Right (RED)
       ctx.strokeStyle = RED;
       ctx.beginPath();
       ctx.moveTo(bx + bw - cornerLen, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cornerLen);
       ctx.stroke();
 
-      // Central "OC PIC" Big Badge Tag
       ctx.fillStyle = BLACK;
       ctx.beginPath();
       ctx.arc(cx - 140, cy - 35, 6, 0, Math.PI * 2);
       ctx.arc(cx + 140, cy - 35, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Yellow top bar for OC PIC
       ctx.fillStyle = YELLOW;
       ctx.fillRect(cx - 130, cy - 78, 260, 8);
 
-      // Big Bold Modern "OC PIC" Text
       ctx.fillStyle = BLACK;
       ctx.font = '900 68px "Arial Black", "Impact", -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('OC PIC', cx, cy - 36);
 
-      // Red accent underline
       ctx.fillStyle = RED;
       ctx.fillRect(cx - 130, cy + 4, 260, 8);
 
-      // Subtitle
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
       ctx.fillText('[ 角色立绘 · 谷美相片 · 随身痛卡 ]', cx, cy + 42);
 
-      // Clean Upload Hint Pill
       ctx.fillStyle = '#000000';
       this._roundRect(ctx, cx - 170, cy + 72, 340, 38, 19, true, false);
 
@@ -506,21 +467,18 @@
     },
 
     /**
-     * Draw Top Banner: "🎒 痛卡挂饰 · [出处]" with yellow/red BWRY accents
+     * Draw Top Banner
      */
     _drawTopBanner(ctx, w = 768, h = 552) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       const sourceText = this.config.source ? this.config.source.trim() : '谷美痛包 / ITA-BAG';
 
-      // 1. Top banner header bar (H: 46)
       ctx.fillStyle = RED;
       this._roundRect(ctx, 16, 12, w - 32, 46, { tl: 10, tr: 10, bl: 0, br: 0 }, true, false);
 
-      // 2. Yellow accent divider line
       ctx.fillStyle = YELLOW;
       ctx.fillRect(16, 56, w - 32, 4);
 
-      // 3. Banner title text
       ctx.fillStyle = WHITE;
       ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
       ctx.fillText('🎒 痛卡挂饰 · ', 28, 42);
@@ -529,19 +487,16 @@
       ctx.fillStyle = YELLOW;
       ctx.fillText(sourceText, 28 + titleWidth, 42);
 
-      // 4. Right side tag
       ctx.fillStyle = BLACK;
       this._roundRect(ctx, w - 146, 20, 118, 28, 14, true, false);
       ctx.fillStyle = YELLOW;
       ctx.font = 'bold 13px monospace';
       ctx.fillText('3.98" BWRY', w - 130, 39);
 
-      // 5. Lanyard Hole Indicator (Top center strap mount)
       if (this.config.showLanyard) {
         const lx = w / 2;
         const ly = 24;
 
-        // Metallic eyelet / grommet ring
         ctx.fillStyle = BLACK;
         ctx.beginPath();
         ctx.arc(lx, ly, 14, 0, Math.PI * 2);
@@ -553,13 +508,11 @@
         ctx.arc(lx, ly, 14, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Inner cutout hole
         ctx.fillStyle = WHITE;
         ctx.beginPath();
         ctx.arc(lx, ly, 6.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Micro hanging loop cord line
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 2.5;
         ctx.beginPath();
@@ -579,7 +532,6 @@
       const style = this.config.style;
 
       if (style === 'clean' || style === 'none') {
-        // Pure character standee mode: minimalist badge in bottom corner so full-body立绘 is not blocked
         const px = isPortrait ? 20 : 28;
         const py = h - 46;
         const sourceText = this.config.source ? this.config.source.trim() : '';
@@ -599,19 +551,16 @@
       const isBubble = style === 'bubble';
 
       if (isBubble) {
-        // Comic Dialogue Speech Bubble
         const bx = isPortrait ? 20 : 36;
         const bw = isPortrait ? (w - 40) : 696;
         const by = isPortrait ? (h - 150) : 398;
         const bh = isPortrait ? 122 : 112;
 
-        // Bubble body
         ctx.fillStyle = WHITE;
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 3.5;
         this._roundRect(ctx, bx, by, bw, bh, 16, true, true);
 
-        // Speech bubble pointer tail (pointing upwards toward character)
         const tailX = w / 2;
         ctx.fillStyle = WHITE;
         ctx.beginPath();
@@ -621,7 +570,6 @@
         ctx.closePath();
         ctx.fill();
 
-        // Pointer border strokes
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 3.5;
         ctx.beginPath();
@@ -630,11 +578,9 @@
         ctx.lineTo(tailX + 16, by);
         ctx.stroke();
 
-        // Re-cover base line of pointer
         ctx.fillStyle = WHITE;
         ctx.fillRect(tailX - 14, by - 1, 28, 4);
 
-        // Character Name Inset Pill (Top-left of bubble)
         ctx.fillStyle = RED;
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 2.5;
@@ -644,13 +590,11 @@
         ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
         ctx.fillText('★ ' + charName, bx + 28, by + 6);
 
-        // Dialogue / Quote inside bubble
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 19px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
         this._wrapText(ctx, `「${quoteText}」`, bx + 24, by + 46, bw - 48, 26, 2);
 
       } else {
-        // Sleek Anime Character Subtitle Plate
         const px = isPortrait ? 16 : 28;
         const pw = isPortrait ? (w - 32) : 712;
         const py = isPortrait ? (h - 148) : 400;
@@ -661,7 +605,6 @@
         ctx.lineWidth = 3.5;
         this._roundRect(ctx, px, py, pw, ph, 12, true, true);
 
-        // Yellow corner brackets on the plate
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 4;
         const cl = 16;
@@ -674,17 +617,14 @@
         // BR
         ctx.beginPath(); ctx.moveTo(px + pw - 4 - cl, py + ph - 4); ctx.lineTo(px + pw - 4, py + ph - 4); ctx.lineTo(px + pw - 4, py + ph - 4 - cl); ctx.stroke();
 
-        // Character Name in bold red
         ctx.fillStyle = RED;
         ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
         ctx.fillText('★ ' + charName, px + 20, py + 36);
 
-        // Source badge in yellow/black
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 14px -apple-system, sans-serif';
         ctx.fillText('【' + (this.config.source || 'VOCALOID') + '】', px + 20 + ctx.measureText('★ ' + charName).width + 10, py + 34);
 
-        // Quote text in bold black
         ctx.fillStyle = BLACK;
         ctx.font = '18px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
         this._wrapText(ctx, `“ ${quoteText} ”`, px + 20, py + 72, pw - 40, 24, 2);
@@ -697,7 +637,6 @@
     _drawBadgeDecorations(ctx, w = 768, h = 552) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
 
-      // Outer protective border frame (acrylic double-line)
       ctx.strokeStyle = BLACK;
       ctx.lineWidth = 3;
       this._roundRect(ctx, 8, 8, w - 16, h - 16, 14, false, true);
@@ -706,7 +645,6 @@
       ctx.lineWidth = 1.5;
       this._roundRect(ctx, 12, 12, w - 24, h - 24, 12, false, true);
 
-      // Four corner metallic badge rivets / star clips
       const corners = [
         { x: 26, y: 26 },
         { x: w - 26, y: 26 },
@@ -716,7 +654,6 @@
 
       if (this.config.borderStyle === 'stars') {
         corners.forEach(c => {
-          // Red star corner medal
           ctx.fillStyle = RED;
           ctx.strokeStyle = YELLOW;
           ctx.lineWidth = 2;
@@ -733,7 +670,6 @@
         });
       } else {
         corners.forEach(c => {
-          // Outer rivet bezel
           ctx.fillStyle = YELLOW;
           ctx.strokeStyle = BLACK;
           ctx.lineWidth = 2;
@@ -742,7 +678,6 @@
           ctx.fill();
           ctx.stroke();
 
-          // Star or cross center rivet
           ctx.fillStyle = BLACK;
           ctx.font = 'bold 9px sans-serif';
           ctx.textAlign = 'center';
@@ -869,10 +804,8 @@
     }
   };
 
-  // Expose ItaBagStudio to global window
   window.ItaBagStudio = ItaBagStudio;
 
-  // Auto-init on DOMContentLoaded if DOM is already ready or loading
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('itaPreviewCanvas')) {

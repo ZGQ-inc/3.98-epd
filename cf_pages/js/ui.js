@@ -67,7 +67,6 @@ const UI = {
     this.orientation = angle;
     localStorage.setItem('epd_orientation', String(angle));
 
-    // Update orientation badge
     const badge = document.getElementById('orientationBadge');
     if (badge) {
       const isPortrait = (angle === 90 || angle === 270);
@@ -81,7 +80,6 @@ const UI = {
       badge.textContent = `${labelMap[angle] || angle + '°'} (${dims})`;
     }
 
-    // Update chips
     [0, 90, 180, 270].forEach(deg => {
       const chip = document.getElementById(`rot-chip-${deg}`);
       if (chip) {
@@ -233,7 +231,6 @@ const UI = {
     if (el) {
       el.classList.add('active', 'open');
       el.setAttribute('aria-hidden', 'false');
-      // Ensure confirm/submit buttons inside modal are unlocked
       el.querySelectorAll('button[disabled]').forEach(b => {
         b.disabled = false;
         b.removeAttribute('disabled');
@@ -246,7 +243,6 @@ const UI = {
     if (el) {
       el.classList.remove('active', 'open');
       el.setAttribute('aria-hidden', 'true');
-      // Clear disabled state on any buttons inside the closed modal
       el.querySelectorAll('button[disabled]').forEach(b => {
         b.disabled = false;
         b.removeAttribute('disabled');
@@ -533,7 +529,6 @@ const UI = {
     const activePane = document.querySelector('.tab-pane.active, .tab-view.active');
     const isSystemTab = activePane && activePane.id === 'tab-system';
 
-    // If on hardware diagnostics tab and connected to device, pull the true physical framebuffer!
     if (isSystemTab && window.DeviceManager.isLanConnected && window.DeviceManager.lanIp) {
       try {
         this.showToast('正在从单片机读取当前物理显存 105,984 字节...', 'info', 3000);
@@ -667,7 +662,6 @@ const UI = {
         }
       }
 
-      // Format Uptime
       const up = data.uptime_secs || 0;
       const d = Math.floor(up / 86400);
       const h = Math.floor((up % 86400) / 3600);
@@ -677,7 +671,7 @@ const UI = {
         document.getElementById('diagUptime').textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
       }
       if (document.getElementById('diagNtpTime')) {
-        const ntpStatus = data.ntp_synced ? '✅ 阿里云 NTP 已授时' : (data.current_time?.includes('BLE') ? '⚡ 蓝牙直连 (免NTP)' : '⏳ 同步阿里云 NTP 中...');
+        const ntpStatus = data.ntp_synced ? '✅ NTP 已授时' : (data.current_time?.includes('BLE') ? '⚡ 蓝牙直连 (免NTP)' : '⏳ 同步 NTP 中...');
         document.getElementById('diagNtpTime').textContent = data.current_time ? `${data.current_time} (${ntpStatus})` : ntpStatus;
       }
 
@@ -728,7 +722,6 @@ const UI = {
         document.getElementById('diagResetReason').textContent = data.reset_reason || 'Power-on / Normal';
       }
 
-      // Populate BLE-specific rows
       if (document.getElementById('diagBleMtu')) {
         document.getElementById('diagBleMtu').textContent = `${data.ble_mtu || 247} 字节 (GATT Data Payload: 240B, 极速直推)`;
       }
@@ -746,10 +739,8 @@ const UI = {
         document.getElementById('diagBlePower').textContent = data.ble_phy || '+9 dBm · BLE 5.0 PHY 1Mbps / 2Mbps';
       }
 
-      // Update BLE status UI
       this.updateBleStatusUI(data.ble_enabled, data.ble_status, data.ble_device_name, data.ble_devices);
 
-      // Update Screen Debug
       if (data.screen_debug !== undefined) {
         this.updateScreenDebugUI(data.screen_debug);
       }
@@ -897,7 +888,7 @@ const UI = {
   },
 
   async factoryReset() {
-    if (!confirm('⚠️ 警告：恢复出厂设置将清除设备中保存的 Wi-Fi 密码并重启进入 AP 热点模式，确认继续吗？')) return;
+    if (!confirm('⚠️ 警告：恢复出厂设置将清除设备中保存的 Wi-Fi 密码并重启进入 AP 热点配网模式并开启蓝牙广播，确认继续吗？')) return;
     try {
       await window.DeviceManager.factoryReset();
       this.showToast('⚡ 已恢复出厂设置，设备正在重启...', 'warning', 6000);

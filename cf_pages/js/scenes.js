@@ -1,6 +1,6 @@
 /**
  * 3.98" BWRY E-Paper Open Smart Badge & Ita-Bag
- * Scenes Studio (18 种场景模式工作台与单片机画布渲染引擎)
+ * Scenes Studio
  * High-precision 768×552 BWRY Canvas Rendering Engine
  * Inspired by InkSight (inksight.site) Open IoT Information Architecture
  *
@@ -23,9 +23,7 @@
 (function (window) {
   'use strict';
 
-  // 
   // 1. Scene Mode Definitions (18 Modes)
-  // 
   const MODES_DEF = [
     { id: 'demo', name: '系统信息与控制台', icon: '💻', desc: '经典复古仪表板、WebUI访问地址与四色标块' },
     { id: 'fridge_board', name: '冰箱贴布告板', icon: '📌', desc: '家庭核心留言、紧急备忘与今日状态' },
@@ -47,7 +45,6 @@
     { id: 'rss', name: '资讯早报与行情', icon: '📰', desc: 'Hacker News头条与加密货币实时行情' }
   ];
 
-  // Default Parameters Store for all 18 scenes
   const defaultParamsStore = {
     demo: {
       title: '3.98" SMART EPD',
@@ -190,9 +187,7 @@
     }
   };
 
-  // 
   // 2. Offline Astronomical Lunar / JieQi / GanZhi Algorithm Engine
-  // 
   const LunarAlmanac = (function () {
     // 150 Years astronomical compressed lunar bitmask table (1900 - 2049)
     const lunarInfo = [
@@ -275,7 +270,6 @@
       }
       const d = offset + 1;
 
-      // Format Day Name
       let dayName = '';
       if (d === 10) dayName = '初十';
       else if (d === 20) dayName = '二十';
@@ -299,11 +293,9 @@
       };
     }
 
-    // Solar Term Estimate
     function getSolarTerm(date) {
       const m = date.getMonth(); // 0-11
       const d = date.getDate();
-      // Approximate solar term dates table for typical years
       const termDates = [
         [5, 20],  // Jan: 小寒, 大寒
         [4, 19],  // Feb: 立春, 雨水
@@ -341,7 +333,6 @@
       }
     }
 
-    // Almanac Yi & Ji calculation based on day branch cycle
     function getYiJi(date) {
       const baseDate = new Date(1900, 0, 31);
       const diffDays = Math.floor((date.getTime() - baseDate.getTime()) / 86400000);
@@ -371,7 +362,6 @@
       };
     }
 
-    // Astronomical Moon Phase calculation
     function getMoonPhase(date) {
       const epoch = new Date(2000, 0, 6, 18, 14).getTime();
       const diff = (date.getTime() - epoch) / 86400000;
@@ -408,16 +398,12 @@
     };
   })();
 
-  // 
   // 3. Global Open Data Integration Service (InkSight Architecture)
-  // 
   const OpenDataService = {
-    // 1. Weather: Open-Meteo API (100% Free, Global, No Key required)
     async fetchWeather(lat = 22.54, lon = 114.05, customOwmKey = '', city = '深圳') {
       console.log(`[OpenDataService] Fetching Weather for lat=${lat}, lon=${lon}...`);
       try {
         if (customOwmKey && customOwmKey.trim().length > 10) {
-          // Optional user custom OpenWeatherMap API
           const owmUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${customOwmKey.trim()}&units=metric&lang=zh_cn`;
           const resp = await fetch(owmUrl);
           if (resp.ok) {
@@ -436,7 +422,6 @@
           }
         }
 
-        // Open-Meteo 100% Free Endpoint
         const meteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
         const r = await fetch(meteoUrl);
         if (!r.ok) throw new Error(`Open-Meteo HTTP ${r.status}`);
@@ -474,7 +459,6 @@
         const todayMax = d.daily?.temperature_2m_max?.[0] ?? (curTemp + 6);
         const todayMin = d.daily?.temperature_2m_min?.[0] ?? (curTemp - 2);
 
-        // Daily 4-day forecast snippet
         const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
         let forecastStr = '';
         if (d.daily?.time) {
@@ -613,9 +597,7 @@
     }
   };
 
-  // 
   // 4. Pomodoro Focus State Machine
-  // 
   const PomodoroTimer = {
     states: {
       WORK: 'WORK',
@@ -700,9 +682,7 @@
     }
   };
 
-  // 
   // 5. Interactive Habit Streak & Heatmap Tracker
-  // 
   const HabitTracker = {
     getStorageKey() {
       return 'epd_habit_data_v2';
@@ -714,7 +694,6 @@
         if (raw) return JSON.parse(raw);
       } catch (e) {}
 
-      // Default realistic historical streak
       const initial = {
         name: '每日晨跑 5 公里',
         history: {}
@@ -753,7 +732,6 @@
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0];
 
-      // Check today or start from yesterday
       let cur = new Date(today);
       if (!d.history[todayStr]) {
         cur.setDate(cur.getDate() - 1);
@@ -801,9 +779,7 @@
     }
   };
 
-  // 
   // 6. Countdown & Year/Life Progress Calculator
-  // 
   const ProgressCalc = {
     calcCountdown(targetDateStr) {
       const now = new Date();
@@ -837,9 +813,7 @@
     }
   };
 
-  // 
   // 7. Scenes Studio Main Controller & Canvas Renderer
-  // 
   const ScenesStudio = {
     MODES_DEF: MODES_DEF,
     modeParamsStore: JSON.parse(JSON.stringify(defaultParamsStore)),
@@ -847,7 +821,6 @@
     canvas: null,
     ctx: null,
 
-    // BWRY Palette Constants
     COLORS: {
       RED: '#d32f2f',
       YELLOW: '#f4c430',
@@ -855,7 +828,6 @@
       WHITE: '#ffffff'
     },
 
-    // Services Exposure
     OpenData: OpenDataService,
     Lunar: LunarAlmanac,
     Pomodoro: PomodoroTimer,
@@ -868,7 +840,6 @@
     init() {
       console.log('[ScenesStudio] Initializing Scenes Studio with InkSight Live Engine...');
 
-      // Restore saved params
       try {
         const saved = localStorage.getItem('epd_scenes_params');
         if (saved) {
@@ -877,7 +848,6 @@
         }
       } catch (e) {}
 
-      // Locate or create canvas
       this.canvas = document.getElementById('scenesPreviewCanvas') || document.getElementById('modePreviewCanvas');
       if (!this.canvas) {
         console.warn('[ScenesStudio] #scenesPreviewCanvas not found; creating fallback canvas.');
@@ -887,23 +857,12 @@
       this.canvas.width = 768;
       this.canvas.height = 552;
       this.ctx = this.canvas.getContext('2d');
-
-      // Sync astronomical data for current day into calendar & moon phase
       this._autoUpdateAstronomicalParams();
-
-      // Render mode selection chips
       this._renderModeChips();
-
-      // Build initial parameter form
       this.buildForm();
-
-      // Render 768×552 preview
       this.renderPreview();
-
-      // Bind remote buttons
       this._bindRemoteButtons();
 
-      // Tab switch listener
       window.addEventListener('tabchange', (e) => {
         if (e.detail && e.detail.tabId === 'scenes') {
           this.renderPreview();
@@ -925,7 +884,6 @@
 
       const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
-      // Calendar
       if (this.modeParamsStore.calendar) {
         const c = this.modeParamsStore.calendar;
         c.year = String(now.getFullYear());
@@ -937,7 +895,6 @@
         c.yiji = `宜：${yiji.yi} | 忌：${yiji.ji}`;
       }
 
-      // Moon Phase
       if (this.modeParamsStore.moon_phase) {
         const m = this.modeParamsStore.moon_phase;
         m.phase = moon.phase;
@@ -946,7 +903,6 @@
         m.tide = moon.tide;
       }
 
-      // Life Progress
       if (this.modeParamsStore.life_progress) {
         const lp = this.modeParamsStore.life_progress;
         lp.year_prog = ProgressCalc.calcYearProgress();
@@ -954,12 +910,10 @@
         lp.day_prog = ProgressCalc.calcDayProgress();
       }
 
-      // Countdown
       if (this.modeParamsStore.countdown && this.modeParamsStore.countdown.target_date) {
         this.modeParamsStore.countdown.days = String(ProgressCalc.calcCountdown(this.modeParamsStore.countdown.target_date));
       }
 
-      // Habit streak
       if (this.modeParamsStore.habit) {
         this.modeParamsStore.habit.streak = String(HabitTracker.getStreak());
       }
@@ -1073,7 +1027,6 @@
         titleEl.textContent = `${def.icon} ${def.name} · 参数配置`;
       }
 
-      // Top Interactive Toolbar for scenes with Live APIs or state machines
       this._buildSceneActionToolbar(form, this.currentSelectedMode);
 
       const p = this.modeParamsStore[this.currentSelectedMode] || {};
@@ -1128,7 +1081,6 @@
         syncBtn.onclick = () => this.syncLiveData('weather');
         bar.appendChild(syncBtn);
 
-        // Quick City Presets
         const cities = [
           { name: '深圳', lat: '22.54', lon: '114.05' },
           { name: '北京', lat: '39.90', lon: '116.40' },
@@ -1365,11 +1317,9 @@
       const p = this.modeParamsStore[this.currentSelectedMode] || {};
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
 
-      // 1. Fill clean White base
       ctx.fillStyle = WHITE;
       ctx.fillRect(0, 0, w, h);
 
-      // 2. Dispatch to dedicated scene renderer
       switch (this.currentSelectedMode) {
         case 'demo':
           this._renderDemo(ctx, p, w, h);
@@ -1430,9 +1380,7 @@
       }
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Individual 768×552 BWRY Scene Renderers
-    // ─────────────────────────────────────────────────────────────────────────
 
     // 1. Demo & System Telemetry
     _renderDemo(ctx, p, w, h) {
@@ -1440,7 +1388,6 @@
       const isPortrait = w < h;
 
       if (isPortrait) {
-        // Top status bar
         ctx.fillStyle = BLACK;
         ctx.fillRect(0, 0, w, 54);
         ctx.fillStyle = RED;
@@ -1555,7 +1502,6 @@
         return;
       }
 
-      // Top status bar
       ctx.fillStyle = BLACK;
       ctx.fillRect(0, 0, w, 54);
       ctx.fillStyle = RED;
@@ -1593,7 +1539,6 @@
       ctx.fillStyle = RED;
       ctx.fillText('STATUS: ' + (p.status || 'ONLINE & ACTIVE'), 45, 205);
 
-      // 4 Color Swatches
       const swatches = [
         ['BLA', BLACK, WHITE],
         ['WHI', WHITE, BLACK],
@@ -1633,7 +1578,6 @@
       ctx.fillText('MDNS  : ' + (p.mdns || 'http://epd-display.local/'), 45, 476);
       ctx.fillText('PORT  : 80 (HTTP WEB & REST API)', 45, 506);
 
-      // Right Top Status Card
       ctx.fillStyle = BLACK;
       ctx.fillRect(456, 75, 288, 85);
       ctx.strokeStyle = RED;
@@ -1646,7 +1590,6 @@
       ctx.font = 'bold 15px -apple-system, sans-serif';
       ctx.fillText('WEB DASHBOARD', 480, 138);
 
-      // Right Middle: WebUI Access Portal with live rendered QR Code
       ctx.strokeStyle = BLACK;
       ctx.lineWidth = 1;
       ctx.strokeRect(456, 175, 288, 355);
@@ -1659,7 +1602,6 @@
       ctx.font = 'bold 14px -apple-system, sans-serif';
       ctx.fillText('WEBUI ACCESS PORTAL', 480, 204);
 
-      // Render WebUI QR Code
       const qrTarget = p.webui_url || `http://${p.ip || '192.168.1.100'}/`;
       if (window.QRCodeLib && typeof window.QRCodeLib.drawQRCode === 'function') {
         window.QRCodeLib.drawQRCode(ctx, qrTarget, 520, 230, 160);
@@ -1686,14 +1628,12 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📌 冰箱贴 · 极简家庭生活布告板', p.date || '2026-10-10 星期六');
 
-      // Sticky Note Card with warm accent
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 3;
       ctx.fillRect(28, 76, w - 56, 140);
       ctx.strokeRect(28, 76, w - 56, 140);
 
-      // Simulated magnet pin at center top
       ctx.fillStyle = RED;
       ctx.beginPath();
       ctx.arc(w / 2, 88, 10, 0, Math.PI * 2);
@@ -1715,7 +1655,6 @@
       ctx.font = 'bold 15px sans-serif';
       ctx.fillText(`—— 留言人：${p.author || '家人'}`, w - 210, 198);
 
-      // Checklist Items
       let y = 256;
       [p.item1, p.item2, p.item3].forEach((it, idx) => {
         if (!it) return;
@@ -1744,7 +1683,6 @@
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
       this._drawHeader(ctx, '📋 今日核心待办事项 (TO-DO LIST)', p.subtitle || 'PRIORITY MEMO');
 
-      // Notebook red guide margin line
       ctx.strokeStyle = RED;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -1761,7 +1699,6 @@
         ctx.fillRect(28, y - 24, w - 56, 56);
         ctx.strokeRect(28, y - 24, w - 56, 56);
 
-        // Checkbox square
         ctx.strokeStyle = idx === 0 ? RED : BLACK;
         ctx.lineWidth = 3;
         ctx.strokeRect(42, y - 10, 24, 24);
@@ -1774,7 +1711,6 @@
         ctx.font = 'bold 20px "PingFang SC", sans-serif';
         ctx.fillText(it, 94, y + 8);
 
-        // Tag chip
         const tagText = idx === 0 ? 'URGENT' : (idx === 1 ? 'ACTIVE' : 'PLANNED');
         ctx.fillStyle = idx === 0 ? RED : (idx === 1 ? YELLOW : '#666666');
         ctx.fillRect(w - 140, y - 10, 90, 24);
@@ -1785,7 +1721,6 @@
         y += 76;
       });
 
-      // Progress bar at bottom
       ctx.fillStyle = '#eeeeee';
       ctx.fillRect(28, y + 10, w - 56, 16);
       ctx.fillStyle = RED;
@@ -1805,7 +1740,6 @@
 
       const isP = w < h;
       if (isP) {
-        // Left Big Focal Day
         ctx.fillStyle = RED;
         ctx.font = 'bold 120px -apple-system, sans-serif';
         ctx.fillText(String(p.day || 10), 32, 195);
@@ -1821,21 +1755,18 @@
         ctx.font = 'bold 18px "PingFang SC", sans-serif';
         ctx.fillText(`节气：${p.term || '寒露'}`, 210, 185);
 
-        // Yellow Almanac Card
         ctx.fillStyle = '#fff3cc';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 2;
         ctx.fillRect(24, 235, w - 48, 180);
         ctx.strokeRect(24, 235, w - 48, 180);
 
-        // Yi Tag
         ctx.fillStyle = RED;
         ctx.fillRect(38, 255, 42, 28);
         ctx.fillStyle = WHITE;
         ctx.font = 'bold 16px "PingFang SC", sans-serif';
         ctx.fillText('宜', 50, 275);
 
-        // Ji Tag
         ctx.fillStyle = BLACK;
         ctx.fillRect(38, 335, 42, 28);
         ctx.fillStyle = WHITE;
@@ -1851,7 +1782,6 @@
         this._wrapText(ctx, yiText, 94, 275, w - 150, 26, 2);
         this._wrapText(ctx, jiText, 94, 355, w - 150, 26, 2);
 
-        // Daily Motto Card
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
@@ -1866,7 +1796,6 @@
         return;
       }
 
-      // Left Big Focal Day
       ctx.fillStyle = RED;
       ctx.font = 'bold 140px -apple-system, sans-serif';
       ctx.fillText(String(p.day || 10), 48, 225);
@@ -1883,28 +1812,24 @@
       ctx.font = 'bold 18px "PingFang SC", sans-serif';
       ctx.fillText(`节气：${p.term || '寒露'}`, 250, 215);
 
-      // Traditional Yellow Almanac Card (Yellow Accent)
       ctx.fillStyle = '#fff3cc';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 2;
       ctx.fillRect(28, 255, w - 56, 120);
       ctx.strokeRect(28, 255, w - 56, 120);
 
-      // Yi Tag
       ctx.fillStyle = RED;
       ctx.fillRect(44, 275, 42, 28);
       ctx.fillStyle = WHITE;
       ctx.font = 'bold 16px "PingFang SC", sans-serif';
       ctx.fillText('宜', 56, 295);
 
-      // Ji Tag
       ctx.fillStyle = BLACK;
       ctx.fillRect(44, 325, 42, 28);
       ctx.fillStyle = WHITE;
       ctx.font = 'bold 16px "PingFang SC", sans-serif';
       ctx.fillText('忌', 56, 345);
 
-      // Parse Yi / Ji from p.yiji
       const yijiParts = (p.yiji || '宜：祈福 祭祀 | 忌：出行').split('|');
       const yiText = yijiParts[0] ? yijiParts[0].replace(/^宜：?/, '').trim() : '祈福 祭祀 动土 纳财 开市 赴任';
       const jiText = yijiParts[1] ? yijiParts[1].replace(/^忌：?/, '').trim() : '词讼 开仓 破土 安葬 针灸 出行';
@@ -1914,7 +1839,6 @@
       ctx.fillText(yiText, 102, 295);
       ctx.fillText(jiText, 102, 345);
 
-      // Daily Motto / Stoic Wisdom Card
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 1;
@@ -1935,7 +1859,6 @@
 
       const isP = w < h;
       if (isP) {
-        // Left Big Temp Box
         ctx.fillStyle = RED;
         ctx.font = 'bold 84px -apple-system, sans-serif';
         ctx.fillText(p.temp || '23.5°C', 28, 155);
@@ -1946,14 +1869,12 @@
         ctx.font = '16px sans-serif';
         ctx.fillText(`温差：${p.high_low || '22°C ~ 31°C'}`, 250, 145);
 
-        // AQI Tag
         ctx.fillStyle = YELLOW;
         ctx.fillRect(w - 130, 80, 106, 32);
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 16px sans-serif';
         ctx.fillText(`AQI ${p.aqi || '36 优'}`, w - 120, 102);
 
-        // Weather Telemetry Grid (3 Cards across 552)
         const cards = [
           { title: '相对湿度', val: p.humidity || '87%', color: BLACK },
           { title: '实时风速', val: p.wind || '8.9 km/h', color: RED },
@@ -1977,7 +1898,6 @@
           ctx.fillText(c.val, cx + 12, 234);
         });
 
-        // Multi-day Forecast Card
         ctx.fillStyle = '#fff9db';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 2;
@@ -1997,7 +1917,6 @@
           }
         });
 
-        // Tips Card
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#dddddd';
         ctx.lineWidth = 1;
@@ -2015,7 +1934,6 @@
         return;
       }
 
-      // Left Big Temp Box
       ctx.fillStyle = RED;
       ctx.font = 'bold 96px -apple-system, sans-serif';
       ctx.fillText(p.temp || '23.5°C', 48, 175);
@@ -2026,14 +1944,12 @@
       ctx.font = '18px sans-serif';
       ctx.fillText(`今日温差：${p.high_low || '22°C ~ 31°C'}`, 380, 160);
 
-      // AQI Tag
       ctx.fillStyle = YELLOW;
       ctx.fillRect(w - 200, 95, 150, 38);
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 18px sans-serif';
       ctx.fillText(`AQI ${p.aqi || '36 优'}`, w - 165, 121);
 
-      // Weather Telemetry Grid (Humidity, Wind, Forecast)
       const cards = [
         { title: '相对湿度', val: p.humidity || '87%', color: BLACK },
         { title: '实时风速', val: p.wind || '8.9 km/h', color: RED },
@@ -2056,7 +1972,6 @@
         ctx.fillText(c.val, cx + 18, 265);
       });
 
-      // Multi-day Forecast Card
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 2;
@@ -2070,7 +1985,6 @@
       ctx.font = '16px "PingFang SC", sans-serif';
       ctx.fillText(p.forecast || '周六: 31°/22° 晴 | 周日: 30°/22° 多云 | 周一: 30°/23° 晴', 46, 358);
 
-      // Tips Card
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#dddddd';
       ctx.lineWidth = 1;
@@ -2098,7 +2012,6 @@
         ctx.font = 'bold 26px "PingFang SC", sans-serif';
         ctx.fillText(`距离【${p.title || '目标事件'}】还剩`, 32, 120);
 
-        // Giant countdown number
         ctx.fillStyle = RED;
         ctx.font = 'bold 120px -apple-system, sans-serif';
         ctx.fillText(p.days || '0', 40, 245);
@@ -2107,7 +2020,6 @@
         ctx.font = 'bold 36px "PingFang SC", sans-serif';
         ctx.fillText('天', 250, 235);
 
-        // Progress bar representation
         ctx.fillStyle = '#e0e0e0';
         ctx.fillRect(32, 275, w - 64, 22);
         const daysNum = parseInt(p.days, 10) || 0;
@@ -2115,7 +2027,6 @@
         ctx.fillStyle = RED;
         ctx.fillRect(32, 275, (w - 64) * progress, 22);
 
-        // Quote Card
         ctx.fillStyle = '#fff3cc';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 3;
@@ -2134,7 +2045,6 @@
       ctx.font = 'bold 32px "PingFang SC", sans-serif';
       ctx.fillText(`距离【${p.title || '目标事件'}】还剩`, 48, 130);
 
-      // Giant countdown number
       ctx.fillStyle = RED;
       ctx.font = 'bold 140px -apple-system, sans-serif';
       ctx.fillText(p.days || '0', 60, 280);
@@ -2143,7 +2053,6 @@
       ctx.font = 'bold 42px "PingFang SC", sans-serif';
       ctx.fillText('天', 340, 270);
 
-      // Progress bar representation
       ctx.fillStyle = '#e0e0e0';
       ctx.fillRect(48, 310, w - 96, 20);
       const daysNum = parseInt(p.days, 10) || 0;
@@ -2151,7 +2060,6 @@
       ctx.fillStyle = RED;
       ctx.fillRect(48, 310, (w - 96) * progress, 20);
 
-      // Quote Card
       ctx.fillStyle = '#fff3cc';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 3;
@@ -2176,7 +2084,6 @@
         ctx.font = 'bold 22px "PingFang SC", sans-serif';
         ctx.fillText(`追踪习惯：${p.habit_name || '每日晨跑 5 公里'}`, 28, 110);
 
-        // Big streak
         ctx.fillStyle = RED;
         ctx.font = 'bold 80px -apple-system, sans-serif';
         ctx.fillText(p.streak || '42', 28, 195);
@@ -2185,14 +2092,12 @@
         ctx.font = 'bold 22px "PingFang SC", sans-serif';
         ctx.fillText('天连续坚持', 150, 185);
 
-        // Completion badge
         ctx.fillStyle = YELLOW;
         ctx.fillRect(w - 170, 145, 145, 42);
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 17px sans-serif';
         ctx.fillText(`达成率 ${p.completion || '88%'}`, w - 150, 172);
 
-        // 4-Week GitHub Heatmap Card
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
@@ -2235,7 +2140,6 @@
           });
         });
 
-        // Motivation card
         ctx.fillStyle = '#fff9db';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 1;
@@ -2254,7 +2158,6 @@
       ctx.font = 'bold 28px "PingFang SC", sans-serif';
       ctx.fillText(`追踪习惯：${p.habit_name || '每日晨跑 5 公里'}`, 48, 115);
 
-      // Big streak
       ctx.fillStyle = RED;
       ctx.font = 'bold 100px -apple-system, sans-serif';
       ctx.fillText(p.streak || '42', 48, 225);
@@ -2263,14 +2166,12 @@
       ctx.font = 'bold 24px "PingFang SC", sans-serif';
       ctx.fillText('天连续坚持', 220, 215);
 
-      // Completion badge
       ctx.fillStyle = YELLOW;
       ctx.fillRect(w - 220, 160, 160, 44);
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 18px sans-serif';
       ctx.fillText(`达成率 ${p.completion || '88%'}`, w - 180, 188);
 
-      // 4-Week GitHub-style Heatmap Matrix
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 1;
@@ -2284,14 +2185,12 @@
       const heatmap = HabitTracker.getHeatmap(4);
       const dayNames = ['一', '二', '三', '四', '五', '六', '日'];
 
-      // Row labels
       ctx.fillStyle = '#888888';
       ctx.font = '12px sans-serif';
       for (let r = 0; r < 7; r += 2) {
         ctx.fillText(dayNames[r], 46, 328 + r * 14);
       }
 
-      // Render 4 columns × 7 rows
       const startX = 80;
       const boxSize = 14;
       const gap = 5;
@@ -2316,7 +2215,6 @@
         });
       });
 
-      // Motivation motto
       ctx.fillStyle = '#555555';
       ctx.font = 'italic 16px "PingFang SC", serif';
       ctx.fillText('“自律即自由。每一个打卡方块都是通向卓越的坚实足迹。”', 48, 445);
@@ -2331,33 +2229,28 @@
 
       const isP = w < h;
       if (isP) {
-        // Classical double frame
         ctx.strokeStyle = RED;
         ctx.lineWidth = 3;
         ctx.strokeRect(16, 72, w - 32, h - 124);
         ctx.lineWidth = 1;
         ctx.strokeRect(22, 78, w - 44, h - 136);
 
-        // Red Seal Stamp
         ctx.fillStyle = RED;
         ctx.fillRect(w - 85, 95, 52, 52);
         ctx.fillStyle = WHITE;
         ctx.font = 'bold 20px "PingFang SC", serif';
         ctx.fillText(p.seal || '太白', w - 73, 128);
 
-        // Title & Author
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 30px "PingFang SC", serif';
         ctx.fillText(p.title || '《早发白帝城》', 42, 135);
         ctx.font = 'bold 18px "PingFang SC", serif';
         ctx.fillText(p.author || '【唐】李白', 42, 175);
 
-        // Classical Lines
         ctx.font = '24px "PingFang SC", serif';
         ctx.fillText(p.line1 || '朝辞白帝彩云间，千里江陵一日还。', 42, 245);
         ctx.fillText(p.line2 || '两岸猿声啼不住，轻舟已过万重山。', 42, 310);
 
-        // Classical Appreciation Card
         ctx.fillStyle = '#fff9db';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 1;
@@ -2372,33 +2265,28 @@
         return;
       }
 
-      // Classical double frame
       ctx.strokeStyle = RED;
       ctx.lineWidth = 3;
       ctx.strokeRect(20, 72, w - 40, h - 124);
       ctx.lineWidth = 1;
       ctx.strokeRect(26, 78, w - 52, h - 136);
 
-      // Red Seal Stamp
       ctx.fillStyle = RED;
       ctx.fillRect(w - 110, 95, 56, 56);
       ctx.fillStyle = WHITE;
       ctx.font = 'bold 22px "PingFang SC", serif';
       ctx.fillText(p.seal || '太白', w - 95, 131);
 
-      // Title & Author
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 36px "PingFang SC", serif';
       ctx.fillText(p.title || '《早发白帝城》', 60, 140);
       ctx.font = 'bold 22px "PingFang SC", serif';
       ctx.fillText(p.author || '【唐】李白', 60, 185);
 
-      // Classical Lines
       ctx.font = '28px "PingFang SC", serif';
       ctx.fillText(p.line1 || '朝辞白帝彩云间，千里江陵一日还。', 60, 260);
       ctx.fillText(p.line2 || '两岸猿声啼不住，轻舟已过万重山。', 60, 330);
 
-      // Classical Appreciation Card
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 1;
@@ -2419,7 +2307,6 @@
 
       const isP = w < h;
       if (isP) {
-        // Card 1
         ctx.fillStyle = '#fdfdfd';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 2;
@@ -2440,7 +2327,6 @@
         ctx.font = '17px "PingFang SC", sans-serif';
         this._wrapText(ctx, p.desc || '大幅降低了工业制造装配成本，使汽车快速进入大众家庭，彻底推动现代工业生产时代的开启。', 36, 225, w - 72, 26, 3);
 
-        // Card 2
         ctx.fillStyle = '#fff9db';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 2;
@@ -2465,7 +2351,6 @@
         return;
       }
 
-      // Card 1
       ctx.fillStyle = '#fdfdfd';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 2;
@@ -2486,7 +2371,6 @@
       ctx.font = '19px "PingFang SC", sans-serif';
       this._wrapText(ctx, p.desc || '大幅降低了工业制造装配成本，使汽车快速进入大众家庭，彻底推动现代工业生产时代的开启。', 46, 175, w - 96, 28, 3);
 
-      // Card 2
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 2;
@@ -2517,7 +2401,6 @@
 
       const isP = w < h;
       if (isP) {
-        // Year Progress
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 18px "PingFang SC", sans-serif';
         ctx.fillText(`2026 年度时间流逝：${p.year_prog || '77.2%'}`, 28, 95);
@@ -2528,7 +2411,6 @@
         ctx.fillStyle = RED;
         ctx.fillRect(28, 108, (w - 56) * yPct, 22);
 
-        // Month & Day Dual Bars (Stacked in portrait)
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 16px "PingFang SC", sans-serif';
         ctx.fillText(`当月进度：${p.month_prog || '32.3%'}`, 28, 155);
@@ -2544,7 +2426,6 @@
         ctx.fillStyle = BLACK;
         ctx.fillRect(28, 215, (w - 56) * (parseFloat(p.day_prog) / 100 || 0.65), 16);
 
-        // 80-Year Life Grid Matrix (10 cols × 8 rows in portrait)
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
@@ -2579,7 +2460,6 @@
           }
         }
 
-        // Caption Quote
         ctx.fillStyle = '#fff3cc';
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 1;
@@ -2594,7 +2474,6 @@
         return;
       }
 
-      // Year Progress
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 22px "PingFang SC", sans-serif';
       ctx.fillText(`2026 年度时间流逝：${p.year_prog || '77.2%'}`, 48, 115);
@@ -2605,7 +2484,6 @@
       ctx.fillStyle = RED;
       ctx.fillRect(48, 130, (w - 96) * yPct, 26);
 
-      // Month & Day Dual Bars
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 18px "PingFang SC", sans-serif';
       ctx.fillText(`当月进度：${p.month_prog || '32.3%'}`, 48, 195);
@@ -2621,7 +2499,6 @@
       ctx.fillStyle = BLACK;
       ctx.fillRect(410, 205, 310 * (parseFloat(p.day_prog) / 100 || 0.65), 18);
 
-      // 80-Year Life Grid Matrix
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 1;
@@ -2655,7 +2532,6 @@
         }
       }
 
-      // Seneca Quote
       ctx.fillStyle = '#333333';
       ctx.font = 'italic 17px "PingFang SC", serif';
       this._wrapText(ctx, p.caption || '2026年已悄然流逝四分之三，珍惜眼前每一个清晨与星夜。', 48, 430, w - 96, 26, 2);
@@ -2674,14 +2550,12 @@
         ctx.font = 'bold 22px "PingFang SC", sans-serif';
         ctx.fillText(`当前任务：${p.task || 'ESP32 嵌入式墨水屏研发'}`, 32, 115);
 
-        // Monospace timer centered
         ctx.fillStyle = RED;
         ctx.font = 'bold 110px monospace';
         ctx.textAlign = 'center';
         ctx.fillText(p.timer || '25:00', w / 2, 250);
         ctx.textAlign = 'left';
 
-        // Status Tag & Rounds centered
         ctx.fillStyle = YELLOW;
         ctx.fillRect((w - 200) / 2, 290, 200, 46);
         ctx.fillStyle = BLACK;
@@ -2690,7 +2564,6 @@
         ctx.fillText(p.round || '第 1 / 4 组', w / 2, 321);
         ctx.textAlign = 'left';
 
-        // 4 Round Circles
         for (let i = 1; i <= 4; i++) {
           const cx = (w / 2) - 75 + (i - 1) * 50;
           const cy = 370;
@@ -2700,7 +2573,6 @@
           ctx.fill();
         }
 
-        // Tips Card
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
@@ -2721,19 +2593,16 @@
       ctx.font = 'bold 28px "PingFang SC", sans-serif';
       ctx.fillText(`当前任务：${p.task || 'ESP32 嵌入式墨水屏研发'}`, 48, 120);
 
-      // Giant monospace digital timer
       ctx.fillStyle = RED;
       ctx.font = 'bold 130px monospace';
       ctx.fillText(p.timer || '25:00', 160, 275);
 
-      // Status Tag & Rounds
       ctx.fillStyle = YELLOW;
       ctx.fillRect(48, 320, 220, 48);
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 22px "PingFang SC", sans-serif';
       ctx.fillText(p.round || '第 1 / 4 组', 90, 353);
 
-      // 4 Round Circles
       for (let i = 1; i <= 4; i++) {
         const cx = 310 + i * 40;
         const cy = 344;
@@ -2743,7 +2612,6 @@
         ctx.fill();
       }
 
-      // Tips Card
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 1;
@@ -2773,7 +2641,6 @@
         ctx.fillRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 70 : 62);
         ctx.strokeRect(isP ? 24 : 36, y - 20, isP ? w - 48 : w - 72, isP ? 70 : 62);
 
-        // Package icon / Checkbox
         ctx.fillStyle = idx === 0 ? RED : BLACK;
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText('📦', isP ? 38 : 54, y + 22);
@@ -2782,7 +2649,6 @@
         ctx.font = (isP ? 'bold 18px ' : 'bold 21px ') + '"PingFang SC", sans-serif';
         ctx.fillText(it, isP ? 78 : 100, y + 22);
 
-        // Checkbox square
         ctx.strokeStyle = BLACK;
         ctx.lineWidth = 2;
         ctx.strokeRect(w - (isP ? 70 : 90), y - 4, 24, 24);
@@ -2824,7 +2690,6 @@
         y += stepY;
       });
 
-      // Warm Note Card
       ctx.fillStyle = '#fff9db';
       ctx.strokeStyle = YELLOW;
       ctx.lineWidth = 2;
@@ -2853,7 +2718,6 @@
         ctx.arc(isP ? 40 : 54, y + 4, 8, 0, Math.PI * 2);
         ctx.fill();
 
-        // Connecting vertical line
         if (idx < 5) {
           ctx.strokeStyle = '#cccccc';
           ctx.lineWidth = 2;
@@ -2863,7 +2727,6 @@
           ctx.stroke();
         }
 
-        // Routine Card
         ctx.fillStyle = idx === 2 ? '#fff9db' : '#f8f9fa';
         ctx.strokeStyle = idx === 2 ? RED : '#e0e0e0';
         ctx.lineWidth = 1;
@@ -2887,19 +2750,16 @@
 
       const isP = w < h;
       if (isP) {
-        // Centered Moon Sphere
         ctx.fillStyle = BLACK;
         ctx.beginPath();
         ctx.arc(w / 2, 175, 75, 0, Math.PI * 2);
         ctx.fill();
 
-        // Crescent illumination
         ctx.fillStyle = YELLOW;
         ctx.beginPath();
         ctx.arc(w / 2, 175, 73, -Math.PI / 2, Math.PI / 2);
         ctx.fill();
 
-        // Text Data centered
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 30px "PingFang SC", sans-serif';
         ctx.textAlign = 'center';
@@ -2914,7 +2774,6 @@
         ctx.fillText(`潮汐预报：${p.tide || '大潮 (高潮 04:20 / 低潮 11:35)'}`, w / 2, 400);
         ctx.textAlign = 'left';
 
-        // Astronomy facts card
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
@@ -2929,19 +2788,16 @@
         return;
       }
 
-      // Moon Sphere Graphic
       ctx.fillStyle = BLACK;
       ctx.beginPath();
       ctx.arc(160, 230, 90, 0, Math.PI * 2);
       ctx.fill();
 
-      // Crescent illumination
       ctx.fillStyle = YELLOW;
       ctx.beginPath();
       ctx.arc(160, 230, 88, -Math.PI / 2, Math.PI / 2);
       ctx.fill();
 
-      // Text Data
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 36px "PingFang SC", sans-serif';
       ctx.fillText(p.phase || '残月 (Waning Crescent)', 310, 160);
@@ -2954,7 +2810,6 @@
       ctx.font = 'bold 22px "PingFang SC", sans-serif';
       ctx.fillText(`潮汐预报：${p.tide || '大潮 (高潮 04:20 / 低潮 11:35)'}`, 310, 305);
 
-      // Astronomy facts card
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 1;
@@ -2979,7 +2834,6 @@
 
       const isP = w < h;
       if (isP) {
-        // QR Code Card Centered
         const qrBox = 260;
         const qx = (w - qrBox) / 2;
         ctx.fillStyle = WHITE;
@@ -2995,7 +2849,6 @@
           ctx.fillRect(qx + 30, 108, 200, 200);
         }
 
-        // Credentials Card below
         ctx.fillStyle = '#f8f9fa';
         ctx.strokeStyle = '#dddddd';
         ctx.lineWidth = 1;
@@ -3024,7 +2877,6 @@
         return;
       }
 
-      // Card for QR Code
       ctx.fillStyle = WHITE;
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 2;
@@ -3038,7 +2890,6 @@
         ctx.fillRect(88, 125, 230, 230);
       }
 
-      // Credentials Card
       ctx.fillStyle = '#f8f9fa';
       ctx.strokeStyle = '#dddddd';
       ctx.lineWidth = 1;
@@ -3073,24 +2924,20 @@
 
       const isP = w < h;
       if (isP) {
-        // Outer museum frame
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(24, 80, w - 48, 480);
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 2;
         ctx.strokeRect(24, 80, w - 48, 480);
 
-        // Artwork simulated viewport
         ctx.fillStyle = '#111111';
         ctx.fillRect(40, 96, w - 80, 448);
 
-        // Procedural art landscape
         ctx.fillStyle = RED;
         ctx.beginPath();
         ctx.arc(w / 2, 230, 60, 0, Math.PI * 2);
         ctx.fill();
 
-        // Mountain silhouette
         ctx.fillStyle = YELLOW;
         ctx.beginPath();
         ctx.moveTo(40, 544);
@@ -3105,7 +2952,6 @@
         ctx.lineTo(w - 40, 544);
         ctx.fill();
 
-        // Plaque Card
         ctx.fillStyle = BLACK;
         ctx.font = 'bold 22px "PingFang SC", sans-serif';
         ctx.fillText(p.title || '山川湖海 · 秋日光影', 32, 595);
@@ -3118,24 +2964,20 @@
         return;
       }
 
-      // Outer museum frame
       ctx.fillStyle = '#f0f0f0';
       ctx.fillRect(48, 80, w - 96, 310);
       ctx.strokeStyle = '#cccccc';
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 80, w - 96, 310);
 
-      // Artwork simulated viewport
       ctx.fillStyle = '#111111';
       ctx.fillRect(68, 100, w - 136, 270);
 
-      // Procedural art landscape on 4-color palette
       ctx.fillStyle = RED;
       ctx.beginPath();
       ctx.arc(w / 2, 210, 60, 0, Math.PI * 2);
       ctx.fill();
 
-      // Mountain silhouette in black and yellow
       ctx.fillStyle = YELLOW;
       ctx.beginPath();
       ctx.moveTo(68, 370);
@@ -3150,7 +2992,6 @@
       ctx.lineTo(w - 68, 370);
       ctx.fill();
 
-      // Plaque Card
       ctx.fillStyle = BLACK;
       ctx.font = 'bold 24px "PingFang SC", sans-serif';
       ctx.fillText(p.title || '山川湖海 · 秋日光影', 48, 430);
@@ -3193,7 +3034,6 @@
           ctx.fillText(c.val, cx + 12, 126);
         });
 
-        // Bottom Hacker News Headlines
         let y = 165;
         [p.head1, p.head2, p.head3, p.head4].forEach((head, idx) => {
           if (!head) return;
@@ -3217,7 +3057,6 @@
         return;
       }
 
-      // Top Crypto Live Ticker Cards
       const cryptos = [
         { name: '₿ BTC', val: p.btc || '$63,850 (+2.4%)', color: RED },
         { name: 'Ξ ETH', val: p.eth || '$2,640 (+1.8%)', color: YELLOW },
@@ -3241,7 +3080,6 @@
         ctx.fillText(c.val, cx + 18, 128);
       });
 
-      // Bottom Hacker News Headlines
       let y = 175;
       [p.head1, p.head2, p.head3, p.head4].forEach((head, idx) => {
         if (!head) return;
@@ -3251,7 +3089,6 @@
         ctx.fillRect(28, y - 18, w - 56, 56);
         ctx.strokeRect(28, y - 18, w - 56, 56);
 
-        // Score badge or bullet
         ctx.fillStyle = idx === 0 ? RED : (idx === 1 ? YELLOW : BLACK);
         ctx.fillRect(40, y - 4, 8, 26);
 
@@ -3265,9 +3102,7 @@
       this._drawFooter(ctx, 'Hacker News & CoinGecko 全球开源 API 实时聚合驱动', '60 分钟自动更新');
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Drawing Utility Helpers
-    // ─────────────────────────────────────────────────────────────────────────
 
     _drawHeader(ctx, title, subRight, isRed = true) {
       const { RED, YELLOW, BLACK, WHITE } = this.COLORS;
@@ -3336,9 +3171,7 @@
       ctx.fillText(line, x, currentY);
     },
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Remote Hardware Control & Preset Push
-    // ─────────────────────────────────────────────────────────────────────────
 
     async sendRemoteCmd(cmd) {
       console.log(`[ScenesStudio] Executing remote command: ${cmd}`);
@@ -3528,10 +3361,8 @@
     }
   };
 
-  // Expose ScenesStudio to global window
   window.ScenesStudio = ScenesStudio;
 
-  // Auto-init on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('modeChipsContainer') || document.getElementById('scenesPreviewCanvas')) {

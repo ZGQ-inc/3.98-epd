@@ -31,12 +31,10 @@ const Studios = {
     const motto   = (config.motto || config.bio || '').trim() || '用代码连接物理世界，专注低功耗嵌入式！';
     const qrText  = (config.qrText || config.qr || '').trim() || 'https://domain.zgqinc.gq';
 
-    // White base
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
     if (isPortrait) {
-      /*  竖屏自适应模式 (552 × 768)  */
       if (template === 'geek') {
         // 🧑‍💻 极客黑客 (Portrait)
         ctx.fillStyle = '#000000';
@@ -60,7 +58,6 @@ const Studios = {
         ctx.font = 'bold 44px "PingFang SC", sans-serif';
         ctx.fillText(name, 26, 168);
 
-        // Monospace bio card
         ctx.fillStyle = '#f1f4f9';
         ctx.fillRect(26, 192, w - 52, 112);
         ctx.strokeStyle = '#c4c6d0';
@@ -75,7 +72,6 @@ const Studios = {
         ctx.fillText(`COMM: ${contact}`, 26, 335);
         ctx.fillText(`MAIL: ${email}`, 26, 365);
 
-        // QR Code centered at bottom
         const qrSize = 190;
         QRCodeLib.drawQRCode(ctx, qrText, (w - qrSize) / 2, 410, qrSize);
 
@@ -221,7 +217,6 @@ const Studios = {
       }
 
     } else {
-      /*  横屏自适应模式 (768 × 552)  */
       if (template === 'geek') {
         // 🧑‍💻 极客黑客 (Landscape)
         ctx.fillStyle = '#000000';
@@ -245,7 +240,6 @@ const Studios = {
         ctx.font = 'bold 44px "PingFang SC", sans-serif';
         ctx.fillText(name, 32, 170);
 
-        // Monospace bio card
         ctx.fillStyle = '#f1f4f9';
         ctx.fillRect(32, 195, 430, 95);
         ctx.strokeStyle = '#c4c6d0';
@@ -260,7 +254,6 @@ const Studios = {
         ctx.fillText(`COMM: ${contact}`, 32, 335);
         ctx.fillText(`MAIL: ${email}`, 32, 375);
 
-        // QR Code on right
         QRCodeLib.drawQRCode(ctx, qrText, 495, 120, 230);
 
         ctx.fillStyle = '#d32f2f';
@@ -408,7 +401,6 @@ const Studios = {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
 
-    // Header bar
     ctx.fillStyle = '#d32f2f';
     ctx.fillRect(0, 0, w, 70);
 
@@ -420,19 +412,16 @@ const Studios = {
     const dateW = ctx.measureText(date).width;
     ctx.fillText(date, w - dateW - 24, 46);
 
-    // Checklist items
     ctx.fillStyle = '#000000';
     let startY = 125;
     const step = isPortrait ? 50 : 58;
     for (let i = 0; i < items.length; i++) {
       const line = items[i].trim();
       if (!line) continue;
-      // Draw checkbox square
       ctx.lineWidth = 3;
       ctx.strokeStyle = '#000000';
       ctx.strokeRect(36, startY - 26, 28, 28);
 
-      // Alternate color accent for checkmarks/bullets
       if (i % 2 === 1) {
         ctx.fillStyle = '#f4c430';
         ctx.fillRect(40, startY - 22, 20, 20);
@@ -445,7 +434,6 @@ const Studios = {
       if (startY > (h - 55)) break;
     }
 
-    // Bottom note bar
     ctx.fillStyle = '#f4c430';
     ctx.fillRect(0, h - 32, w, 32);
     ctx.fillStyle = '#000000';

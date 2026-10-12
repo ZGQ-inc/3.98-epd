@@ -51,7 +51,6 @@ const App = {
     this.bindEvents();
     this.renderPresetsUI();
 
-    // Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').then((reg) => {
         console.log('[PWA] Service Worker registered:', reg.scope);
@@ -111,7 +110,7 @@ const App = {
     });
   },
 
-  /*  3. Image Lab (9 Algorithms & Sliders)  */
+  /*  3. Image Lab  */
   loadImageFile(file) {
     if (!file) return;
     if (file.type && !file.type.startsWith('image/')) {
@@ -203,7 +202,6 @@ const App = {
       return;
     }
 
-    // 默认不遮挡自适应长宽 (Adaptive Contain Fit)
     const baseScale = Math.min(w / this.uploadedImg.width, h / this.uploadedImg.height);
     const totalScale = baseScale * (this.imageScale || 1.0);
     const dw = this.uploadedImg.width * totalScale;
@@ -215,7 +213,6 @@ const App = {
     this.updateImageSelectBox();
 
     if (fastPreview) {
-      // 快速拖拽平移与滚轮缩放时仅实时绘制几何变换，保持 60fps 流畅手感
       return;
     }
 
@@ -274,7 +271,6 @@ const App = {
     const isHardwareConnected = (DeviceManager.isBleConnected && DeviceManager.bleDevice?.gatt?.connected)
       || (DeviceManager.isLanConnected && !!DeviceManager.lanIp);
 
-    // Elements
     const nameInput = document.getElementById('savePresetNameInput');
     const typeLabelEl = document.getElementById('savePresetTypeLabel');
     const hwBadge = document.getElementById('savePresetHwBadge');
@@ -313,7 +309,6 @@ const App = {
     const targetLabel = document.getElementById('savePresetTargetLabel');
     const checkTitle = document.getElementById('savePresetStorageCheckTitle');
 
-    // Ensure confirm button is completely unlocked and old disabled state is cleared
     if (confirmBtn) {
       confirmBtn.disabled = false;
       confirmBtn.removeAttribute('disabled');
@@ -361,7 +356,6 @@ const App = {
       };
     }
 
-    // Reset progress indicator states before opening modal
     if (progressBox) progressBox.style.display = 'none';
     if (progressBar) progressBar.style.width = '0%';
     if (progressPct) progressPct.textContent = '0%';
@@ -369,7 +363,6 @@ const App = {
 
     UI.openModal('savePresetModal');
 
-    // Remove old listeners and re-bind confirm button, ensuring fresh enabled state
     if (confirmBtn) {
       const newConfirmBtn = confirmBtn.cloneNode(true);
       newConfirmBtn.disabled = false;
@@ -409,8 +402,8 @@ const App = {
           this.renderPresetsUI();
           UI.closeModal('savePresetModal');
           UI.showToast(selectedDest === 'hardware'
-            ? `🎉 预设「${name}」已成功写入单片机 Flash (SPIFFS) 存储！`
-            : `已成功保存预设「${name}」至本地草稿库（完全不占用单片机空间）！`, 'success', 4500);
+            ? `🎉 预设「${name}」已成功写入单片机 Flash 存储！`
+            : `🎉 已成功保存预设「${name}」至本地草稿库！`, 'success', 4500);
         } catch (e) {
           UI.showToast(`写入失败: ${e.message}`, 'error', 4500);
         } finally {
@@ -519,7 +512,6 @@ const App = {
         const preset = PresetHub.presets.find(p => p.id === id);
         if (!preset) return;
 
-        // If local preset draft or already has raw_bitmap in memory, render instantly!
         if (preset.raw_bitmap && preset.raw_bitmap.length === 105984 && this.modalCanvas) {
           BWRY.render2bppToCanvas(this.modalCanvas, new Uint8Array(preset.raw_bitmap));
           UI._activeDitherPacked = new Uint8Array(preset.raw_bitmap);
@@ -539,7 +531,6 @@ const App = {
           return;
         }
 
-        // Hardware preset from MCU Flash: open preview modal and pull data with progress bar!
         UI._activePreset = preset;
         UI._activeDitherPacked = null;
 
@@ -563,7 +554,6 @@ const App = {
           ctx.fillStyle = '#111318';
           ctx.fillRect(0, 0, 768, 552);
 
-          // Title
           ctx.fillStyle = '#e2e2e6';
           ctx.font = 'bold 22px sans-serif';
           ctx.textAlign = 'center';
@@ -573,7 +563,6 @@ const App = {
           ctx.font = 'bold 18px sans-serif';
           ctx.fillText(`「${preset.name}」`, 384, 238);
 
-          // Progress bar track
           const barX = 184;
           const barY = 275;
           const barW = 400;
@@ -585,14 +574,12 @@ const App = {
           ctx.roundRect(barX, barY, barW, barH, radius);
           ctx.fill();
 
-          // Progress bar fill
           const fillW = Math.max(radius * 2, Math.round(barW * (pct / 100)));
           ctx.fillStyle = '#4caf50';
           ctx.beginPath();
           ctx.roundRect(barX, barY, fillW, barH, radius);
           ctx.fill();
 
-          // Percentage text
           ctx.fillStyle = '#c4c6d0';
           ctx.font = '14px sans-serif';
           ctx.fillText(`${pct}% (${(loadedBytes / 1024).toFixed(1)} KB / 103.5 KB)`, 384, 320);
@@ -611,7 +598,6 @@ const App = {
               drawProgress(pct, loaded, total);
             });
           } else {
-            // Direct streaming fallback in case DeviceManager was cached by browser
             const ip = DeviceManager.lanIp || (typeof localStorage !== 'undefined' ? (localStorage.getItem('epd_lan_ip') || '').trim() : '');
             if (!ip) throw new Error('未设置局域网设备 IP，请先在顶部设置设备 IP');
             const res = await fetch(`http://${ip}/api/presets/bitmap?id=${encodeURIComponent(preset.id)}`, {
@@ -653,7 +639,6 @@ const App = {
               if (typeof DeviceManager.unpackBits === 'function') {
                 bytes = DeviceManager.unpackBits(receivedData, 105984);
               } else {
-                // Inline unpackBits fallback
                 const out = new Uint8Array(105984);
                 let outIdx = 0, inIdx = 0;
                 while (inIdx < receivedData.length) {
@@ -674,7 +659,6 @@ const App = {
             }
           }
 
-          // Successfully pulled 105,984 bytes from MCU Flash!
           BWRY.render2bppToCanvas(canvas, bytes);
           UI._activeDitherPacked = bytes;
           preset.raw_bitmap = Array.from(bytes);
@@ -687,7 +671,6 @@ const App = {
           ctx.fillStyle = '#121316';
           ctx.fillRect(0, 0, 768, 552);
 
-          // Card Background Frame
           ctx.fillStyle = '#1c1e22';
           ctx.beginPath();
           ctx.roundRect(48, 40, 672, 472, 16);
@@ -697,7 +680,6 @@ const App = {
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Header badge
           ctx.fillStyle = '#1e88e5';
           ctx.beginPath();
           ctx.roundRect(284, 64, 200, 32, 16);
@@ -707,17 +689,14 @@ const App = {
           ctx.textAlign = 'center';
           ctx.fillText('⚡ ESP32 SPIFFS Flash 固化预设', 384, 85);
 
-          // Preset Name
           ctx.fillStyle = '#e2e2e6';
           ctx.font = 'bold 28px "PingFang SC", sans-serif';
           ctx.fillText(`「${preset.name}」`, 384, 150);
 
-          // Subtitle
           ctx.fillStyle = '#90caf9';
           ctx.font = '16px "PingFang SC", sans-serif';
           ctx.fillText(`${preset.type_label || preset.preset_type || '智能作品'} · 固化点阵文件: ${preset.id}.2bpp`, 384, 190);
 
-          // Specs Box
           const boxY = 220;
           ctx.fillStyle = '#26282e';
           ctx.beginPath();
@@ -792,7 +771,6 @@ const App = {
             await DeviceManager.pushPreset(preset.id);
             UI.showToast(`🎉 单片机已内部加载 Flash 预设「${preset.name}」并启动墨水屏全屏物理刷新！`, 'success', 5000);
           } else {
-            // Local preset streaming
             if (preset.raw_bitmap) {
               UI.showToast(`正在点对点推送本地离线草稿「${preset.name}」至墨水屏...`, 'info', 4000);
               await DeviceManager.pushBitmap2bpp(new Uint8Array(preset.raw_bitmap));
@@ -808,24 +786,20 @@ const App = {
 
   /*  5. Universal Event Bindings  */
   bindEvents() {
-    // 1. Badge inputs
     document.querySelectorAll('.badge-input').forEach(el => {
       el.addEventListener('input', () => this.renderBadge());
       el.addEventListener('change', () => this.renderBadge());
     });
 
-    // Badge template chips
     ['geek', 'business', 'anime', 'staff'].forEach(tpl => {
       document.getElementById(`chip-${tpl}`)?.addEventListener('click', () => this.selectBadgeTpl(tpl));
     });
 
-    // 2. Memo inputs
     document.querySelectorAll('.memo-input').forEach(el => {
       el.addEventListener('input', () => this.renderMemo());
       el.addEventListener('change', () => this.renderMemo());
     });
 
-    // 3. Paint Canvas Tools & Palette
     const paintToolSelect = document.getElementById('paintToolSelect');
     if (paintToolSelect) {
       paintToolSelect.addEventListener('change', (e) => {
@@ -842,7 +816,6 @@ const App = {
       });
     });
 
-    // Swatches (pure inks + mixed colors)
     document.querySelectorAll('.swatch-item, .palette-btn, .color-swatch').forEach(swatch => {
       swatch.addEventListener('click', () => {
         document.querySelectorAll('.swatch-item, .palette-btn, .color-swatch').forEach(s => s.classList.remove('active'));
@@ -854,7 +827,6 @@ const App = {
       });
     });
 
-    // Native Color Picker
     const nativeColorPicker = document.getElementById('nativeColorPicker');
     if (nativeColorPicker) {
       nativeColorPicker.addEventListener('input', (e) => {
@@ -873,7 +845,6 @@ const App = {
       if (valBadge) valBadge.textContent = `${val}px`;
     });
 
-    // 4. Image Lab Controls & Drag and Drop Support
     const imageUploadInput = document.getElementById('imageUploadInput') || document.getElementById('labImgInput');
     const imageDropZone = document.getElementById('imageDropZone');
     const imagePreviewContainer = document.getElementById('imageLabPreviewContainer');
@@ -931,11 +902,9 @@ const App = {
       }
     });
 
-    // Image Lab Interactive Drag, Pan, and Wheel Zoom
     if (this.imageLabCanvas) {
       const imgCanvas = this.imageLabCanvas;
 
-      // Click to upload when empty (Mobile & Desktop friendly)
       imgCanvas.addEventListener('click', () => {
         if (!this.uploadedImg) {
           imageUploadInput?.click();
@@ -1017,13 +986,11 @@ const App = {
         }, 80);
       }, { passive: false });
 
-      // Keep selection box synced on window/orientation resize
       window.addEventListener('resize', () => {
         this.updateImageSelectBox();
       });
     }
 
-    // Interactive 4 Corner & 4 Edge Handle Dots Dragging (四周小圆点交互缩放)
     document.querySelectorAll('.select-handle').forEach(handle => {
       handle.addEventListener('pointerdown', (e) => {
         if (!this.uploadedImg) return;
@@ -1224,7 +1191,6 @@ const App = {
       UI.showToast('已切换为 1:1 物理像素原图大小');
     });
 
-    // 5. Connectivity Bar Bindings
     const bleConnectBtn = document.getElementById('bleConnectBtn') || document.getElementById('btnBleConnect');
     const bleStatusDot = document.getElementById('bleStatusDot');
     const bleStatusText = document.getElementById('bleStatusText');
@@ -1233,7 +1199,6 @@ const App = {
     const lanConsoleLink = document.getElementById('lanConsoleLink');
 
     const updateConnUI = (status) => {
-      // 1. BLE Status Bar strictly reflects BLE
       if (status.bleConnected) {
         if (bleStatusDot) bleStatusDot.className = 'conn-status-dot connected';
         if (bleStatusText) bleStatusText.textContent = `已连接: ${status.bleDeviceName || 'EPD-Display'}`;
@@ -1247,7 +1212,6 @@ const App = {
         if (bleConnectBtn) bleConnectBtn.textContent = '🔍 扫描连接';
       }
 
-      // 2. LAN Status Bar strictly reflects LAN
       if (status.lanConnected && status.lanIp) {
         if (netLanStatus) {
           if (status.activeTransport === 'ble') {
@@ -1275,7 +1239,6 @@ const App = {
         if (lanConsoleLink) lanConsoleLink.style.display = 'none';
       }
 
-      // 3. Preset sync on any valid hardware connection
       if (status.activeTransport !== 'none') {
         PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
       } else {
@@ -1307,14 +1270,12 @@ const App = {
       });
     }
 
-    // Top status modals
     document.getElementById('btnDevManage')?.addEventListener('click', () => UI.openDeviceManagerModal());
     document.getElementById('btnAirProv')?.addEventListener('click', () => UI.openAirProvisionModal());
     document.getElementById('btnLanIp')?.addEventListener('click', () => UI.openLanIpModal());
     document.getElementById('btnSendAirProv')?.addEventListener('click', () => UI.executeBleAirProvision());
     document.getElementById('btnSaveLanIp')?.addEventListener('click', () => UI.saveCustomLanIp());
 
-    // 6. Push Buttons
     document.getElementById('badgePushBtn')?.addEventListener('click', () => this.pushCanvas(this.badgeCanvas, '工牌'));
     document.getElementById('itabagPushBtn')?.addEventListener('click', () => {
       const c = window.ItaBagStudio?.getCanvas ? window.ItaBagStudio.getCanvas() : document.getElementById('itaPreviewCanvas');
@@ -1324,7 +1285,6 @@ const App = {
     document.getElementById('paintPushBtn')?.addEventListener('click', () => this.pushCanvas(this.paintCanvas, '手绘画作'));
     document.getElementById('imagePushBtn')?.addEventListener('click', () => this.pushCanvas(this.imageLabCanvas, '精修相册'));
 
-    // 7. Save Preset Buttons
     document.getElementById('badgeSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.badgeCanvas, 'badge', '个性工牌预设'));
     document.getElementById('itabagSavePresetBtn')?.addEventListener('click', () => {
       const c = window.ItaBagStudio?.getCanvas ? window.ItaBagStudio.getCanvas() : document.getElementById('itaPreviewCanvas');
@@ -1334,7 +1294,6 @@ const App = {
     document.getElementById('paintSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.paintCanvas, 'paint', '像素手绘预设'));
     document.getElementById('imageSavePresetBtn')?.addEventListener('click', () => this.promptSavePreset(this.imageLabCanvas, 'image', '图像作品预设'));
 
-    // 8. 1:1 Dither Physical Preview Buttons on Each Tab
     document.querySelectorAll('[data-dither-preview]').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.getAttribute('data-dither-preview');
@@ -1343,8 +1302,6 @@ const App = {
       });
     });
 
-    // 9. Tab 6 Scenes Remote & Controls
-    // 4 Clear buttons
     document.querySelectorAll('[data-clear-cmd]').forEach(btn => {
       btn.addEventListener('click', () => {
         const cmd = btn.getAttribute('data-clear-cmd');
@@ -1352,7 +1309,6 @@ const App = {
       });
     });
 
-    // 12 Mode switchers
     document.querySelectorAll('[data-mode-cmd]').forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = btn.getAttribute('data-mode-cmd');
@@ -1360,7 +1316,6 @@ const App = {
       });
     });
 
-    // 4 RF mode switchers
     document.querySelectorAll('[data-rf-cmd]').forEach(btn => {
       btn.addEventListener('click', () => {
         const rf = btn.getAttribute('data-rf-cmd');
@@ -1368,12 +1323,10 @@ const App = {
       });
     });
 
-    // 2bpp BIN export & import
     document.getElementById('btnExportBin')?.addEventListener('click', () => UI.exportCanvasAsBin());
     document.getElementById('btnImportBin')?.addEventListener('click', () => document.getElementById('importBinInput')?.click());
     document.getElementById('importBinInput')?.addEventListener('change', (e) => UI.handleImportBinFile(e));
 
-    // 10. Presets Toolbar
     document.getElementById('presetSelectAllBtn')?.addEventListener('click', () => {
       PresetHub.selectAll();
       this.renderPresetsUI();
@@ -1433,10 +1386,8 @@ const App = {
       PresetHub.clearLocalPresets();
     });
 
-    // 11. Modal Push Dither
     document.getElementById('modalPushDitherBtn')?.addEventListener('click', () => UI.pushModalDither());
 
-    // 12. Tab Change Hook
     window.addEventListener('tabchange', async (e) => {
       const tabId = e.detail.tabId;
       if (tabId === 'badge') {

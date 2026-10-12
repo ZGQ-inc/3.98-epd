@@ -179,7 +179,6 @@
   color: var(--md-sys-color-primary);
 }
 
-/* Ita-Bag Simulated Acrylic Frame */
 .itabag-preview-frame {
   position: relative;
   border-radius: var(--radius-lg);
@@ -214,7 +213,7 @@
 }
 
 /* 
- * 4. Tab 4: Paint Studio (4-Color BWRY & Mixed Swatches)
+ * 4. Tab 4: Paint Studio
  *  */
 .palette-bar {
   display: flex;
@@ -242,7 +241,7 @@
 }
 
 /* 
- * 5. Tab 5: Image Lab (9 Dithering Algorithms & Sliders)
+ * 5. Tab 5: Image Lab
  *  */
 .lab-slider-grid {
   display: grid;
@@ -260,7 +259,6 @@
 /* 
  * 6. Tab 6: Scenes & Hardware Remote Controls
  *  */
-/* 5 Physical Clear Buttons */
 .clear-buttons-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -328,7 +326,6 @@
   border-color: #b71c1c;
 }
 
-/* 12 Mode Switcher Cards */
 .mode-switcher-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -377,7 +374,6 @@
   border-color: var(--md-sys-color-primary);
 }
 
-/* 4 RF Mode Switchers */
 .rf-mode-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -426,7 +422,6 @@
   border-color: var(--md-sys-color-primary);
 }
 
-/* BIN Export & Import */
 .bin-tools-row {
   display: flex;
   gap: 10px;
@@ -437,7 +432,6 @@
   flex: 1;
 }
 
-/* Dynamic Scene Mode Chips (18 full scenes) */
 .scene-mode-chips {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -500,7 +494,6 @@
   opacity: 0.85;
 }
 
-/* Dynamic Scene Form */
 .scene-form {
   display: flex;
   flex-direction: column;
@@ -607,7 +600,6 @@
   flex-wrap: wrap;
 }
 
-/* Diag Table */
 .diag-table {
   width: 100%;
   border-collapse: collapse;
@@ -633,7 +625,6 @@
   color: var(--md-sys-color-on-surface);
 }
 
-/* Universal Grid */
 .grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -647,7 +638,7 @@
 }
 
 /* 
- * 10. Image Lab Interactive Transform Selector Box & Mobile Adaptations
+ * 9. Image Lab Interactive Transform Selector Box & Mobile Adaptations
  *  */
 .canvas-interactive-wrapper {
   position: relative;
@@ -690,7 +681,6 @@
   transition: transform 0.1s, background-color 0.1s, border-color 0.1s;
 }
 
-/* Touch hit-area expansion for mobile */
 .select-handle::after {
   content: '';
   position: absolute;
@@ -707,13 +697,11 @@
   border-color: #0b57d0;
 }
 
-/* Corner Handles */
 .select-handle.handle-tl { top: 0; left: 0; cursor: nwse-resize; }
 .select-handle.handle-tr { top: 0; left: 100%; cursor: nesw-resize; }
 .select-handle.handle-br { top: 100%; left: 100%; cursor: nwse-resize; }
 .select-handle.handle-bl { top: 100%; left: 0; cursor: nesw-resize; }
 
-/* Edge Midpoint Handles */
 .select-handle.handle-tc { top: 0; left: 50%; cursor: ns-resize; }
 .select-handle.handle-bc { top: 100%; left: 50%; cursor: ns-resize; }
 .select-handle.handle-ml { top: 50%; left: 0; cursor: ew-resize; }

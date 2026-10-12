@@ -115,7 +115,6 @@ const PresetHub = {
   /*  Local Storage & IndexedDB Hybrid Cache  */
   async loadLocalPresets() {
     let localPresets = [];
-    // 1. Synchronous localStorage fallback
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (raw) localPresets = JSON.parse(raw);
@@ -123,7 +122,6 @@ const PresetHub = {
       localPresets = [];
     }
 
-    // 2. Load from IndexedDB (preserves raw binary arrays without 5MB quota limit)
     try {
       const idbPresets = await this._loadFromIndexedDb();
       if (idbPresets && idbPresets.length > 0) {
@@ -144,14 +142,12 @@ const PresetHub = {
   async saveLocalPresets() {
     this.recalculateStorage();
 
-    // 1. Save to IndexedDB
     try {
       await this._saveToIndexedDb(this.presets);
     } catch (e) {
       console.warn('[Presets] IndexedDB save notice:', e);
     }
 
-    // 2. Save to localStorage with quota protection
     try {
       try {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.presets));
@@ -170,7 +166,6 @@ const PresetHub = {
   },
 
   recalculateStorage() {
-    // Local offline draft presets (browser-only draft quota estimation)
     const localPresets = this.presets.filter(p => p.is_offline);
     let localUsed = 0;
     for (const p of localPresets) {
@@ -272,7 +267,6 @@ const PresetHub = {
             this._hasRemoteStorageStats = true;
           }
           if (res.presets && Array.isArray(res.presets)) {
-            // Merge device presets with local IndexedDB/localStorage presets
             const localMap = new Map(this.presets.map(p => [p.id, p]));
             const merged = [];
             for (const devPreset of res.presets) {
@@ -280,12 +274,11 @@ const PresetHub = {
               merged.push({
                 ...local,
                 ...devPreset,
-                is_offline: false, // Confirmed on hardware!
+                is_offline: false,
                 raw_bitmap: local?.raw_bitmap || devPreset.raw_bitmap
               });
               localMap.delete(devPreset.id);
             }
-            // Keep local offline-only presets
             for (const [, localOnly] of localMap) {
               if (localOnly.is_offline) {
                 merged.push(localOnly);
@@ -525,7 +518,6 @@ const PresetHub = {
     try {
       const res = await DeviceManager.clearDeviceStorage();
 
-      // Clear hardware presets from local memory
       this.presets = this.presets.filter(p => p.is_offline);
       this.selectedIds.clear();
       await this.saveLocalPresets();
@@ -534,7 +526,6 @@ const PresetHub = {
         this.storageStats = res.storage;
         this._hasRemoteStorageStats = true;
       } else {
-        // Reset local stats display
         this.storageStats = {
           total_bytes: 1528841,
           used_bytes: 0,
@@ -552,10 +543,8 @@ const PresetHub = {
         window.UI.showToast('🎉 单片机 Flash 存储清空指令已执行，正在刷新存储状态...', 'success', 4000);
       }
 
-      // Wait a moment for SPIFFS unlink to settle
       await new Promise(r => setTimeout(r, 800));
 
-      // Re-sync with device to verify updated physical Flash bytes
       await this.syncWithDevice();
       this.updateStorageUI();
       if (typeof App !== 'undefined' && App.renderPresetsUI) {
@@ -600,7 +589,6 @@ const PresetHub = {
     try {
       const res = await DeviceManager.cleanInvalidData(orphanIds);
 
-      // Remove local memory copies of orphan presets
       if (orphanIds.length > 0) {
         this.presets = this.presets.filter(p => !orphanIds.includes(p.id));
         orphanIds.forEach(id => this.selectedIds.delete(id));
@@ -622,7 +610,6 @@ const PresetHub = {
         window.UI.showToast(`🎉 已成功清理 ${count} 项无效/孤儿残留文件！`, 'success', 4000);
       }
 
-      // Wait a moment and re-sync
       await new Promise(r => setTimeout(r, 600));
       await this.syncWithDevice();
       this.updateStorageUI();

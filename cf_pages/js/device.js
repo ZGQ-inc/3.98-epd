@@ -76,7 +76,6 @@ const DeviceManager = {
     }
 
     if (queryIp) {
-      // Test physical connection immediately
       this.testConnection().then((connected) => {
         if (connected && !this.isBleConnected) {
           this.activeTransport = 'wifi';
@@ -160,7 +159,7 @@ const DeviceManager = {
     };
   },
 
-  /*  Web Bluetooth (WebBLE Dual-Mode 5.0)  */
+  /*  Web Bluetooth  */
   async connectBle() {
     if (!navigator.bluetooth) {
       if (!window.isSecureContext) {
@@ -224,7 +223,6 @@ const DeviceManager = {
         throw new Error('GATT 服务连接未建立或已断开');
       }
 
-      // Crucial: 450ms settling delay for Windows / Android Bluetooth PHY & MTU negotiation!
       await new Promise(r => setTimeout(r, 450));
 
       console.log('[BLE] Discovering 0x00FF Service (with auto-reconnect fallback)...');
@@ -415,7 +413,6 @@ const DeviceManager = {
             }
           });
 
-          // Query hardware status (IP, mode, etc.) after brief stabilization
           setTimeout(async () => {
             try {
               if (this.rxChar) {
@@ -455,7 +452,6 @@ const DeviceManager = {
     this.rxChar = null;
     this.txChar = null;
 
-    // Check if Wi-Fi LAN is reachable to seamlessly resume Wi-Fi connection
     if (this.lanIp) {
       const ok = await this.testLanConnection().catch(() => false);
       this.isLanConnected = ok;
@@ -527,7 +523,6 @@ const DeviceManager = {
     } else if (this.isLanConnected && this.lanIp) {
       return await this._pushLanBitmap(packed2bpp, progressCb);
     } else if (this.lanIp) {
-      // User has an IP configured but not currently verified: test on demand
       const connected = await this.testLanConnection().catch(() => false);
       if (connected) {
         return await this._pushLanBitmap(packed2bpp, progressCb);
@@ -543,7 +538,6 @@ const DeviceManager = {
       throw new Error('蓝牙已断开！请点击顶部“连接蓝牙”重新连接。');
     }
     console.log(`[BLE] Pushing ${packed2bpp.length} bytes over BLE...`);
-    // Send status ping to ensure firmware stream offset resets to 0
     try {
       const resetCmd = new TextEncoder().encode('status');
       await this.rxChar.writeValueWithoutResponse(resetCmd);
@@ -552,7 +546,6 @@ const DeviceManager = {
       console.warn('[BLE] Stream offset reset ping warning:', e);
     }
 
-    // Send chunks (240 bytes MTU payload)
     const chunkSize = 240;
     const totalChunks = Math.ceil(packed2bpp.length / chunkSize);
 
@@ -572,7 +565,6 @@ const DeviceManager = {
       if (progressCb) {
         progressCb(Math.round(((i + 1) / totalChunks) * 100));
       }
-      // Pacing delay to prevent BLE controller FIFO overflow
       if (i % 4 === 0) {
         await new Promise(r => setTimeout(r, 10));
       }
@@ -693,7 +685,6 @@ const DeviceManager = {
     const buffer = await file.arrayBuffer();
     const packed = new Uint8Array(buffer);
 
-    // If an active preview canvas exists, render dot matrix preview
     try {
       const previewCanvas = document.getElementById('scenesPreviewCanvas') || document.querySelector('canvas.preview-canvas');
       if (previewCanvas && typeof BWRY !== 'undefined' && typeof BWRY.render2bppToCanvas === 'function') {
@@ -711,9 +702,6 @@ const DeviceManager = {
   },
 
   /*  Remote Hardware Control Commands  */
-  /**
-   * 1. 16s physical waveform full refresh
-   */
   async sendRefresh() {
     if (this.isBleConnected && this.rxChar) {
       const cmd = new TextEncoder().encode('refresh');
@@ -731,9 +719,6 @@ const DeviceManager = {
     }
   },
 
-  /**
-   * 2. Clear screen to 100% pure white
-   */
   async sendClearWhite() {
     if (this.isBleConnected && this.rxChar) {
       const cmd = new TextEncoder().encode('clear:white');
@@ -751,26 +736,17 @@ const DeviceManager = {
     }
   },
 
-  /**
-   * 3. Clear screen to 100% pure black (0b00 = 0x00)
-   */
   async sendClearBlack() {
     const buf = new Uint8Array(FRAMEBUFFER_SIZE); // filled with 0x00
     return await this.pushBitmap2bpp(buf);
   },
 
-  /**
-   * 4. Clear screen to 100% pure red (0b11 = 0xFF)
-   */
   async sendClearRed() {
     const buf = new Uint8Array(FRAMEBUFFER_SIZE);
     buf.fill(0xFF); // 0b11111111 = 4 red pixels per byte
     return await this.pushBitmap2bpp(buf);
   },
 
-  /**
-   * 5. Clear screen to 100% pure yellow (0b10 = 0xAA)
-   */
   async sendClearYellow() {
     if (this.isBleConnected && this.rxChar) {
       try {
@@ -784,7 +760,6 @@ const DeviceManager = {
         if (res.ok) return await res.json().catch(() => ({ status: 'ok' }));
       } catch (e) {}
     }
-    // High-precision physical fallback: push all-yellow 2bpp bitmap (0xAA)
     const buf = new Uint8Array(FRAMEBUFFER_SIZE);
     buf.fill(0xAA); // 0b10101010 = 4 yellow pixels per byte
     return await this.pushBitmap2bpp(buf);
@@ -1084,14 +1059,12 @@ const DeviceManager = {
   async fetchPresetBitmapStream(id, onProgress) {
     if (!id) throw new Error('预设 ID 不能为空');
 
-    // Check if preset already cached in memory
     const existing = window.PresetHub?.presets?.find?.(p => p.id === id);
     if (existing?.raw_bitmap && existing.raw_bitmap.length === 105984) {
       onProgress?.(100, 105984, 105984);
       return new Uint8Array(existing.raw_bitmap);
     }
 
-    // In BLE-only mode or without LAN IP: SPIFFS hardware direct push is used
     if (this.activeTransport === 'ble' || (this.isBleConnected && !this.isLanConnected) || !this.lanIp) {
       const err = new Error('当前处于 WebBLE 蓝牙直推模式。单片机内置 105KB 显存点阵已存储在 Flash 中，无需回传至浏览器，点击下方「🚀 内部直推至墨水屏」即可由单片机直接加载全刷墨水屏！');
       err.isBleDirectOnly = true;
@@ -1209,7 +1182,6 @@ const DeviceManager = {
     if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
       if (!this.rxChar) throw new Error('蓝牙未准备就绪');
       if (rawBitmap) {
-        // First inform firmware not to auto-refresh upon stream complete
         try {
           const cfgCmd = new TextEncoder().encode('stream:auto_refresh:0');
           await this.rxChar.writeValueWithoutResponse(cfgCmd);
@@ -1264,7 +1236,6 @@ const DeviceManager = {
       });
     } else if (this.isLanConnected && this.lanIp) {
       if (rawBitmap) {
-        // Stream raw bitmap to display buffer first (80% progress) without physical refresh
         await this._pushLanBitmap(rawBitmap, (p) => progressCb?.(Math.round(p * 0.8)), false);
       }
       progressCb?.(85);
@@ -1385,7 +1356,6 @@ const DeviceManager = {
           handled = true;
         }
       } catch (e) {
-        // Fallback to /api/presets/clear
         try {
           const res2 = await fetch(`http://${this.lanIp}/api/presets/clear`, {
             method: 'POST',
@@ -1400,12 +1370,10 @@ const DeviceManager = {
     }
 
     if (this.isBleConnected && this.rxChar) {
-      // 1. Send dedicated storage:clear command
       const cmd = new TextEncoder().encode('storage:clear');
       await this.rxChar.writeValueWithoutResponse(cmd);
       await new Promise(r => setTimeout(r, 80));
 
-      // 2. Also send preset:clear_all for maximum compatibility
       const cmd2 = new TextEncoder().encode('preset:clear_all');
       await this.rxChar.writeValueWithoutResponse(cmd2);
       handled = true;
@@ -1457,7 +1425,6 @@ const DeviceManager = {
       result = { status: 'ok', message: '已向单片机发送清理孤儿文件指令' };
     }
 
-    // Fallback for older firmware: delete identified orphan IDs individually
     if ((!handled || !result) && fallbackOrphanIds && fallbackOrphanIds.length > 0) {
       result = await this.deletePresetsFromDevice(fallbackOrphanIds);
       handled = true;
@@ -1500,7 +1467,6 @@ const DeviceManager = {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           this._onSysDiagResolver = null;
-          // Fallback telemetry in case of timeout
           resolve({
             status: 'ok',
             chip_model: 'ESP32-C3 RISC-V 160MHz (rev v0.4)',

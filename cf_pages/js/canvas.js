@@ -12,12 +12,10 @@ const PaintCanvas = {
   width: 768,
   height: 552,
 
-  // Tool & Palette state
   currentColor: '#000000',
   currentTool: 'pen', // 'pen' | 'line' | 'rect' | 'rect_fill' | 'circle' | 'circle_fill' | 'text' | 'eraser'
   lineWidth: 4,
 
-  // Palette definitions
   PURE_COLORS: [
     { name: '纯黑 (Black)',   hex: '#000000' },
     { name: '纯红 (Red)',     hex: '#d32f2f' },
@@ -38,7 +36,6 @@ const PaintCanvas = {
     { name: '75% 深灰',          hex: '#404040' }
   ],
 
-  // Drawing state
   isDrawing: false,
   startX: 0,
   startY: 0,
@@ -46,7 +43,6 @@ const PaintCanvas = {
   lastY: 0,
   snapshot: null,
 
-  // Undo / Redo history
   undoStack: [],
   redoStack: [],
   MAX_HISTORY: 25,
@@ -60,7 +56,6 @@ const PaintCanvas = {
     this.canvas.height = this.height;
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
 
-    // Initialize with white background
     this.clear(false);
     this.saveState();
     this.bindEvents();
@@ -79,7 +74,6 @@ const PaintCanvas = {
 
     if (!this.canvas) return;
 
-    // Snapshot existing drawing
     const temp = document.createElement('canvas');
     temp.width = oldW;
     temp.height = oldH;
@@ -90,11 +84,9 @@ const PaintCanvas = {
     this.canvas.height = targetH;
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
 
-    // Fill white
     this.ctx.fillStyle = '#ffffff';
     this.ctx.fillRect(0, 0, targetW, targetH);
 
-    // Scale and center existing drawing into new orientation
     const scale = Math.min(targetW / oldW, targetH / oldH);
     const dw = oldW * scale;
     const dh = oldH * scale;
@@ -201,7 +193,6 @@ const PaintCanvas = {
   bindEvents() {
     if (!this.canvas) return;
 
-    // UI Synchronizations
     const toolSelect = document.getElementById('paintToolSelect');
     if (toolSelect && !toolSelect._bound) {
       toolSelect._bound = true;
@@ -240,7 +231,6 @@ const PaintCanvas = {
       this.lastX = pos.x;
       this.lastY = pos.y;
 
-      // Handle Text tool click directly
       if (this.currentTool === 'text') {
         const text = prompt('请输入题字内容 (将在点击位置排版):', '3.98" BWRY');
         if (text) {
@@ -289,7 +279,6 @@ const PaintCanvas = {
         this.ctx.lineTo(pos.x, pos.y);
         this.ctx.stroke();
       } else {
-        // Shape rubber-band preview: restore snapshot
         this.ctx.putImageData(this.snapshot, 0, 0);
         this.ctx.strokeStyle = this.currentColor;
         this.ctx.fillStyle = this.currentColor;
