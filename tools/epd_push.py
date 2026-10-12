@@ -55,7 +55,7 @@ except ImportError:
     import urllib.request
     import urllib.error
 
-# ── 屏幕物理规格常量 ────────────────────────────────────────────────────────
+# 屏幕物理规格常量
 EPD_WIDTH = 768
 EPD_HEIGHT = 552
 TOTAL_BUFFER_SIZE = (EPD_WIDTH * EPD_HEIGHT) // 4  # 105,984 字节
@@ -294,7 +294,7 @@ def push_to_epd(
             return json.loads(res_body)
 
 
-# ── CLI 命令行入口 ─────────────────────────────────────────────────────────
+# CLI 命令行入口
 def main():
     parser = argparse.ArgumentParser(
         description="3.98寸 BWRY 电子墨水屏图片转换与开放式 HTTP 推送工具",
