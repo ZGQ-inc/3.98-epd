@@ -5,6 +5,7 @@ mod ble;
 mod display;
 mod modes;
 mod mqtt;
+pub mod ntp;
 mod power;
 mod scheduler;
 pub mod storage;
@@ -156,6 +157,7 @@ fn main() -> anyhow::Result<()> {
         crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
         if !is_ap && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
             crate::ble::BleManager::global().on_wifi_configured();
+            crate::ntp::init_sntp();
         }
     }
 

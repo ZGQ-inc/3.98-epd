@@ -102,6 +102,7 @@
         <tr><td>物理网卡 MAC 地址</td><td id="dMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
         <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="dWifi">-</td></tr>
         <tr><td>当前局域网 IP / 域名</td><td id="dIp">-</td></tr>
+        <tr><td>北京时间 (阿里云 NTP)</td><td id="dNtpTime">-</td></tr>
         <tr><td>系统连续运行时间 (Uptime)</td><td id="dUptime">-</td></tr>
         <tr><td>实时可用堆内存 (SRAM)</td><td id="dHeap">-</td></tr>
         <tr><td>SPI Flash 闪存规格</td><td id="dFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
@@ -195,6 +196,10 @@
         const mins = Math.floor((up % 3600) / 60);
         const secs = up % 60;
         if (document.getElementById('dUptime')) document.getElementById('dUptime').textContent = `${days}天 ${hours}小时 ${mins}分 ${secs}秒`;
+        if (document.getElementById('dNtpTime')) {
+          const ntpDesc = d.ntp_synced ? '✅ 阿里云 NTP 已授时' : '⏳ 正在校时...';
+          document.getElementById('dNtpTime').textContent = d.current_time ? `${d.current_time} (${ntpDesc})` : ntpDesc;
+        }
 
         if (document.getElementById('dHeap')) document.getElementById('dHeap').textContent = `${(d.free_heap || 0).toLocaleString()} 字节 (最低 ${(d.min_free_heap || 0).toLocaleString()} 字节)`;
         if (document.getElementById('dFlash')) document.getElementById('dFlash').textContent = `${Math.round((d.flash_chip_size || 4194304) / 1048576)} MB (DIO 40MHz)`;

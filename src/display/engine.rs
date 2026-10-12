@@ -336,6 +336,13 @@ pub fn run_display_loop(
                 let mut ctx = ModeContext::default();
                 ctx.ip_str = ip_addr.clone();
 
+                let now_info = crate::ntp::get_now_info();
+                if crate::ntp::is_time_synced() {
+                    ctx.current_time_str = now_info.time_str;
+                    ctx.date_str = now_info.date_str;
+                    ctx.weekday_str = now_info.weekday_cn;
+                }
+
                 let (mode, custom_json) = {
                     let cfg = app_config.lock().unwrap();
                     if !cfg.fridge_title.is_empty() {
@@ -414,6 +421,12 @@ pub fn run_display_loop(
                         let mut c = ModeContext::default();
                         c.ip_str = ip;
                         c.wifi_ssid = ssid;
+                        let now_info = crate::ntp::get_now_info();
+                        if crate::ntp::is_time_synced() {
+                            c.current_time_str = now_info.time_str;
+                            c.date_str = now_info.date_str;
+                            c.weekday_str = now_info.weekday_cn;
+                        }
                         crate::modes::demo_layout::render_demo_layout(&mut fb, &c);
                         true
                     }

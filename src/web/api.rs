@@ -35,6 +35,9 @@ pub struct SystemStatusResponse {
     pub ble_status: &'static str,
     pub ble_device_name: String,
     pub ble_devices: Vec<crate::ble::BleDeviceInfo>,
+    // NTP Time Synchronization
+    pub ntp_synced: bool,
+    pub current_time: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

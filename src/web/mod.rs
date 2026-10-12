@@ -304,11 +304,78 @@ impl WebServer {
                 ble_status: crate::ble::BleManager::global().get_status_str(),
                 ble_device_name: cfg.ble_device_name.clone(),
                 ble_devices: crate::ble::BleManager::global().get_device_list(),
+                ntp_synced: crate::ntp::is_time_synced(),
+                current_time: {
+                    let now = crate::ntp::get_now_info();
+                    format!("{} {} ({})", now.date_str, now.time_sec_str, now.weekday_cn)
+                },
             };
             let json = serde_json::to_vec(&status)?;
             let len_str = json.len().to_string();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 5b. GET /api/time — Query real-time clock and Alibaba Cloud NTP sync status
+        server.fn_handler("/api/time", Method::Get, |req| -> anyhow::Result<()> {
+            let now = crate::ntp::get_now_info();
+            let synced = crate::ntp::is_time_synced();
+            let sync_status = crate::ntp::get_sync_status_str();
+            let resp_data = serde_json::json!({
+                "status": "ok",
+                "ntp_synced": synced,
+                "sync_status": sync_status,
+                "timestamp": now.timestamp,
+                "date": now.date_str,
+                "time": now.time_str,
+                "time_sec": now.time_sec_str,
+                "weekday_cn": now.weekday_cn,
+                "weekday_en": now.weekday_en,
+                "formatted": format!("{} {} {}", now.date_str, now.time_sec_str, now.weekday_cn),
+                "timezone": "CST-8 (UTC+8)",
+                "servers": [
+                    crate::ntp::NTP_SERVER_PRIMARY,
+                    crate::ntp::NTP_SERVER_BACKUP1,
+                    crate::ntp::NTP_SERVER_BACKUP2,
+                    crate::ntp::NTP_SERVER_FALLBACK,
+                ]
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 5c. POST /api/time/sync — Manual trigger NTP sync via Alibaba Cloud NTP
+        server.fn_handler("/api/time/sync", Method::Post, |req| -> anyhow::Result<()> {
+            crate::ntp::init_sntp();
+            let now = crate::ntp::get_now_info();
+            let synced = crate::ntp::is_time_synced();
+            let resp_data = serde_json::json!({
+                "status": "ok",
+                "message": "已向阿里云 NTP 服务器（ntp.aliyun.com）发起校时请求！",
+                "ntp_synced": synced,
+                "current_time": format!("{} {}", now.date_str, now.time_sec_str),
+                "server": crate::ntp::NTP_SERVER_PRIMARY
+            });
+            let json = serde_json::to_vec(&resp_data)?;
+            let len_str = json.len().to_string();
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
                 ("Access-Control-Allow-Private-Network", "true"),

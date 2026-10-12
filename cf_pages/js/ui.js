@@ -631,6 +631,10 @@ const UI = {
       if (document.getElementById('diagUptime')) {
         document.getElementById('diagUptime').textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
       }
+      if (document.getElementById('diagNtpTime')) {
+        const ntpStatus = data.ntp_synced ? '✅ 阿里云 NTP 已授时' : '⏳ 正在同步阿里云 NTP...';
+        document.getElementById('diagNtpTime').textContent = data.current_time ? `${data.current_time} (${ntpStatus})` : ntpStatus;
+      }
 
       if (document.getElementById('diagHeap')) {
         document.getElementById('diagHeap').textContent = `${(data.free_heap || 0).toLocaleString()} 字节 (最低剩余 ${(data.min_free_heap || 0).toLocaleString()} 字节，运行极佳)`;
