@@ -15,7 +15,7 @@ use crate::config::{AppConfig, ConfigManager};
 use crate::display::{
     color::BwryColor,
     crc::compute_fb_crc,
-    driver::EpdDriver,
+    driver::{EpdDriver, PanelVersion},
     framebuffer::Framebuffer,
 };
 use crate::modes::{render_mode, ModeContext};
@@ -311,6 +311,11 @@ pub fn run_display_loop(
                     println!("  [epd-worker] Screen CRC matches last state (0x{:08X}). Skipping initial refresh on boot!", cur_crc);
                 } else {
                     println!("  [epd-worker] Screen changed (0x{:08X} -> 0x{:08X}). Performing initial 16s transmission...", saved_crc, cur_crc);
+                    let p_ver = {
+                        let cfg = app_config.lock().unwrap();
+                        PanelVersion::from_str(&cfg.panel_version)
+                    };
+                    epd.set_panel_version(p_ver);
                     if let Err(e) = epd.display(&fb) {
                         println!("  [epd-worker] Initial EPD transmission notice: {:?}", e);
                     } else {
@@ -449,7 +454,13 @@ pub fn run_display_loop(
                     continue;
                 }
 
-                println!("  [epd-worker] Starting 15~16s full waveform transmission (CRC: 0x{:08X} -> 0x{:08X})...", saved_crc, cur_crc);
+                let p_ver = {
+                    let cfg = app_config.lock().unwrap();
+                    PanelVersion::from_str(&cfg.panel_version)
+                };
+                epd.set_panel_version(p_ver);
+
+                println!("  [epd-worker] Starting 15~16s full waveform transmission [Panel: {:?}] (CRC: 0x{:08X} -> 0x{:08X})...", p_ver, saved_crc, cur_crc);
                 if let Err(e) = epd.display(&fb) {
                     println!("  [epd-worker] EPD transmission notice: {:?}", e);
                 } else {

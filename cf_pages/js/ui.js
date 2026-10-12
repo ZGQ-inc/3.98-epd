@@ -745,9 +745,46 @@ const UI = {
         this.updateScreenDebugUI(data.screen_debug);
       }
 
+      const panelVer = data.panel_version || data.panel_ver || 'A0';
+      this.updatePanelVersionUI(panelVer);
+
       this.showToast('✅ 系统指标已成功刷新', 'success', 2500);
     } catch (e) {
       this.showToast(`拉取系统指标失败: ${e.message}`, 'error', 4000);
+    }
+  },
+
+  updatePanelVersionUI(ver) {
+    this._panelVersion = ver || 'A0';
+    const badge = document.getElementById('panelVersionBadge');
+    const diag = document.getElementById('diagPanelVersion');
+    const bA0 = document.getElementById('opt-panel-a0');
+    const bA1 = document.getElementById('opt-panel-a1');
+    if (badge) {
+      badge.textContent = this._panelVersion === 'A1' ? 'A1 走线' : 'A0 走线 (默认)';
+      badge.style.background = this._panelVersion === 'A1' ? 'var(--md-sys-color-tertiary-container, #ffd8e4)' : 'var(--md-sys-color-primary-container)';
+      badge.style.color = this._panelVersion === 'A1' ? 'var(--md-sys-color-on-tertiary-container, #31111d)' : 'var(--md-sys-color-on-primary-container)';
+    }
+    if (diag) {
+      diag.textContent = this._panelVersion === 'A1' ? 'A1 (双向对称扫描 Gate 映射)' : 'A0 (倒序互换扫描 Gate 映射)';
+      diag.style.color = this._panelVersion === 'A1' ? 'var(--md-sys-color-tertiary, #7d5260)' : 'inherit';
+    }
+    if (bA0) {
+      bA0.className = (this._panelVersion === 'A0') ? 'm3-btn small panel-opt-btn' : 'm3-btn small tonal panel-opt-btn';
+    }
+    if (bA1) {
+      bA1.className = (this._panelVersion === 'A1') ? 'm3-btn small panel-opt-btn' : 'm3-btn small tonal panel-opt-btn';
+    }
+  },
+
+  async setPanelVersion(version) {
+    try {
+      const res = await window.DeviceManager.setPanelVersion(version);
+      this.updatePanelVersionUI(res.panel_version || version);
+      this.showToast(`🖥️ ${res.message || `屏幕版本已切换为 ${version}`}`, 'success', 3000);
+      this.pollSystemDiag();
+    } catch (e) {
+      this.showToast(`切换失败: ${e.message}`, 'error', 3500);
     }
   },
 

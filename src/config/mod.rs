@@ -19,6 +19,10 @@ fn default_ble_device_name() -> String {
     "EPD-Smart-Display".to_string()
 }
 
+fn default_panel_version() -> String {
+    "A0".to_string()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppConfig {
     pub wifi_ssid: String,
@@ -50,6 +54,8 @@ pub struct AppConfig {
     pub ble_enabled: bool,
     #[serde(default = "default_ble_device_name")]
     pub ble_device_name: String,
+    #[serde(default = "default_panel_version")]
+    pub panel_version: String,
     #[serde(default)]
     pub fridge_title: String,
     #[serde(default)]
@@ -74,6 +80,7 @@ impl Default for AppConfig {
             wireless_mode: "auto".to_string(),
             ble_enabled: true,
             ble_device_name: "EPD-Smart-Display".to_string(),
+            panel_version: "A0".to_string(),
             fridge_title: "家庭核心留言板".to_string(),
             fridge_text: "冰箱冷藏室温度良好，记得晚上回家买鲜奶和全麦面包！".to_string(),
             fridge_author: "爸爸".to_string(),
@@ -128,6 +135,9 @@ impl ConfigManager {
                     }
                     if c.ble_device_name.is_empty() {
                         c.ble_device_name = "EPD-Smart-Display".to_string();
+                    }
+                    if c.panel_version.is_empty() {
+                        c.panel_version = "A0".to_string();
                     }
                     if c.wireless_mode == "wifi_only" {
                         c.ble_enabled = false;

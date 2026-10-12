@@ -322,6 +322,12 @@ const DeviceManager = {
                 this._onSysResetResolver();
                 this._onSysResetResolver = null;
               }
+            } else if (text.startsWith('SYS_PANEL:OK:')) {
+              if (this._onSysPanelResolver) {
+                const val = text.slice(13).trim();
+                this._onSysPanelResolver(val);
+                this._onSysPanelResolver = null;
+              }
             } else if (text.startsWith('SYS_DEBUG:OK:')) {
               if (this._onSysDebugResolver) {
                 const val = text.slice(13) === '1';
@@ -1635,6 +1641,37 @@ const DeviceManager = {
       });
     } else if (this.lanIp) {
       const res = await fetch(`http://${this.lanIp}/api/system/debug`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return await res.json();
+    }
+    throw new Error('未连接任何单片机设备');
+  },
+
+  async setPanelVersion(version) {
+    const cleanVer = (version || '').toUpperCase() === 'A1' ? 'A1' : 'A0';
+    if ((this.activeTransport === 'ble' && this.isBleConnected) || (this.isBleConnected && !this.isLanConnected)) {
+      if (!this.rxChar) throw new Error('蓝牙未准备就绪');
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this._onSysPanelResolver = null;
+          resolve({ status: 'ok', panel_version: cleanVer, message: `已通过蓝牙切换屏幕版本为 ${cleanVer}` });
+        }, 4000);
+        this._onSysPanelResolver = (val) => {
+          clearTimeout(timeout);
+          resolve({ status: 'ok', panel_version: val, message: `已通过蓝牙切换屏幕版本为 ${val}` });
+        };
+        const cmd = new TextEncoder().encode(`sys:panel:${cleanVer}`);
+        this.rxChar.writeValueWithoutResponse(cmd).catch(err => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    } else if (this.lanIp) {
+      const res = await fetch(`http://${this.lanIp}/api/system/panel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: cleanVer })
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       return await res.json();
     }

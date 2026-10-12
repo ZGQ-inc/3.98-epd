@@ -631,6 +631,25 @@
      * TAB 8: ⚙️ 硬件诊断与 ESP32-C3 运行状态
      *  -->
     <div class="tab-pane" id="tab-system">
+      <!-- 0. 墨水屏硬件规格版本 (A0 / A1 扫描走线切换) -->
+      <div class="m3-card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h3 style="margin:0; font-size:15px; font-weight:700;">🖥️ 墨水屏硬件规格版本 (A0 / A1 扫描走线)</h3>
+              <span id="panelVersionBadge" style="font-size:11px; padding:2px 8px; border-radius:10px; background:var(--md-sys-color-primary-container); color:var(--md-sys-color-on-primary-container); font-weight:700;">A0 走线 (默认)</span>
+            </div>
+            <p style="color:var(--md-sys-color-on-surface-variant); font-size:12px; margin:4px 0 0 0;">
+              适配华为保护壳拆机屏幕的不同物理批次走线。若屏幕画面出现隔行错位条纹或撕裂，一键切换此项即可立即校正并保存到单片机 NVS
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="m3-btn small panel-opt-btn" id="opt-panel-a0" onclick="UI.setPanelVersion('A0')">A0 走线 (默认)</button>
+            <button class="m3-btn small tonal panel-opt-btn" id="opt-panel-a1" onclick="UI.setPanelVersion('A1')">A1 走线</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 1. 屏显 Debug 叠加条卡片 -->
       <div class="m3-card" style="margin-bottom:14px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -706,6 +725,7 @@
             <tr><td>内部存储分区 (storage)</td><td id="diagStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
             <tr><td>参数配置分区 (nvs)</td><td id="diagNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>
             <tr><td>墨水屏硬件与控制器</td><td id="diagPanel">SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)</td></tr>
+            <tr><td>屏幕物理扫描走线版本</td><td id="diagPanelVersion">A0 (倒序互换扫描 Gate 映射)</td></tr>
             <tr><td>硬件接口总线</td><td id="diagBus">Hardware SPI 8MHz (SCK=4, MOSI=6, CS=7, DC=1, RST=2, BUSY=10)</td></tr>
             <tr><td>中文字库方案</td><td id="diagFont">Flash MMU 零内存占用标准点阵中文字库 (7445字)</td></tr>
             <tr><td>无线通信工作模式</td><td id="diagWirelessMode">智能自动 (Auto)</td></tr>

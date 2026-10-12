@@ -90,10 +90,25 @@
     <div id="bleDeviceList" style="display:flex; flex-direction:column; gap:6px;"></div>
   </div>
 
+  <!-- EPD Screen Hardware Revision Switch -->
+  <div class="card">
+    <div class="card-title">
+      <span>🖥️ 墨水屏硬件规格版本 (A0 / A1 扫描走线切换)</span>
+      <span id="panelVersionBadge" style="font-size:11px; padding:2px 8px; border-radius:10px; background:var(--primary); color:#000; font-weight:700;">A0 走线 (默认)</span>
+    </div>
+    <div style="font-size:12px; color:var(--outline); margin-bottom:10px;">
+      适配华为保护壳拆机屏幕的不同物理批次走线。若屏幕画面出现隔行错位、半屏交错条纹或撕裂，一键切换此项即可立即修正并保存到 NVS：
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn btn-primary btn-sm opt-panel" id="opt-panel-a0" onclick="setPanelVersion('A0')">A0 扫描走线 (默认)</button>
+      <button class="btn btn-tonal btn-sm opt-panel" id="opt-panel-a1" onclick="setPanelVersion('A1')">A1 扫描走线</button>
+    </div>
+  </div>
+
   <!-- Full 18-Item Hardware Diagnostics -->
   <div class="card">
     <div class="card-title">
-      <span>⚙️ 系统硬件指标与底层诊断 (18项)</span>
+      <span>⚙️ 系统硬件指标与底层诊断 (19项)</span>
       <button class="btn btn-tonal btn-sm" onclick="loadStatus()">🔄 刷新</button>
     </div>
     <table>
@@ -109,6 +124,7 @@
         <tr><td>内部存储分区 (storage)</td><td id="dStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
         <tr><td>参数配置分区 (nvs)</td><td id="dNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>
         <tr><td>墨水屏硬件与控制器</td><td id="dPanel">SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)</td></tr>
+        <tr><td>屏幕物理扫描走线版本</td><td id="dPanelVersion">A0 (倒序互换扫描 Gate 映射)</td></tr>
         <tr><td>硬件接口总线</td><td>Hardware SPI 8MHz (SCK=4, MOSI=6, CS=7, DC=1, RST=2, BUSY=10)</td></tr>
         <tr><td>中文字库方案</td><td>Flash MMU 零内存占用标准点阵中文字库 (7445字)</td></tr>
         <tr><td>无线通信工作模式</td><td id="dWirelessMode">智能自动 (Auto)</td></tr>
@@ -223,6 +239,7 @@
         updateWirelessModeUI(d.wireless_mode);
         updateBleStatusUI(d.ble_enabled, d.ble_status, d.ble_devices);
         if (d.screen_debug !== undefined) updateScreenDebugUI(d.screen_debug);
+        if (d.panel_version) updatePanelVersionUI(d.panel_version);
       } catch(e) {}
     }
 
@@ -278,6 +295,43 @@
       }
       if (btn) {
         btn.textContent = enabled ? '关闭屏显 Debug' : '开启屏显 Debug';
+      }
+    }
+
+    let gPanelVersion = 'A0';
+
+    function updatePanelVersionUI(ver) {
+      gPanelVersion = ver || 'A0';
+      const badge = document.getElementById('panelVersionBadge');
+      const diag = document.getElementById('dPanelVersion');
+      const bA0 = document.getElementById('opt-panel-a0');
+      const bA1 = document.getElementById('opt-panel-a1');
+      if (badge) {
+        badge.textContent = gPanelVersion === 'A1' ? 'A1 走线' : 'A0 走线 (默认)';
+        badge.style.background = gPanelVersion === 'A1' ? '#ff9800' : 'var(--primary)';
+        badge.style.color = '#000';
+      }
+      if (diag) {
+        diag.textContent = gPanelVersion === 'A1' ? 'A1 (双向对称扫描 Gate 映射)' : 'A0 (倒序互换扫描 Gate 映射)';
+        diag.style.color = gPanelVersion === 'A1' ? '#ff9800' : 'inherit';
+      }
+      if (bA0) bA0.className = gPanelVersion === 'A0' ? 'btn btn-primary btn-sm opt-panel' : 'btn btn-tonal btn-sm opt-panel';
+      if (bA1) bA1.className = gPanelVersion === 'A1' ? 'btn btn-primary btn-sm opt-panel' : 'btn btn-tonal btn-sm opt-panel';
+    }
+
+    async function setPanelVersion(version) {
+      try {
+        const r = await fetch('/api/system/panel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ version })
+        });
+        const d = await r.json();
+        updatePanelVersionUI(d.panel_version || version);
+        alert('🎉 ' + (d.message || `墨水屏硬件规格已切换为 ${version}，正在刷新！`));
+        loadStatus();
+      } catch(e) {
+        alert('❌ 切换失败: ' + e.message);
       }
     }
 
@@ -349,6 +403,7 @@
         if (cfg.mqtt_user) document.getElementById('mqttUser').value = cfg.mqtt_user;
         if (cfg.mqtt_pass) document.getElementById('mqttPass').value = cfg.mqtt_pass;
         if (cfg.screen_debug !== undefined) updateScreenDebugUI(cfg.screen_debug);
+        if (cfg.panel_version) updatePanelVersionUI(cfg.panel_version);
       } catch(e) {}
     }
 
@@ -370,7 +425,8 @@
             mqtt_broker: mqttHost,
             mqtt_port: mqttPort,
             mqtt_user: mqttUser,
-            mqtt_pass: mqttPass
+            mqtt_pass: mqttPass,
+            panel_version: gPanelVersion
           })
         });
         const d = await r.json();

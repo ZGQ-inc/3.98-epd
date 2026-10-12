@@ -10,9 +10,27 @@ use log::{info, warn};
 
 use crate::display::framebuffer::{BYTES_PER_ROW, EPD_HEIGHT, Framebuffer};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PanelVersion {
     A0,
     A1,
+}
+
+impl PanelVersion {
+    pub fn from_str(s: &str) -> Self {
+        if s.trim().eq_ignore_ascii_case("A1") {
+            PanelVersion::A1
+        } else {
+            PanelVersion::A0
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PanelVersion::A0 => "A0",
+            PanelVersion::A1 => "A1",
+        }
+    }
 }
 
 pub struct EpdDriver<'d> {
@@ -43,6 +61,16 @@ impl<'d> EpdDriver<'d> {
             panel_version,
             flip_180: false,
         }
+    }
+
+    #[inline]
+    pub fn set_panel_version(&mut self, version: PanelVersion) {
+        self.panel_version = version;
+    }
+
+    #[inline]
+    pub fn panel_version(&self) -> PanelVersion {
+        self.panel_version
     }
 
     #[inline(always)]

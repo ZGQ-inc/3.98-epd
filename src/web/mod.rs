@@ -285,6 +285,7 @@ impl WebServer {
                 screen_debug: cfg.screen_debug,
                 panel_model: "SE0398NZ07-FNG-A0/A1 (4-Color BWRY)",
                 resolution: "768x552",
+                panel_version: cfg.panel_version.clone(),
                 flash_chip_size: 4 * 1024 * 1024,
                 factory_partition_size: 2 * 1024 * 1024,
                 factory_used_bytes: 1450 * 1024,
@@ -622,14 +623,22 @@ impl WebServer {
                         mqtt_changed = true;
                     }
                 }
+                let mut panel_changed = false;
                 if let Some(d) = val.get("screen_debug").and_then(|v| v.as_bool()) {
                     if cfg.screen_debug != d {
                         cfg.screen_debug = d;
                         dbg_changed = true;
                     }
                 }
+                if let Some(pv) = val.get("panel_version").and_then(|v| v.as_str()) {
+                    let clean = if pv.eq_ignore_ascii_case("A1") { "A1" } else { "A0" };
+                    if cfg.panel_version != clean {
+                        cfg.panel_version = clean.to_string();
+                        panel_changed = true;
+                    }
+                }
                 let _ = config_mgr_set.lock().unwrap().save(&cfg);
-                if dbg_changed {
+                if dbg_changed || panel_changed {
                     crate::display::request_refresh(true);
                 }
 
@@ -690,6 +699,41 @@ impl WebServer {
                 "status": "ok",
                 "screen_debug": new_state,
                 "message": if new_state { "屏显 Debug 叠加条已开启，正在刷新墨水屏..." } else { "屏显 Debug 叠加条已关闭，正在刷新墨水屏..." }
+            }))?;
+            let mut resp = req.into_response(200, None, &[
+                ("Content-Type", "application/json; charset=utf-8"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
+                ("Connection", "close"),
+            ])?;
+            resp.write_all(&json)?;
+            Ok(())
+        })?;
+
+        // 10c. POST /api/system/panel — Set or toggle screen hardware version (A0 / A1)
+        let config_panel = config.clone();
+        let config_mgr_panel = config_mgr.clone();
+        server.fn_handler("/api/system/panel", Method::Post, move |mut req| -> anyhow::Result<()> {
+            let mut buf = [0u8; 128];
+            let len = req.read(&mut buf)?;
+            let mut cfg = config_panel.lock().unwrap();
+            let new_ver = if let Ok(val) = serde_json::from_slice::<serde_json::Value>(&buf[..len]) {
+                if let Some(v) = val.get("version").and_then(|v| v.as_str()) {
+                    if v.eq_ignore_ascii_case("A1") { "A1".to_string() } else { "A0".to_string() }
+                } else {
+                    if cfg.panel_version == "A0" { "A1".to_string() } else { "A0".to_string() }
+                }
+            } else {
+                if cfg.panel_version == "A0" { "A1".to_string() } else { "A0".to_string() }
+            };
+            cfg.panel_version = new_ver.clone();
+            let _ = config_mgr_panel.lock().unwrap().save(&cfg);
+            println!("  [sys-api] EPD panel version switched to: {}", new_ver);
+            crate::display::request_refresh(true);
+            let json = serde_json::to_vec(&serde_json::json!({
+                "status": "ok",
+                "panel_version": new_ver,
+                "message": format!("墨水屏硬件规格已切换为 {}，正在执行物理全刷新...", new_ver)
             }))?;
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),

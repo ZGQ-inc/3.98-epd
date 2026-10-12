@@ -15,6 +15,7 @@ pub struct SystemStatusResponse {
     pub screen_debug: bool,
     pub panel_model: &'static str,
     pub resolution: &'static str,
+    pub panel_version: String,
     // Storage partition statistics
     pub flash_chip_size: usize,
     pub factory_partition_size: usize,

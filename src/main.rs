@@ -69,7 +69,12 @@ fn main() -> anyhow::Result<()> {
     let rst = PinDriver::output(peripherals.pins.gpio2)?;
     let busy = PinDriver::input(peripherals.pins.gpio10, Pull::Up)?;
 
-    let epd = EpdDriver::new(spi_device, cs, dc, rst, busy, PanelVersion::A0);
+    let panel_version = {
+        let cfg = app_config.lock().unwrap();
+        PanelVersion::from_str(&cfg.panel_version)
+    };
+    println!("[INIT] Initializing EPD driver with panel version: {:?}", panel_version);
+    let epd = EpdDriver::new(spi_device, cs, dc, rst, busy, panel_version);
     let mut fb = Framebuffer::new();
 
     // Initialize Chinese font MMU mapping from 'font' / 'storage' partition

@@ -357,11 +357,13 @@ impl BleManager {
                         });
                         let screen_debug = ble_self.app_config.lock().unwrap().as_ref()
                             .map(|ac| ac.lock().unwrap().screen_debug).unwrap_or(false);
+                        let panel_ver = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().panel_version.clone()).unwrap_or_else(|| "A0".to_string());
                         let diag_json = format!(
-                            "SYS_DIAG:{{\"heap\":{},\"min_heap\":{},\"uptime\":{},\"mac\":\"{}\",\"ip\":\"{}\",\"mode\":\"{}\",\"ntp\":{},\"time\":\"{}\",\"st_tot\":{},\"st_free\":{},\"debug\":{},\"low_bat\":{}}}",
+                            "SYS_DIAG:{{\"heap\":{},\"min_heap\":{},\"uptime\":{},\"mac\":\"{}\",\"ip\":\"{}\",\"mode\":\"{}\",\"ntp\":{},\"time\":\"{}\",\"st_tot\":{},\"st_free\":{},\"debug\":{},\"low_bat\":{},\"panel_ver\":\"{}\"}}",
                             free_heap, min_free_heap, uptime_secs, mac_str, ip, mode, ntp_synced, time_str,
                             storage_stats.total_bytes, storage_stats.free_bytes, screen_debug,
-                            crate::power::PowerManager::is_low_battery()
+                            crate::power::PowerManager::is_low_battery(), panel_ver
                         );
                         ble_self.notify_str(&diag_json);
                     } else if text == "reboot" || text == "sys:reboot" {
@@ -401,13 +403,29 @@ impl BleManager {
                         }
                         let resp = format!("SYS_DEBUG:OK:{}", if en { "1" } else { "0" });
                         ble_self.notify_str(&resp);
+                    } else if text.starts_with("sys:panel:") || text.starts_with("panel:") {
+                        let sub = if text.starts_with("sys:panel:") { &text[10..] } else { &text[6..] }.trim();
+                        let new_ver = if sub.eq_ignore_ascii_case("A1") { "A1" } else { "A0" };
+                        println!("  [ble-rx] Panel version switch requested: '{}'", new_ver);
+                        let ble_self = BleManager::global();
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            cfg.panel_version = new_ver.to_string();
+                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                let mut mgr = cm.lock().unwrap();
+                                let _ = mgr.save(&cfg);
+                            }
+                        }
+                        crate::display::request_refresh(true);
+                        let resp = format!("SYS_PANEL:OK:{}", new_ver);
+                        ble_self.notify_str(&resp);
                     } else if text == "sys:get_config" {
                         let ble_self = BleManager::global();
                         let json = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
                             let cfg = ac.lock().unwrap();
                             Some(format!(
-                                "SYS_CONFIG:{{\"ssid\":\"{}\",\"mqtt_host\":\"{}\",\"mqtt_port\":{},\"mqtt_user\":\"{}\",\"debug\":{}}}",
-                                cfg.wifi_ssid, cfg.mqtt_broker, cfg.mqtt_port, cfg.mqtt_user, cfg.screen_debug
+                                "SYS_CONFIG:{{\"ssid\":\"{}\",\"mqtt_host\":\"{}\",\"mqtt_port\":{},\"mqtt_user\":\"{}\",\"debug\":{},\"panel_version\":\"{}\"}}",
+                                cfg.wifi_ssid, cfg.mqtt_broker, cfg.mqtt_port, cfg.mqtt_user, cfg.screen_debug, cfg.panel_version
                             ))
                         } else {
                             None
@@ -439,6 +457,9 @@ impl BleManager {
                                 }
                                 if let Some(pw) = val.get("mqtt_pass").and_then(|v| v.as_str()) {
                                     cfg.mqtt_pass = pw.to_string();
+                                }
+                                if let Some(pv) = val.get("panel_version").and_then(|v| v.as_str()) {
+                                    cfg.panel_version = if pv.eq_ignore_ascii_case("A1") { "A1".to_string() } else { "A0".to_string() };
                                 }
                                 if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
                                     let mut mgr = cm.lock().unwrap();
