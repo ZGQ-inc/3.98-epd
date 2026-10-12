@@ -208,6 +208,10 @@ esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-f
 #### 方案一：仅清除配置参数（最推荐 · 保留固件与中文字库）
 只需擦除 `0x9000` 处的 NVS 分区（大小 24 KB），设备即可在**不损坏主固件与字库**的前提下重置为出厂初始态（自动重置为双模并发模式，并开启 `EPD-Display-Setup` 配网热点与 BLE 广播）：
 ```bash
+# 推荐方式 A：使用本工程内置的 espflash 工具（一行命令自动识别分区并复位）：
+espflash erase-parts --port COM17 --partition-table partitions.csv nvs
+
+# 方式 B：使用 Python esptool 工具：
 # Windows (以 COM17 为例，请替换为您的实际端口)
 python -m esptool --chip esp32c3 -p COM17 erase_region 0x9000 0x6000
 

@@ -311,6 +311,7 @@ impl WebServer {
                 ("Content-Type", "application/json"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
@@ -327,6 +328,7 @@ impl WebServer {
                 ("Content-Type", "application/json"),
                 ("Content-Length", &len_str),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
@@ -623,6 +625,7 @@ impl WebServer {
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
@@ -710,6 +713,7 @@ impl WebServer {
                     let mut resp = req.into_response(200, None, &[
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Access-Control-Allow-Private-Network", "true"),
                         ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;
@@ -764,6 +768,7 @@ impl WebServer {
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json; charset=utf-8"),
                 ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(&json)?;
@@ -981,6 +986,7 @@ impl WebServer {
                                 ("Content-Type", "application/json; charset=utf-8"),
                                 ("Content-Length", &len_str),
                                 ("Access-Control-Allow-Origin", "*"),
+                                ("Access-Control-Allow-Private-Network", "true"),
                                 ("Connection", "close"),
                             ])?;
                             resp.write_all(&json)?;
@@ -996,6 +1002,7 @@ impl WebServer {
                                 ("Content-Type", "application/json; charset=utf-8"),
                                 ("Content-Length", &len_str),
                                 ("Access-Control-Allow-Origin", "*"),
+                                ("Access-Control-Allow-Private-Network", "true"),
                                 ("Connection", "close"),
                             ])?;
                             resp.write_all(&json)?;
@@ -1013,6 +1020,7 @@ impl WebServer {
                         ("Content-Type", "application/json; charset=utf-8"),
                         ("Content-Length", &len_str),
                         ("Access-Control-Allow-Origin", "*"),
+                        ("Access-Control-Allow-Private-Network", "true"),
                         ("Connection", "close"),
                     ])?;
                     resp.write_all(&json)?;

@@ -475,7 +475,6 @@ const UI = {
     this._activeDitherPacked = packed;
     this._activePreset = null;
 
-    const modalTitle = document.querySelector('#ditherPreviewModal .modal-title');
     if (modalTitle) {
       modalTitle.textContent = '👁️ 抖动点阵物理仿真预览 (768×552)';
     }

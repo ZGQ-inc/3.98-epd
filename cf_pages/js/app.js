@@ -891,17 +891,9 @@ const App = {
         window.ScenesStudio.renderPreview();
       } else if (tabId === 'presets') {
         PresetHub.syncWithDevice().then(() => this.renderPresetsUI());
-      } else if (tabId === 'system' && DeviceManager.isLanConnected) {
-        const status = await DeviceManager.fetchStatus();
-        if (status) {
-          const heapEl = document.getElementById('diagFreeHeap');
-          const ipEl = document.getElementById('diagIp');
-          const rssiEl = document.getElementById('diagRssi');
-          const storEl = document.getElementById('diagStorage');
-          if (heapEl) heapEl.textContent = `${status.free_heap} bytes (最低 ${status.min_free_heap} bytes)`;
-          if (ipEl) ipEl.textContent = status.ip_address;
-          if (rssiEl) rssiEl.textContent = `${status.wifi_rssi} dBm`;
-          if (storEl) storEl.textContent = `${Math.round(status.storage_free_bytes / 1024)} KB free / ${Math.round(status.storage_partition_size / 1024)} KB total`;
+      } else if (tabId === 'system') {
+        if (typeof UI !== 'undefined' && UI.refreshSystemDiagnostics) {
+          UI.refreshSystemDiagnostics();
         }
       }
     });
