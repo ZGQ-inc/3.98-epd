@@ -31,15 +31,31 @@ const BWRY = {
   ],
 
   findNearestColor(r, g, b, redBoost = 1.0, yellowBoost = 1.0) {
+    // 1. Clamp input RGB to [0, 255] to prevent negative drift from penalizing color distances
+    const cr = Math.min(255, Math.max(0, r));
+    const cg = Math.min(255, Math.max(0, g));
+    const cb = Math.min(255, Math.max(0, b));
+
+    // 2. Chromatic intent protection:
+    // In BWRY 4-color e-paper, red and yellow are the only warm chromatic pigments.
+    // If a boundary pixel has prominent red or yellow chromaticity, mapping it to pitch Black (0,0,0)
+    // dumps a massive positive red/green error forward, triggering resonance and black sawtooth spikes.
+    const isRedChroma = (cr > 50 && cr > cg * 1.25 && cr > cb * 1.25);
+    const isYellowChroma = (cr > 70 && cg > 65 && cb < Math.min(cr, cg) * 0.8);
+
     let bestDist = Infinity;
     let bestIdx = 1; // default to white
 
     for (let i = 0; i < 4; i++) {
+      if (i === 0 && (isRedChroma || isYellowChroma)) {
+        continue; // Disallow black for distinctly chromatic warm colors
+      }
+
       const p = BWRY.PALETTE[i].rgb;
       // Weighted Euclidean Distance matching human perception (Luma coefficients)
-      const dr = r - p[0];
-      const dg = g - p[1];
-      const db = b - p[2];
+      const dr = cr - p[0];
+      const dg = cg - p[1];
+      const db = cb - p[2];
       let dist = (dr * dr * 0.299) + (dg * dg * 0.587) + (db * db * 0.114);
 
       // Color sensitivity / boost: dividing squared distance scales perceptual distance
@@ -90,6 +106,7 @@ const BWRY = {
       options = { contrast: options };
     }
     const contrast = (typeof options.contrast === 'number') ? Math.max(-50, Math.min(50, options.contrast)) : 15;
+    const brightness = (typeof options.brightness === 'number') ? Math.max(-50, Math.min(50, options.brightness)) : 0;
     const redBoost = (typeof options.redBoost === 'number') ? Math.max(0.1, Math.min(3.0, options.redBoost)) : 1.0;
     const yellowBoost = (typeof options.yellowBoost === 'number') ? Math.max(0.1, Math.min(3.0, options.yellowBoost)) : 1.0;
 
@@ -162,6 +179,12 @@ const BWRY = {
         b = b * alpha + 255 * (1 - alpha);
       }
 
+      if (brightness !== 0) {
+        r = Math.min(255, Math.max(0, r + brightness * 2.55));
+        g = Math.min(255, Math.max(0, g + brightness * 2.55));
+        b = Math.min(255, Math.max(0, b + brightness * 2.55));
+      }
+
       if (contrast !== 0) {
         r = Math.min(255, Math.max(0, 128 + contrastFactor * (r - 128)));
         g = Math.min(255, Math.max(0, 128 + contrastFactor * (g - 128)));
@@ -194,11 +217,11 @@ const BWRY = {
     ];
 
     const outIndices = new Uint8Array(w * h);
+    const isErrorDiffusion = (algo === 'floyd' || algo === 'stucki' || algo === 'burkes' || algo === 'sierra' || algo === 'ostromoukhov');
 
     // Dither processing
     for (let y = 0; y < h; y++) {
-      const isOstro = (algo === 'ostromoukhov');
-      const isOddRow = isOstro && (y % 2 === 1);
+      const isOddRow = isErrorDiffusion && (y % 2 === 1);
       const xStart = isOddRow ? w - 1 : 0;
       const xEnd   = isOddRow ? -1 : w;
       const xStep  = isOddRow ? -1 : 1;
@@ -229,12 +252,16 @@ const BWRY = {
         // 3. Error Diffusion Propagation
         if (algo !== 'threshold' && algo !== 'bayer' && algo !== 'microsoft') {
           const targetRGB = BWRY.PALETTE[colorIdx].rgb;
-          const er = r - targetRGB[0];
-          const eg = g - targetRGB[1];
-          const eb = b - targetRGB[2];
+          const cr = Math.min(255, Math.max(0, r));
+          const cg = Math.min(255, Math.max(0, g));
+          const cb = Math.min(255, Math.max(0, b));
+          const er = Math.max(-128, Math.min(128, cr - targetRGB[0]));
+          const eg = Math.max(-128, Math.min(128, cg - targetRGB[1]));
+          const eb = Math.max(-128, Math.min(128, cb - targetRGB[2]));
 
           const diffuse = (dx, dy, factor) => {
-            const nx = x + dx;
+            const effDx = isOddRow ? -dx : dx;
+            const nx = x + effDx;
             const ny = y + dy;
             if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
               const nIdx = (ny * w + nx) * 3;
@@ -296,17 +323,9 @@ const BWRY = {
           } else if (algo === 'ostromoukhov') {
             // Victor Ostromoukhov (SIGGRAPH 2001) - Variable coefficient serpentine blue noise
             const weights = BWRY.getOstromoukhovWeights(r, g, b);
-            if (!isOddRow) {
-              // Left to right
-              diffuse( 1, 0, weights.d1);
-              diffuse(-1, 1, weights.d2);
-              diffuse( 0, 1, weights.d3);
-            } else {
-              // Right to left (serpentine)
-              diffuse(-1, 0, weights.d1);
-              diffuse( 1, 1, weights.d2);
-              diffuse( 0, 1, weights.d3);
-            }
+            diffuse( 1, 0, weights.d1);
+            diffuse(-1, 1, weights.d2);
+            diffuse( 0, 1, weights.d3);
           }
         }
       }

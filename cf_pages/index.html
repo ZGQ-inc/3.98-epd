@@ -383,11 +383,21 @@
     <div class="tab-pane" id="tab-image">
       <div class="grid-2col">
         <div class="m3-card">
-          <div class="card-title">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <span>👁️ 4色微粒物理量化效果</span>
+            <div class="canvas-zoom-toolbar" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <button class="m3-btn small outlined" id="imageZoomInBtn" title="放大 (+25%)">➕ 放大</button>
+              <button class="m3-btn small outlined" id="imageZoomOutBtn" title="缩小 (-25%)">➖ 缩小</button>
+              <button class="m3-btn small outlined" id="imageResetTransformBtn" title="默认不遮挡自适应居中">↺ 自适应居中</button>
+              <button class="m3-btn small outlined" id="imageActualSizeBtn" title="1:1 实际物理像素">1:1 原图</button>
+              <span id="imageZoomBadge" class="slider-val-badge" style="font-size:12px; padding:3px 8px;" title="当前缩放倍率">100%</span>
+            </div>
           </div>
-          <div class="preview-container" id="imageLabPreviewContainer">
-            <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552"></canvas>
+          <div class="preview-container" id="imageLabPreviewContainer" style="position:relative;">
+            <canvas id="imageLabCanvas" class="preview-canvas" width="768" height="552" style="cursor:grab; touch-action:none;"></canvas>
+            <div class="canvas-drag-hint" style="position:absolute; bottom:8px; right:12px; background:rgba(0,0,0,0.65); color:#ffffff; font-size:11px; padding:3px 10px; border-radius:12px; pointer-events:none; backdrop-filter:blur(4px); user-select:none;">
+              ✋ 拖动画布平移 · 滚轮缩放
+            </div>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button class="m3-btn" id="imagePushBtn">🚀 推送至墨水屏</button>
@@ -939,15 +949,15 @@
   </footer>
 
   <!-- Modular Scripts -->
-  <script src="./js/qrcode.js?v=2.9"></script>
-  <script src="./js/dither.js?v=2.9"></script>
-  <script src="./js/device.js?v=2.9"></script>
-  <script src="./js/presets.js?v=2.9"></script>
-  <script src="./js/canvas.js?v=2.9"></script>
-  <script src="./js/itabag.js?v=2.9"></script>
-  <script src="./js/scenes.js?v=2.9"></script>
-  <script src="./js/studio.js?v=2.9"></script>
-  <script src="./js/ui.js?v=2.9"></script>
-  <script src="./js/app.js?v=2.9"></script>
+  <script src="./js/qrcode.js?v=3.0"></script>
+  <script src="./js/dither.js?v=3.0"></script>
+  <script src="./js/device.js?v=3.0"></script>
+  <script src="./js/presets.js?v=3.0"></script>
+  <script src="./js/canvas.js?v=3.0"></script>
+  <script src="./js/itabag.js?v=3.0"></script>
+  <script src="./js/scenes.js?v=3.0"></script>
+  <script src="./js/studio.js?v=3.0"></script>
+  <script src="./js/ui.js?v=3.0"></script>
+  <script src="./js/app.js?v=3.0"></script>
 </body>
 </html>

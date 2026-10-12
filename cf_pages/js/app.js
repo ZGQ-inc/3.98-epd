@@ -12,6 +12,13 @@ const App = {
   modalCanvas: null,
   uploadedImg: null,
   badgeTemplate: 'geek',
+  imagePanX: 0,
+  imagePanY: 0,
+  imageScale: 1.0,
+  isDraggingImage: false,
+  imageDragStart: { clientX: 0, clientY: 0, panX: 0, panY: 0 },
+  _ditherDebounceTimer: null,
+  _activeImageLabPacked: null,
 
   init() {
     console.log('[App] Initializing application orchestrator...');
@@ -113,6 +120,10 @@ const App = {
       const img = new Image();
       img.onload = () => {
         this.uploadedImg = img;
+        this.imagePanX = 0;
+        this.imagePanY = 0;
+        this.imageScale = 1.0;
+        this.updateImageZoomBadge();
         this.renderImageLab();
         UI.showToast(`🎉 已成功载入图片「${file.name || '相册图片'}」(${img.width}×${img.height})`, 'success');
       };
@@ -124,7 +135,14 @@ const App = {
     reader.readAsDataURL(file);
   },
 
-  renderImageLab() {
+  updateImageZoomBadge() {
+    const badge = document.getElementById('imageZoomBadge');
+    if (badge) {
+      badge.textContent = `${Math.round((this.imageScale || 1.0) * 100)}%`;
+    }
+  },
+
+  renderImageLab(fastPreview = false) {
     if (!this.imageLabCanvas) return;
     const canvas = this.imageLabCanvas;
     const isPortrait = (UI.orientation === 90 || UI.orientation === 270);
@@ -148,15 +166,24 @@ const App = {
       return;
     }
 
-    const scale = Math.max(w / this.uploadedImg.width, h / this.uploadedImg.height);
-    const dw = this.uploadedImg.width * scale;
-    const dh = this.uploadedImg.height * scale;
-    const dx = (w - dw) / 2;
-    const dy = (h - dh) / 2;
+    // 默认不遮挡自适应长宽 (Adaptive Contain Fit)
+    const baseScale = Math.min(w / this.uploadedImg.width, h / this.uploadedImg.height);
+    const totalScale = baseScale * (this.imageScale || 1.0);
+    const dw = this.uploadedImg.width * totalScale;
+    const dh = this.uploadedImg.height * totalScale;
+    const dx = (w - dw) / 2 + (this.imagePanX || 0);
+    const dy = (h - dh) / 2 + (this.imagePanY || 0);
+
     ctx.drawImage(this.uploadedImg, dx, dy, dw, dh);
+
+    if (fastPreview) {
+      // 快速拖拽平移与滚轮缩放时仅实时绘制几何变换，保持 60fps 流畅手感
+      return;
+    }
 
     const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
     const contrast = parseFloat(document.getElementById('imageContrastSlider')?.value ?? 15);
+    const brightness = parseFloat(document.getElementById('imageBrightnessSlider')?.value ?? 0);
     const redBoostVal = parseFloat(document.getElementById('imageRedBoostSlider')?.value || 0);
     const yellowBoostVal = parseFloat(document.getElementById('imageYellowBoostSlider')?.value || 0);
     const redBoost = redBoostVal > 0 ? 1.0 + (redBoostVal / 50) : 1.0;
@@ -164,9 +191,11 @@ const App = {
 
     const packed = BWRY.ditherCanvasTo2bpp(canvas, algo, {
       contrast,
+      brightness,
       redBoost,
       yellowBoost
     });
+    this._activeImageLabPacked = packed;
     BWRY.render2bppToCanvas(canvas, packed);
   },
 
@@ -175,8 +204,13 @@ const App = {
     if (!canvas) return;
     try {
       UI.showToast(`正在量化并推送【${name}】至墨水屏...`, 'info', 4000);
-      const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
-      const packed = BWRY.ditherCanvasTo2bpp(canvas, algo, { orientation: UI.orientation });
+      let packed;
+      if (canvas === this.imageLabCanvas && this._activeImageLabPacked) {
+        packed = this._activeImageLabPacked;
+      } else {
+        const algo = document.getElementById('imageAlgoSelect')?.value || 'floyd';
+        packed = BWRY.ditherCanvasTo2bpp(canvas, algo, { orientation: UI.orientation });
+      }
       await DeviceManager.pushBitmap2bpp(packed, (pct) => {
         console.log(`[Push Progress]: ${pct}%`);
       });
@@ -807,6 +841,113 @@ const App = {
           this.renderImageLab();
         });
       }
+    });
+
+    // Image Lab Interactive Drag, Pan, and Wheel Zoom
+    if (this.imageLabCanvas) {
+      const imgCanvas = this.imageLabCanvas;
+
+      imgCanvas.addEventListener('pointerdown', (e) => {
+        if (!this.uploadedImg) return;
+        this.isDraggingImage = true;
+        this.imageDragStart = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          panX: this.imagePanX || 0,
+          panY: this.imagePanY || 0
+        };
+        try { imgCanvas.setPointerCapture(e.pointerId); } catch (_) {}
+        imgCanvas.style.cursor = 'grabbing';
+      });
+
+      imgCanvas.addEventListener('pointermove', (e) => {
+        if (!this.isDraggingImage || !this.uploadedImg) return;
+        const rect = imgCanvas.getBoundingClientRect();
+        const scaleX = imgCanvas.width / (rect.width || imgCanvas.width);
+        const scaleY = imgCanvas.height / (rect.height || imgCanvas.height);
+        const dx = (e.clientX - this.imageDragStart.clientX) * scaleX;
+        const dy = (e.clientY - this.imageDragStart.clientY) * scaleY;
+        this.imagePanX = this.imageDragStart.panX + dx;
+        this.imagePanY = this.imageDragStart.panY + dy;
+
+        this.renderImageLab(true);
+        clearTimeout(this._ditherDebounceTimer);
+        this._ditherDebounceTimer = setTimeout(() => {
+          this.renderImageLab(false);
+        }, 80);
+      });
+
+      const handlePointerEnd = (e) => {
+        if (this.isDraggingImage) {
+          this.isDraggingImage = false;
+          try { imgCanvas.releasePointerCapture(e.pointerId); } catch (_) {}
+          imgCanvas.style.cursor = 'grab';
+          clearTimeout(this._ditherDebounceTimer);
+          this.renderImageLab(false);
+        }
+      };
+      imgCanvas.addEventListener('pointerup', handlePointerEnd);
+      imgCanvas.addEventListener('pointercancel', handlePointerEnd);
+
+      imgCanvas.addEventListener('wheel', (e) => {
+        if (!this.uploadedImg) return;
+        e.preventDefault();
+        const rect = imgCanvas.getBoundingClientRect();
+        const cursorX = (e.clientX - rect.left) * (imgCanvas.width / (rect.width || imgCanvas.width));
+        const cursorY = (e.clientY - rect.top) * (imgCanvas.height / (rect.height || imgCanvas.height));
+
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+        const oldScale = this.imageScale || 1.0;
+        const newScale = Math.min(8.0, Math.max(0.15, oldScale * zoomFactor));
+
+        const w = imgCanvas.width;
+        const h = imgCanvas.height;
+        const curCenterX = w / 2 + (this.imagePanX || 0);
+        const curCenterY = h / 2 + (this.imagePanY || 0);
+
+        this.imagePanX = cursorX - (cursorX - curCenterX) * (newScale / oldScale) - w / 2;
+        this.imagePanY = cursorY - (cursorY - curCenterY) * (newScale / oldScale) - h / 2;
+        this.imageScale = newScale;
+
+        this.updateImageZoomBadge();
+        this.renderImageLab(true);
+        clearTimeout(this._ditherDebounceTimer);
+        this._ditherDebounceTimer = setTimeout(() => {
+          this.renderImageLab(false);
+        }, 80);
+      }, { passive: false });
+    }
+
+    document.getElementById('imageZoomInBtn')?.addEventListener('click', () => {
+      this.imageScale = Math.min(8.0, (this.imageScale || 1.0) * 1.25);
+      this.updateImageZoomBadge();
+      this.renderImageLab(false);
+    });
+
+    document.getElementById('imageZoomOutBtn')?.addEventListener('click', () => {
+      this.imageScale = Math.max(0.15, (this.imageScale || 1.0) * 0.8);
+      this.updateImageZoomBadge();
+      this.renderImageLab(false);
+    });
+
+    document.getElementById('imageResetTransformBtn')?.addEventListener('click', () => {
+      this.imagePanX = 0;
+      this.imagePanY = 0;
+      this.imageScale = 1.0;
+      this.updateImageZoomBadge();
+      this.renderImageLab(false);
+      UI.showToast('已重置为自适应居中');
+    });
+
+    document.getElementById('imageActualSizeBtn')?.addEventListener('click', () => {
+      if (!this.uploadedImg || !this.imageLabCanvas) return;
+      const baseScale = Math.min(this.imageLabCanvas.width / this.uploadedImg.width, this.imageLabCanvas.height / this.uploadedImg.height);
+      this.imageScale = 1.0 / (baseScale || 1.0);
+      this.imagePanX = 0;
+      this.imagePanY = 0;
+      this.updateImageZoomBadge();
+      this.renderImageLab(false);
+      UI.showToast('已切换为 1:1 物理像素原图大小');
     });
 
     // 5. Connectivity Bar Bindings
