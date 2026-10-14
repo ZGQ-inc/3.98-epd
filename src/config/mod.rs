@@ -192,7 +192,7 @@ impl ConfigManager {
     /// Load config from NVS, or fallback to default if not yet provisioned.
     /// Automatically ensures master_key is lazily generated via TRNG on boot if empty.
     pub fn load(&mut self) -> AppConfig {
-        let mut buf = [0u8; 4096];
+        let mut buf = vec![0u8; 4096];
         let mut cfg = match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => match serde_json::from_slice::<AppConfig>(slice) {
                 Ok(mut c) => {

@@ -13,7 +13,7 @@ CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 
 # FreeRTOS & System (Sufficient main task stack for initialization)
 CONFIG_FREERTOS_HZ=1000
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=7168
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=10240
 
 # Compiler Optimization for Size (Saves Flash & I-Cache)
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y
