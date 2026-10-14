@@ -45,6 +45,8 @@ pub struct BleManager {
     current_ip: Mutex<String>,
     is_ap: Mutex<bool>,
     initialized: AtomicBool,
+    pub is_authorized: AtomicBool,
+    pub active_pin: Mutex<Option<(u32, u64)>>,
     tx_char: Mutex<Option<Arc<NimbleMutex<BLECharacteristic>>>>,
     config_mgr: Mutex<Option<Arc<Mutex<crate::config::ConfigManager>>>>,
     app_config: Mutex<Option<Arc<Mutex<crate::config::AppConfig>>>>,
@@ -68,6 +70,8 @@ impl BleManager {
                 current_ip: Mutex::new(String::new()),
                 is_ap: Mutex::new(false),
                 initialized: AtomicBool::new(false),
+                is_authorized: AtomicBool::new(false),
+                active_pin: Mutex::new(None),
                 tx_char: Mutex::new(None),
                 config_mgr: Mutex::new(None),
                 app_config: Mutex::new(None),
@@ -140,15 +144,23 @@ impl BleManager {
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
             // Crucial: Negotiate fast & stable connection parameters for Windows/WebBLE (interval: 30~60ms, timeout: 600ms)
             server.update_conn_params(desc.conn_handle(), 24, 48, 0, 60).ok();
-            BleManager::global().on_ble_client_connected("WebBLE Client", &peer_mac, 0);
-            if crate::display::is_unconfigured() {
-                println!("  [ble-hardware] Unconfigured device detected: requesting PWA guidance screen display...");
-                crate::display::request_pwa_guide("WebBLE Client".to_string(), peer_mac);
+            let ble = BleManager::global();
+            ble.is_authorized.store(false, Ordering::SeqCst);
+            *ble.active_pin.lock().unwrap() = None;
+            ble.on_ble_client_connected("WebBLE Client", &peer_mac, 0);
+            if ble.get_wireless_mode() == "auto" {
+                crate::wifi::pause_wifi_for_ble();
             }
         }).on_disconnect(|_desc, reason| {
             println!("  [ble-hardware] WebBLE Host disconnected: {:?}", reason);
             info!("[BLE] WebBLE Host disconnected: {:?}", reason);
-            BleManager::global().on_ble_client_disconnected_all();
+            let ble = BleManager::global();
+            ble.is_authorized.store(false, Ordering::SeqCst);
+            *ble.active_pin.lock().unwrap() = None;
+            if ble.get_wireless_mode() == "auto" {
+                crate::wifi::resume_wifi_after_ble();
+            }
+            ble.on_ble_client_disconnected_all();
         });
 
         // Custom GATT Service (0x00FF) ───────────────────────────────────────
@@ -167,6 +179,11 @@ impl BleManager {
             // Check if string command or JSON (< 240 bytes). Binary chunks (240 bytes) must NEVER reset offset!
             let is_text_cmd = data.len() < 240 && (
                 data[0] == b'{'
+                || data.starts_with(b"AUTH:")
+                || data.starts_with(b"PAIR:")
+                || data.starts_with(b"NFC:")
+                || data.starts_with(b"dev:")
+                || data.starts_with(b"nfc:")
                 || data.starts_with(b"refresh")
                 || data.starts_with(b"mode:")
                 || data.starts_with(b"wireless:")
@@ -185,7 +202,230 @@ impl BleManager {
                 if let Ok(text) = std::str::from_utf8(data) {
                     let text = text.trim();
                     println!("  [ble-rx] Received text command: '{}'", text);
-                    if text == "refresh" {
+                    let ble_self = BleManager::global();
+
+                    if text.starts_with("AUTH:") {
+                        let sub = &text[5..];
+                        let parts: Vec<&str> = sub.splitn(2, ':').collect();
+                        let mut authed = false;
+                        let mut dev_alias = String::new();
+                        if parts.len() == 2 {
+                            let dev_id = parts[0].trim();
+                            let token = parts[1].trim();
+                            if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                let mut cfg = ac.lock().unwrap();
+                                if let Some(name) = cfg.verify_trusted_device(dev_id, token) {
+                                    authed = true;
+                                    dev_alias = name;
+                                    if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                        let _ = cm.lock().unwrap().save(&cfg);
+                                    }
+                                }
+                            }
+                        }
+                        if authed {
+                            ble_self.is_authorized.store(true, Ordering::SeqCst);
+                            println!("  [ble-rx] Client authenticated successfully: '{}'", dev_alias);
+                            ble_self.notify_str(&format!("AUTH:OK:{}", dev_alias));
+                        } else {
+                            ble_self.is_authorized.store(false, Ordering::SeqCst);
+                            println!("  [ble-rx] Authentication rejected: device not in whitelist or token mismatch.");
+                            ble_self.notify_str("ERROR:UNAUTHORIZED");
+                        }
+                    } else if text == "PAIR:REQUEST" {
+                        let pin_enabled = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().pin_pairing_enabled).unwrap_or(true);
+                        if !pin_enabled {
+                            println!("  [ble-rx] PAIR:REQUEST rejected: PIN pairing is disabled by owner.");
+                            ble_self.notify_str("ERROR:PIN_DISABLED");
+                        } else {
+                            let pin = (unsafe { esp_idf_svc::sys::esp_random() } % 900_000) + 100_000;
+                            let now_sec = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+                            *ble_self.active_pin.lock().unwrap() = Some((pin, now_sec + 120));
+                            println!("  [ble-rx] Generated dynamic PIN: {:06} (expires in 120s)", pin);
+                            crate::display::request_pin_screen(format!("{:06}", pin));
+                            ble_self.notify_str("PAIR:PIN_READY");
+                        }
+                    } else if text.starts_with("PAIR:VERIFY:") {
+                        let sub = &text[12..];
+                        let parts: Vec<&str> = sub.splitn(2, ':').collect();
+                        let pin_str = parts[0].trim();
+                        let dev_name = if parts.len() > 1 && !parts[1].trim().is_empty() {
+                            parts[1].trim().to_string()
+                        } else {
+                            "智能终端设备".to_string()
+                        };
+                        let now_sec = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+                        let mut verified = false;
+                        if let Some((stored_pin, expire_ts)) = *ble_self.active_pin.lock().unwrap() {
+                            if now_sec <= expire_ts && pin_str == format!("{:06}", stored_pin) {
+                                verified = true;
+                            }
+                        }
+                        if verified {
+                            *ble_self.active_pin.lock().unwrap() = None;
+                            let dev_id = format!("dev_{:08x}", unsafe { esp_idf_svc::sys::esp_random() });
+                            let token = crate::config::generate_random_16b_hex();
+                            let client = crate::config::PairedClient {
+                                device_id: dev_id.clone(),
+                                device_name: dev_name.clone(),
+                                auth_token: token.clone(),
+                                paired_at: now_sec,
+                                last_seen: now_sec,
+                            };
+                            let master_key = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                let mut cfg = ac.lock().unwrap();
+                                cfg.add_or_update_trusted_device(client);
+                                let mk = cfg.master_key.clone();
+                                if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                    let _ = cm.lock().unwrap().save(&cfg);
+                                }
+                                mk
+                            } else {
+                                String::new()
+                            };
+                            ble_self.is_authorized.store(true, Ordering::SeqCst);
+                            crate::display::request_pairing_success(dev_name.clone());
+                            println!("  [ble-rx] Pair verified! Registered new trusted device '{}' (ID: {})", dev_name, dev_id);
+                            let resp = format!(
+                                "PAIR:OK:{{\"device_id\":\"{}\",\"token\":\"{}\",\"device_name\":\"{}\",\"master_key\":\"{}\"}}",
+                                dev_id, token, dev_name, master_key
+                            );
+                            ble_self.notify_str(&resp);
+                        } else {
+                            println!("  [ble-rx] PAIR:VERIFY failed for PIN '{}'", pin_str);
+                            ble_self.notify_str("ERROR:PIN_INVALID");
+                        }
+                    } else if text.starts_with("NFC:CLAIM:") {
+                        let sub = &text[10..];
+                        let parts: Vec<&str> = sub.splitn(2, ':').collect();
+                        let mut claimed = false;
+                        let mut dev_id = String::new();
+                        let mut token = String::new();
+                        let mut dev_name = "NFC快捷绑定设备".to_string();
+                        if parts.len() >= 1 {
+                            let key = parts[0].trim();
+                            if parts.len() > 1 && !parts[1].trim().is_empty() {
+                                dev_name = parts[1].trim().to_string();
+                            }
+                            if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                let mut cfg = ac.lock().unwrap();
+                                if !cfg.master_key.is_empty() && cfg.master_key == key {
+                                    claimed = true;
+                                    dev_id = format!("dev_{:08x}", unsafe { esp_idf_svc::sys::esp_random() });
+                                    token = crate::config::generate_random_16b_hex();
+                                    let now_sec = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+                                    cfg.add_or_update_trusted_device(crate::config::PairedClient {
+                                        device_id: dev_id.clone(),
+                                        device_name: dev_name.clone(),
+                                        auth_token: token.clone(),
+                                        paired_at: now_sec,
+                                        last_seen: now_sec,
+                                    });
+                                    if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                        let _ = cm.lock().unwrap().save(&cfg);
+                                    }
+                                }
+                            }
+                        }
+                        if claimed {
+                            ble_self.is_authorized.store(true, Ordering::SeqCst);
+                            crate::display::request_pairing_success(dev_name.clone());
+                            let resp = format!(
+                                "PAIR:OK:{{\"device_id\":\"{}\",\"token\":\"{}\",\"device_name\":\"{}\"}}",
+                                dev_id, token, dev_name
+                            );
+                            ble_self.notify_str(&resp);
+                        } else {
+                            ble_self.notify_str("ERROR:INVALID_MASTER_KEY");
+                        }
+                    } else if text == "status" || text == "get_ip" || text == "get_status" {
+                        ble_self.notify_status();
+                    } else if text == "sys:diag" || text == "get_diag" {
+                        // Diagnostic status query allowed (continues to existing sys:diag handler)
+                        let free_heap = unsafe { esp_idf_sys::esp_get_free_heap_size() } as usize;
+                        let min_free_heap = unsafe { esp_idf_sys::esp_get_minimum_free_heap_size() } as usize;
+                        let uptime_secs = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+                        let mut mac = [0u8; 6];
+                        unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) };
+                        let mac_str = format!("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                        let ip = ble_self.get_ip_address();
+                        let mode = ble_self.get_wireless_mode();
+                        let ntp_synced = crate::ntp::is_time_synced();
+                        let now = crate::ntp::get_now_info();
+                        let time_str = format!("{} {}", now.date_str, now.time_sec_str);
+                        let storage_stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
+                        });
+                        let screen_debug = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().screen_debug).unwrap_or(false);
+                        let panel_ver = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().panel_version.clone()).unwrap_or_else(|| "A0".to_string());
+                        let diag_json = format!(
+                            "SYS_DIAG:{{\"heap\":{},\"min_heap\":{},\"uptime\":{},\"mac\":\"{}\",\"ip\":\"{}\",\"mode\":\"{}\",\"ntp\":{},\"time\":\"{}\",\"st_tot\":{},\"st_free\":{},\"debug\":{},\"low_bat\":{},\"panel_ver\":\"{}\"}}",
+                            free_heap, min_free_heap, uptime_secs, mac_str, ip, mode, ntp_synced, time_str,
+                            storage_stats.total_bytes, storage_stats.free_bytes, screen_debug,
+                            crate::power::PowerManager::is_low_battery(), panel_ver
+                        );
+                        ble_self.notify_str(&diag_json);
+                    } else if !ble_self.is_authorized.load(Ordering::SeqCst) {
+                        println!("  [ble-rx] Command '{}' rejected: session is unauthorized.", text);
+                        ble_self.notify_str("ERROR:UNAUTHORIZED");
+                    } else if text == "dev:list" || text == "get_devices" {
+                        let json = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let cfg = ac.lock().unwrap();
+                            serde_json::to_string(&cfg.trusted_devices).unwrap_or_else(|_| "[]".to_string())
+                        } else {
+                            "[]".to_string()
+                        };
+                        ble_self.notify_str(&format!("DEV_LIST:{}", json));
+                    } else if text.starts_with("dev:rename:") {
+                        let sub = &text[11..];
+                        let parts: Vec<&str> = sub.splitn(2, ':').collect();
+                        if parts.len() == 2 {
+                            let id = parts[0].trim();
+                            let new_name = parts[1].trim();
+                            let mut ok = false;
+                            if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                let mut cfg = ac.lock().unwrap();
+                                ok = cfg.rename_trusted_device(id, new_name);
+                                if ok {
+                                    if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                        let _ = cm.lock().unwrap().save(&cfg);
+                                    }
+                                }
+                            }
+                            ble_self.notify_str(if ok { "DEV_RENAME:OK" } else { "ERROR:DEVICE_NOT_FOUND" });
+                        }
+                    } else if text.starts_with("dev:delete:") {
+                        let id = text[11..].trim();
+                        let mut ok = false;
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            ok = cfg.remove_trusted_device(id);
+                            if ok {
+                                if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                    let _ = cm.lock().unwrap().save(&cfg);
+                                }
+                            }
+                        }
+                        ble_self.notify_str(if ok { "DEV_DELETE:OK" } else { "ERROR:DEVICE_NOT_FOUND" });
+                    } else if text.starts_with("sys:pin_pairing:") {
+                        let val = text[16..].trim();
+                        let en = val == "1" || val == "true";
+                        if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                            let mut cfg = ac.lock().unwrap();
+                            cfg.pin_pairing_enabled = en;
+                            if let Some(ref cm) = *ble_self.config_mgr.lock().unwrap() {
+                                let _ = cm.lock().unwrap().save(&cfg);
+                            }
+                        }
+                        ble_self.notify_str(&format!("SYS_PIN_PAIRING:OK:{}", if en { "1" } else { "0" }));
+                    } else if text == "nfc:get_master_key" {
+                        let mk = ble_self.app_config.lock().unwrap().as_ref()
+                            .map(|ac| ac.lock().unwrap().master_key.clone()).unwrap_or_default();
+                        ble_self.notify_str(&format!("NFC_KEY:{}", mk));
+                    } else if text == "refresh" {
                         crate::display::request_refresh(true);
                     } else if text.starts_with("mode:") {
                         let m = &text[5..];
@@ -241,8 +481,6 @@ impl BleManager {
                                 ble_self.set_wireless_mode(m);
                             }
                         }
-                    } else if text == "status" || text == "get_ip" || text == "get_status" {
-                        BleManager::global().notify_status();
                     } else if text == "clear:white" {
                         crate::display::request_clear_white();
                     } else if text == "clear:black" {
@@ -339,33 +577,6 @@ impl BleManager {
                             tx.lock().set_value(b"STREAM_CFG:OK:1");
                             tx.lock().notify();
                         }
-                    } else if text == "sys:diag" || text == "get_diag" {
-                        let ble_self = BleManager::global();
-                        let free_heap = unsafe { esp_idf_sys::esp_get_free_heap_size() } as usize;
-                        let min_free_heap = unsafe { esp_idf_sys::esp_get_minimum_free_heap_size() } as usize;
-                        let uptime_secs = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
-                        let mut mac = [0u8; 6];
-                        unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) };
-                        let mac_str = format!("{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-                        let ip = ble_self.get_ip_address();
-                        let mode = ble_self.get_wireless_mode();
-                        let ntp_synced = crate::ntp::is_time_synced();
-                        let now = crate::ntp::get_now_info();
-                        let time_str = format!("{} {}", now.date_str, now.time_sec_str);
-                        let storage_stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
-                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
-                        });
-                        let screen_debug = ble_self.app_config.lock().unwrap().as_ref()
-                            .map(|ac| ac.lock().unwrap().screen_debug).unwrap_or(false);
-                        let panel_ver = ble_self.app_config.lock().unwrap().as_ref()
-                            .map(|ac| ac.lock().unwrap().panel_version.clone()).unwrap_or_else(|| "A0".to_string());
-                        let diag_json = format!(
-                            "SYS_DIAG:{{\"heap\":{},\"min_heap\":{},\"uptime\":{},\"mac\":\"{}\",\"ip\":\"{}\",\"mode\":\"{}\",\"ntp\":{},\"time\":\"{}\",\"st_tot\":{},\"st_free\":{},\"debug\":{},\"low_bat\":{},\"panel_ver\":\"{}\"}}",
-                            free_heap, min_free_heap, uptime_secs, mac_str, ip, mode, ntp_synced, time_str,
-                            storage_stats.total_bytes, storage_stats.free_bytes, screen_debug,
-                            crate::power::PowerManager::is_low_battery(), panel_ver
-                        );
-                        ble_self.notify_str(&diag_json);
                     } else if text == "reboot" || text == "sys:reboot" {
                         println!("  [ble-rx] Reboot requested via BLE...");
                         BleManager::global().notify_bytes(b"SYS_REBOOT:OK");
@@ -556,6 +767,11 @@ impl BleManager {
             }
 
             // Binary 2bpp pixel chunk streaming
+            if !BleManager::global().is_authorized.load(Ordering::SeqCst) {
+                STREAM_OFFSET.store(0, Ordering::Relaxed);
+                BleManager::global().notify_str("ERROR:UNAUTHORIZED");
+                return;
+            }
             let curr = STREAM_OFFSET.load(Ordering::Relaxed);
             let written = crate::display::framebuffer::write_raw_chunk(curr, data);
             let next = curr + written;
@@ -742,7 +958,17 @@ impl BleManager {
             let ip = self.get_ip_address();
             let is_ap = self.is_ap_mode();
             let mode = self.get_wireless_mode();
-            let json = format!("STATUS:{{\"ip\":\"{}\",\"is_ap\":{},\"mode\":\"{}\"}}", ip, is_ap, mode);
+            let authed = self.is_authorized.load(Ordering::SeqCst);
+            let (pin_en, paired_count) = if let Some(ref ac) = *self.app_config.lock().unwrap() {
+                let cfg = ac.lock().unwrap();
+                (cfg.pin_pairing_enabled, cfg.trusted_devices.len())
+            } else {
+                (true, 0)
+            };
+            let json = format!(
+                "STATUS:{{\"ip\":\"{}\",\"is_ap\":{},\"mode\":\"{}\",\"authed\":{},\"pin_pairing\":{},\"paired_count\":{}}}",
+                ip, is_ap, mode, authed, pin_en, paired_count
+            );
             println!("  [ble-tx] Notifying client status: {}", json);
             tx.lock().set_value(json.as_bytes());
             tx.lock().notify();

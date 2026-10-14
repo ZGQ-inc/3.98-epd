@@ -18,6 +18,7 @@ use crate::wifi::captive::CaptivePortalDns;
 
 static IS_SOFTAP_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_STATION_CONNECTED: AtomicBool = AtomicBool::new(false);
+static WIFI_PAUSED_BY_BLE: AtomicBool = AtomicBool::new(false);
 
 pub fn is_softap_active() -> bool {
     IS_SOFTAP_RUNNING.load(Ordering::SeqCst)
@@ -25,6 +26,25 @@ pub fn is_softap_active() -> bool {
 
 pub fn is_station_connected() -> bool {
     IS_STATION_CONNECTED.load(Ordering::SeqCst)
+}
+
+pub fn pause_wifi_for_ble() {
+    if !WIFI_PAUSED_BY_BLE.swap(true, Ordering::SeqCst) {
+        println!("[WIFI] Auto Mode: BLE connected! Shutting down Wi-Fi radio to dedicate 100% antenna to BLE...");
+        unsafe {
+            let _ = esp_idf_svc::sys::esp_wifi_stop();
+        }
+    }
+}
+
+pub fn resume_wifi_after_ble() {
+    if WIFI_PAUSED_BY_BLE.swap(false, Ordering::SeqCst) {
+        println!("[WIFI] Auto Mode: BLE disconnected, resuming Wi-Fi radio scan...");
+        unsafe {
+            let _ = esp_idf_svc::sys::esp_wifi_start();
+            let _ = esp_idf_svc::sys::esp_wifi_connect();
+        }
+    }
 }
 
 pub fn stop_softap() {
@@ -69,11 +89,13 @@ impl<'a> WifiManager<'a> {
         let esp_wifi = EspWifi::new(modem, sys_loop.clone(), nvs)?;
         let wifi = BlockingWifi::wrap(esp_wifi, sys_loop.clone())?;
 
-        // Register automatic Wi-Fi reconnection on disconnect
+        // Register automatic Wi-Fi reconnection on disconnect with rate limiting
         if let Ok(sub) = sys_loop.subscribe::<esp_idf_svc::wifi::WifiEvent, _>(|event| {
             if let esp_idf_svc::wifi::WifiEvent::StaDisconnected(_) = event {
-                println!("[WIFI] Disconnected from AP. Auto-reconnecting...");
-                unsafe { esp_idf_svc::sys::esp_wifi_connect() };
+                if !WIFI_PAUSED_BY_BLE.load(Ordering::SeqCst) {
+                    println!("[WIFI] Disconnected from AP. Attempting auto-reconnect...");
+                    unsafe { esp_idf_svc::sys::esp_wifi_connect() };
+                }
             }
         }) {
             Box::leak(Box::new(sub));
@@ -86,8 +108,8 @@ impl<'a> WifiManager<'a> {
     }
 
     /// Initializes WiFi according to configuration:
-    /// - If SSID is empty: Starts SoftAP mode and Captive Portal.
-    /// - If SSID is present: Connects to STA. Falls back to SoftAP on failure.
+    /// - If SSID is empty: Starts SoftAP mode and Captive Portal for unconfigured out-of-box setup.
+    /// - If SSID is present: Connects to STA. If away from home, remains quiet without launching unwanted open AP.
     pub fn start(&mut self, config: &AppConfig) -> anyhow::Result<WifiModeStatus> {
         if config.wifi_ssid.is_empty() {
             info!("[WIFI] No WiFi credentials configured. Starting SoftAP mode...");
@@ -97,8 +119,11 @@ impl<'a> WifiManager<'a> {
             match self.start_sta(&config.wifi_ssid, &config.wifi_pass) {
                 Ok(ip) => Ok(WifiModeStatus::StationConnected(ip)),
                 Err(e) => {
-                    warn!("[WIFI] Failed to connect to '{}' ({:?}). Falling back to SoftAP mode.", config.wifi_ssid, e);
-                    self.start_softap()
+                    warn!("[WIFI] Router unreachable or failed to connect to '{}' ({:?}).", config.wifi_ssid, e);
+                    println!("[WIFI] Outdoors / Away from home detected: Wi-Fi quiet, BLE 100% active.");
+                    IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);
+                    IS_STATION_CONNECTED.store(false, Ordering::SeqCst);
+                    Err(e)
                 }
             }
         }

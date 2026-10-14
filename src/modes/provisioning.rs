@@ -264,19 +264,87 @@ pub fn render_welcome_screen(
     fb.fill_rect(0, 504, EPD_WIDTH, 48, BwryColor::Black);
     draw_chinese_text_centered(
         fb,
-        518,
-        "全新设备就绪 · Wi-Fi 热点与蓝牙广播已同时开启 · 硬件双模并发运行中",
+        512,
+        "出厂默认开启双工模式与屏幕 PIN 码配对 · 绑定后建议制作 NFC 钥匙并关闭 PIN 配对防蹭屏",
+        BwryColor::Yellow,
+        1,
+    );
+    draw_chinese_text_centered(
+        fb,
+        532,
+        "支持 三星 Fold7 / 红米 / GPD 掌机 / Windows 台式机 · 访问 https://398epd.zgqinc.gq 即可直连",
         BwryColor::White,
         1,
     );
 }
 
-/// 5. 蓝牙连接成功 PWA 指引界面：指引用户使用 398epd.zgqinc.gq 随身创作
-pub fn render_pwa_connected_screen(
-    fb: &mut Framebuffer,
-    client_name: &str,
-    client_mac: &str,
-) {
+/// 5. 动态 6 位随机 PIN 码配对授权屏 (仅在手机端明确发起配对时按需刷新)
+pub fn render_pin_pairing_screen(fb: &mut Framebuffer, pin: &str) {
+    fb.clear_color(BwryColor::White);
+
+    // 顶部红底警示主标题栏 (H: 58)
+    fb.fill_rect(0, 0, EPD_WIDTH, 56, BwryColor::Red);
+    fb.hline(0, 56, EPD_WIDTH, BwryColor::Black);
+    fb.hline(0, 57, EPD_WIDTH, BwryColor::Black);
+    fb.hline(0, 58, EPD_WIDTH, BwryColor::Yellow);
+
+    draw_chinese_text_centered(fb, 14, "🔐 正在进行新设备蓝牙绑定 · 屏幕配对码", BwryColor::White, 2);
+
+    // 中央核心卡片 (Y: 86..476)
+    let card_x = 48;
+    let card_w = EPD_WIDTH - 96;
+    let card_y = 86;
+    let card_h = 390;
+
+    fb.rect(card_x, card_y, card_w, card_h, BwryColor::Black);
+    fb.rect(card_x + 2, card_y + 2, card_w - 4, card_h - 4, BwryColor::Yellow);
+    fb.rect(card_x + 4, card_y + 4, card_w - 8, card_h - 8, BwryColor::Red);
+
+    draw_chinese_text_centered(fb, card_y + 28, "【检测到新控制端正在请求绑定本墨水屏】", BwryColor::Black, 2);
+    draw_chinese_text_centered(
+        fb,
+        card_y + 72,
+        "请在您的 主力机三星 Fold7 / 备用机红米 / GPD 掌机 网页弹窗中输入下方 6 位数字:",
+        BwryColor::Black,
+        1,
+    );
+
+    // 超大醒目黄色配对码矩形框
+    let pin_box_x = 110;
+    let pin_box_y = card_y + 116;
+    let pin_box_w = EPD_WIDTH - 220;
+    let pin_box_h = 96;
+
+    fb.fill_rect(pin_box_x, pin_box_y, pin_box_w, pin_box_h, BwryColor::Yellow);
+    fb.rect(pin_box_x, pin_box_y, pin_box_w, pin_box_h, BwryColor::Black);
+    fb.rect(pin_box_x + 2, pin_box_y + 2, pin_box_w - 4, pin_box_h - 4, BwryColor::Black);
+
+    let pin_formatted = if pin.len() == 6 {
+        format!("{}  {}  {}  {}  {}  {}", &pin[0..1], &pin[1..2], &pin[2..3], &pin[3..4], &pin[4..5], &pin[5..6])
+    } else {
+        pin.to_string()
+    };
+    draw_chinese_text_centered(fb, pin_box_y + 32, &format!("配 对 码 :  [ {} ]", pin_formatted), BwryColor::Red, 2);
+
+    // 安全提示与超时说明
+    draw_chinese_text_centered(fb, card_y + 240, "★ 本配对码单次有效，120 秒后自动失效超时", BwryColor::Red, 1);
+    draw_chinese_text_centered(fb, card_y + 272, "★ 验证通过后将生成独一无二的设备 ID 写入墨水屏 NVS 硬件白名单", BwryColor::Black, 1);
+    draw_chinese_text_centered(fb, card_y + 304, "★ 若非本人操作，请直接在手机端点击【取消断开】，本屏不会记录任何权限", BwryColor::Black, 1);
+    draw_chinese_text_centered(fb, card_y + 336, "★ 绑定完成后可在随身工坊设置中【关闭 PIN 配对】，杜绝漫展公共场合蹭屏！", BwryColor::Red, 1);
+
+    // 底部状态栏 (Y: 504..552)
+    fb.fill_rect(0, 504, EPD_WIDTH, 48, BwryColor::Black);
+    draw_chinese_text_centered(
+        fb,
+        518,
+        "等待控制端输入并校验中... (校验成功将自动跳转至完成向导屏)",
+        BwryColor::White,
+        1,
+    );
+}
+
+/// 6. 蓝牙绑定成功 & NFC 钥匙制作引导屏
+pub fn render_pairing_success_screen(fb: &mut Framebuffer, device_name: &str) {
     fb.clear_color(BwryColor::White);
 
     // 顶部黄底高亮标题栏 (H: 58)
@@ -285,33 +353,34 @@ pub fn render_pwa_connected_screen(
     fb.hline(0, 57, EPD_WIDTH, BwryColor::Red);
     fb.hline(0, 58, EPD_WIDTH, BwryColor::Black);
 
-    draw_chinese_text_centered(fb, 14, "蓝牙已成功配对 · 随身 PWA 控制端就绪", BwryColor::Black, 2);
+    draw_chinese_text_centered(fb, 14, "🎉 蓝牙绑定成功 · 控制端专属信任已建立", BwryColor::Black, 2);
 
-    // 连接客户端状态条 (Y: 66..106)
+    // 授权设备通知栏 (Y: 66..106)
     fb.rect(24, 66, EPD_WIDTH - 48, 40, BwryColor::Black);
-    let dev_msg = format!("已连接设备: {} ({}) · 通信协议: WebBLE 2bpp 直推", client_name, client_mac);
+    let dev_msg = format!("已授权设备: 「{}」 · 硬件唯一凭证已成功存入 NVS 白名单", device_name);
     draw_chinese_text(fb, 38, 78, &dev_msg, BwryColor::Black, 1);
 
-    // 中央核心 PWA 指引大卡片 (Y: 114..494)
+    // 中央核心引导卡片 (Y: 114..494)
     fb.rect(24, 114, EPD_WIDTH - 48, 380, BwryColor::Black);
     fb.rect(26, 116, EPD_WIDTH - 52, 376, BwryColor::Red);
     fb.rect(28, 118, EPD_WIDTH - 56, 372, BwryColor::Yellow);
 
-    draw_chinese_text(fb, 45, 134, "【随身 PWA 控制端网址】", BwryColor::Black, 1);
-    draw_chinese_text(fb, 45, 156, "https://398epd.zgqinc.gq", BwryColor::Red, 2);
+    draw_chinese_text(fb, 45, 134, "【后续推荐操作指引】", BwryColor::Black, 1);
+    draw_chinese_text(fb, 45, 156, "随身工坊网址: https://398epd.zgqinc.gq", BwryColor::Red, 2);
 
     fb.hline(45, 196, EPD_WIDTH - 90, BwryColor::Black);
 
-    draw_chinese_text(fb, 45, 210, "★ 手机/电脑免装 App：打开 Chrome/Edge 浏览器即可 100% 离线直推", BwryColor::Black, 1);
-    draw_chinese_text(fb, 45, 238, "★ 五大随身创作工坊：", BwryColor::Black, 1);
-    draw_chinese_text(fb, 75, 266, "1. 随身工牌 / 电子名片定制 (极客黑客、商务极简、兽聚名片、展会工作证)", BwryColor::Black, 1);
-    draw_chinese_text(fb, 75, 294, "2. 兽聚痛卡 / 角色挂件 (相册自由选图、缩放旋转、四色微粒抖动、双挂绳孔)", BwryColor::Black, 1);
-    draw_chinese_text(fb, 75, 322, "3. 随身便签 / 备忘待办 (32px 大字号事项、磁吸固定、随身随带)", BwryColor::Black, 1);
-    draw_chinese_text(fb, 75, 350, "4. 4色手绘画板 / 涂鸦创作 (纯正黑白黄红调色盘、几何图形、题字与撤销)", BwryColor::Black, 1);
-    draw_chinese_text(fb, 75, 378, "5. 全能图片调色工坊 (Atkinson、Floyd、Stucki、Sierra、Ostromoukhov 多算法)", BwryColor::Black, 1);
+    draw_chinese_text(fb, 45, 212, "① 制作 NFC 碰一碰钥匙 (推荐):", BwryColor::Black, 2);
+    draw_chinese_text(fb, 75, 244, "在随身工坊【设备管理】中点击【写入 NFC 标签】，手机背部轻触徽章 NFC 贴纸；", BwryColor::Black, 1);
+    draw_chinese_text(fb, 75, 270, "以后任何时候碰一下标签，即可一碰免密秒连，彻底免去输 PIN 步骤！", BwryColor::Red, 1);
 
-    draw_chinese_text(fb, 45, 416, "★ 极速推屏: 在网页点击【蓝牙直推至墨水屏】，16秒内完成四色全阶物理刷新！", BwryColor::Red, 1);
-    draw_chinese_text(fb, 45, 444, "★ 双稳态省电: 屏幕刷新后断电永久记忆，不耗费电池一丝电量。", BwryColor::Black, 1);
+    draw_chinese_text(fb, 45, 306, "② 关闭屏幕 PIN 码配对防蹭保护:", BwryColor::Black, 2);
+    draw_chinese_text(fb, 75, 338, "绑定完主力机和备用机后，在设置中关闭【允许屏幕 PIN 配对】；", BwryColor::Black, 1);
+    draw_chinese_text(fb, 75, 364, "在漫展、漫展地铁等公开场合，陌生人即便发现蓝牙也绝无法发起配对刷屏骚扰！", BwryColor::Red, 1);
+
+    draw_chinese_text(fb, 45, 400, "③ 开始随身创作与推图:", BwryColor::Black, 2);
+    draw_chinese_text(fb, 75, 432, "现在可在工坊自由设计兽聚痛卡立绘、个性工牌、备忘便签，16 秒一键推屏！", BwryColor::Black, 1);
+    draw_chinese_text(fb, 75, 458, "墨水屏双稳态特性：物理全刷后断电永久记忆画面，零耗电常显。", BwryColor::Black, 1);
 
     // 底部状态栏 (Y: 504..552)
     fb.fill_rect(0, 504, EPD_WIDTH, 48, BwryColor::Black);
@@ -322,4 +391,13 @@ pub fn render_pwa_connected_screen(
         BwryColor::White,
         1,
     );
+}
+
+/// 7. 蓝牙连接成功 PWA 指引界面 (向后兼容)
+pub fn render_pwa_connected_screen(
+    fb: &mut Framebuffer,
+    client_name: &str,
+    client_mac: &str,
+) {
+    render_pairing_success_screen(fb, &format!("{} ({})", client_name, client_mac));
 }

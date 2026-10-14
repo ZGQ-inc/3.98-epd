@@ -250,8 +250,312 @@ const UI = {
     }
   },
 
-  /*  6. Device Manager Modal  */
+  /*  6. Two-Way Device Manager & Security Pairing  */
+  getSmartDeviceName() {
+    const ua = navigator.userAgent || '';
+    const isMobile = /Android|Mobile/i.test(ua);
+    const isWindows = /Windows/i.test(ua);
+    const isLinux = /Linux/i.test(ua) && !isMobile;
+
+    if (isMobile) {
+      if (/Samsung|SM-|Galaxy/i.test(ua)) {
+        return '主力机三星 Fold7';
+      } else if (/Redmi|Xiaomi|MI\s/i.test(ua)) {
+        return '备用机红米';
+      } else {
+        return '主力机 Android 终端';
+      }
+    } else if (isWindows) {
+      if (window.screen && (window.screen.width <= 1280 && window.screen.height <= 800)) {
+        return '我的 GPD 掌机';
+      }
+      return '我的台式机';
+    } else if (isLinux) {
+      return '我的 Linux 工作站';
+    }
+    return '我的智能设备';
+  },
+
+  openUnauthConfirmModal(status) {
+    this.openModal('unauthConfirmModal');
+  },
+
+  cancelUnauthConnect() {
+    this.closeModal('unauthConfirmModal');
+    if (DeviceManager && DeviceManager.disconnectBle) {
+      DeviceManager.disconnectBle().catch(() => {});
+    }
+    this.showToast('已取消连接，墨水屏屏幕保持原样不刷新。', 'info', 4000);
+  },
+
+  async startPinPairingFromConfirm() {
+    this.closeModal('unauthConfirmModal');
+    if (!DeviceManager.pinPairingEnabled) {
+      this.showToast('🛡️ 墨水屏主人已关闭屏幕 PIN 配对（防骚扰模式）！请使用碰一碰 NFC 钥匙绑定。', 'danger', 6000);
+      return;
+    }
+    this.showToast('📡 正在请求墨水屏生成动态 PIN 码并刷新屏幕...', 'info', 4000);
+    try {
+      await DeviceManager.requestPinPairing();
+    } catch (e) {
+      this.showToast('请求配对失败: ' + e.message, 'danger');
+    }
+  },
+
+  openPinPairModal() {
+    const codeInput = document.getElementById('pinCodeInput');
+    const nameInput = document.getElementById('pinDevNameInput');
+    if (codeInput) {
+      codeInput.value = '';
+      setTimeout(() => codeInput.focus(), 300);
+    }
+    if (nameInput) {
+      nameInput.value = this.getSmartDeviceName();
+    }
+    this.openModal('pinPairModal');
+  },
+
+  async submitPinPairing() {
+    const codeInput = document.getElementById('pinCodeInput');
+    const nameInput = document.getElementById('pinDevNameInput');
+    const pin = codeInput ? codeInput.value.trim() : '';
+    const devName = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : this.getSmartDeviceName();
+
+    if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+      this.showToast('请输入墨水屏物理屏幕上显示的 6 位完整数字 PIN 码！', 'danger', 4000);
+      if (codeInput) codeInput.focus();
+      return;
+    }
+
+    this.showToast('正在向墨水屏验证 PIN 码并授权注册...', 'info', 4000);
+    try {
+      await DeviceManager.verifyPinPairing(pin, devName);
+    } catch (e) {
+      this.showToast('配对请求发送失败: ' + e.message, 'danger');
+    }
+  },
+
+  showPairingSuccessGuide(authRecord) {
+    this.showToast(`💡 配对成功！墨水屏屏幕已切换至【配对成功与 NFC 钥匙指引】。\n建议在【设备管理】中将电子钥匙写入贴纸 NFC 标签。`, 'success', 8000);
+  },
+
   openDeviceManagerModal() {
+    this.openModal('devManageModal');
+    if (DeviceManager && DeviceManager.isBleConnected) {
+      this.switchDevManageTab('badge');
+    } else {
+      this.switchDevManageTab('local');
+    }
+  },
+
+  switchDevManageTab(tab) {
+    const badgeContent = document.getElementById('tabDevBadgeContent');
+    const localContent = document.getElementById('tabDevLocalContent');
+    const badgeBtn = document.getElementById('tabDevBadgeBtn');
+    const localBtn = document.getElementById('tabDevLocalBtn');
+
+    if (tab === 'badge') {
+      if (badgeContent) badgeContent.style.display = 'block';
+      if (localContent) localContent.style.display = 'none';
+      if (badgeBtn) { badgeBtn.className = 'm3-btn small tonal active'; }
+      if (localBtn) { localBtn.className = 'm3-btn small outlined'; }
+
+      const notConnectedAlert = document.getElementById('devBadgeNotConnectedAlert');
+      const connectedArea = document.getElementById('devBadgeConnectedArea');
+
+      if (!DeviceManager || !DeviceManager.isBleConnected) {
+        if (notConnectedAlert) notConnectedAlert.style.display = 'block';
+        if (connectedArea) connectedArea.style.display = 'none';
+      } else {
+        if (notConnectedAlert) notConnectedAlert.style.display = 'none';
+        if (connectedArea) connectedArea.style.display = 'block';
+
+        DeviceManager.getTrustedDevices().then(list => {
+          this.renderTrustedDevList(list);
+        }).catch(err => {
+          console.warn('[UI] Fetch trusted devices error:', err);
+        });
+
+        DeviceManager.fetchMasterKey().then(key => {
+          this.updateNfcKeyUI(key);
+        }).catch(err => {
+          console.warn('[UI] Fetch master key error:', err);
+        });
+
+        this.updatePinPairingUI(DeviceManager.pinPairingEnabled);
+      }
+    } else {
+      if (badgeContent) badgeContent.style.display = 'none';
+      if (localContent) localContent.style.display = 'block';
+      if (badgeBtn) { badgeBtn.className = 'm3-btn small outlined'; }
+      if (localBtn) { localBtn.className = 'm3-btn small tonal active'; }
+      this.renderLocalBadgeList();
+    }
+  },
+
+  renderTrustedDevList(devices) {
+    const container = document.getElementById('trustedDevListContainer');
+    if (!container) return;
+
+    if (!devices || devices.length === 0) {
+      container.innerHTML = `
+        <div style="font-size:12px; color:var(--md-sys-color-outline); padding:14px; text-align:center; background:var(--md-sys-color-surface-container); border-radius:10px;">
+          暂无已授权设备。出厂或重置后，请通过 6 位动态 PIN 码或 NFC 电子钥匙完成首次配对。
+        </div>
+      `;
+      return;
+    }
+
+    const currentDevKey = DeviceManager.bleDevice ? (DeviceManager.bleDevice.id || DeviceManager.bleDevice.name || 'default') : 'default';
+    let myAuth = null;
+    try {
+      myAuth = JSON.parse(localStorage.getItem('epd_auth_' + currentDevKey) || localStorage.getItem('epd_auth_default') || 'null');
+    } catch(e) {}
+
+    container.innerHTML = devices.map(dev => {
+      const isCurrent = myAuth && myAuth.device_id === dev.device_id;
+      const isMobile = /手机|Fold|红米|Android|Phone/i.test(dev.device_name);
+      const icon = isMobile ? '📱' : '💻';
+      const pairedDateStr = dev.paired_at ? new Date(dev.paired_at * 1000).toLocaleDateString('zh-CN') : '近期';
+      return `
+        <div class="dev-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container); border-radius:12px; border:1px solid ${isCurrent ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant, #e0e0e0)'};">
+          <div class="dev-item-left" style="display:flex; flex-direction:column; gap:3px;">
+            <div class="dev-item-title" style="display:flex; align-items:center; gap:6px;">
+              <span>${icon}</span>
+              <strong>${dev.device_name || '未命名控制端'}</strong>
+              ${isCurrent ? '<span style="font-size:10px; background:var(--md-sys-color-primary); color:#fff; border-radius:6px; padding:2px 6px;">当前设备</span>' : ''}
+            </div>
+            <div class="dev-item-meta" style="font-size:11px; opacity:0.75; font-family:monospace;">
+              ID: ${dev.device_id || 'unknown'} · 授权于: ${pairedDateStr}
+            </div>
+          </div>
+          <div class="dev-item-actions" style="display:flex; gap:6px;">
+            <button class="m3-btn small tonal" onclick="UI.renameTrustedDevice('${dev.device_id}', '${(dev.device_name || '').replace(/'/g, "\\'")}')">重命名</button>
+            <button class="m3-btn small danger" onclick="UI.deleteTrustedDevice('${dev.device_id}', '${(dev.device_name || '').replace(/'/g, "\\'")}')">解除</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  async renameTrustedDevice(id, currentName) {
+    const next = prompt('输入控制端在墨水屏 NVS 中的新名称 (例如: 主力机三星 Fold7 / 我的台式机):', currentName);
+    if (next && next.trim() && next.trim() !== currentName) {
+      try {
+        await DeviceManager.renameTrustedDevice(id, next.trim());
+        this.showToast(`✅ 已更新控制端名称为「${next.trim()}」`, 'success');
+        const list = await DeviceManager.getTrustedDevices();
+        this.renderTrustedDevList(list);
+      } catch (e) {
+        this.showToast('重命名失败: ' + e.message, 'danger');
+      }
+    }
+  },
+
+  async deleteTrustedDevice(id, currentName) {
+    if (!confirm(`确定要从墨水屏硬件 NVS 白名单中解除「${currentName}」的控制权限吗？\n\n解除后，该设备将无法向墨水屏推送或刷新，下次连接必须重新配对！`)) {
+      return;
+    }
+    try {
+      await DeviceManager.deleteTrustedDevice(id);
+      this.showToast(`🗑️ 已解除「${currentName}」的授权`, 'info');
+      const badgeKey = DeviceManager.bleDevice ? (DeviceManager.bleDevice.id || DeviceManager.bleDevice.name || 'default') : 'default';
+      let myAuth = null;
+      try {
+        myAuth = JSON.parse(localStorage.getItem('epd_auth_' + badgeKey) || localStorage.getItem('epd_auth_default') || 'null');
+      } catch(e) {}
+      if (myAuth && myAuth.device_id === id) {
+        DeviceManager.isBleAuthenticated = false;
+        localStorage.removeItem('epd_auth_' + badgeKey);
+        this.showToast('⚠️ 本设备已被解除授权，当前会话已降级为未认证状态', 'warning', 6000);
+      }
+      const list = await DeviceManager.getTrustedDevices();
+      this.renderTrustedDevList(list);
+    } catch (e) {
+      this.showToast('解除授权失败: ' + e.message, 'danger');
+    }
+  },
+
+  async togglePinPairing() {
+    try {
+      const next = !DeviceManager.pinPairingEnabled;
+      await DeviceManager.setPinPairing(next);
+      this.updatePinPairingUI(next);
+      this.showToast(next ? '🔓 屏幕 PIN 配对已开启' : '🛡️ 屏幕 PIN 配对已关闭（防骚扰模式生效中）', 'success', 4000);
+    } catch (e) {
+      this.showToast('切换 PIN 配对状态失败: ' + e.message, 'danger');
+    }
+  },
+
+  updatePinPairingUI(enabled) {
+    const btn = document.getElementById('btnTogglePinPairing');
+    const desc = document.getElementById('pinPairingDesc');
+    if (btn) {
+      btn.textContent = enabled ? '关闭防骚扰 (开启PIN)' : '开启防骚扰 (关闭PIN)';
+      btn.className = enabled ? 'm3-btn small outlined' : 'm3-btn small tonal';
+    }
+    if (desc) {
+      desc.innerHTML = enabled
+        ? '状态: <strong style="color:var(--md-sys-color-primary);">开启</strong> · 陌生设备可通过屏幕 6 位动态 PIN 码申请配对。漫展或外出时建议关闭以杜绝恶意蹭连刷屏。'
+        : '状态: <strong style="color:#d93025;">已关闭（防骚扰生效中）</strong> · 陌生设备无法发起屏幕 PIN 码配对，杜绝频繁刷屏骚扰！仅允许已有白名单设备或碰一碰物理 NFC 钥匙绑定。';
+    }
+  },
+
+  updateNfcKeyUI(key) {
+    const input = document.getElementById('nfcKeyDisplay');
+    if (input) {
+      input.value = key ? `https://398epd.zgqinc.gq/#key=${key}` : '未生成主密钥';
+    }
+  },
+
+  async triggerWriteNfcTag() {
+    let key = DeviceManager.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '';
+    if (!key) {
+      try {
+        key = await DeviceManager.fetchMasterKey();
+      } catch (e) {}
+    }
+    if (!key) {
+      this.showToast('未能获取到墨水屏专属主密钥，请确认蓝牙连接', 'danger');
+      return;
+    }
+
+    const nfcUrl = `https://398epd.zgqinc.gq/#key=${key}`;
+    if ('NDEFReader' in window) {
+      try {
+        const ndef = new window.NDEFReader();
+        this.showToast('📱 请将 NFC 标签（如贴纸/挂绳）贴近手机背部感应区...', 'info', 10000);
+        await ndef.write({
+          records: [{
+            recordType: 'url',
+            data: nfcUrl
+          }]
+        });
+        this.showToast('🎉 NFC 电子钥匙写入成功！任意手机碰一碰即可秒连。', 'success', 6000);
+      } catch (err) {
+        console.warn('[NFC] Write failed:', err);
+        this.showToast('NFC 写入失败: ' + err.message + '，可直接复制链接手动写入', 'danger', 5000);
+      }
+    } else {
+      prompt('当前环境不支持直接调用 Web NFC API（Web NFC 支持 Android 版 Chrome/Edge）。\n\n请复制以下电子钥匙网址，使用任意 NFC 工具（如 NFC Tools App）写入 NTAG213/215 标签：', nfcUrl);
+    }
+  },
+
+  copyNfcUrl() {
+    const key = DeviceManager.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '';
+    if (!key) {
+      this.showToast('未能获取墨水屏密钥', 'danger');
+      return;
+    }
+    const nfcUrl = `https://398epd.zgqinc.gq/#key=${key}`;
+    navigator.clipboard.writeText(nfcUrl).then(() => {
+      this.showToast('📋 已复制 NFC 电子钥匙链接到剪贴板！', 'success', 4000);
+    }).catch(() => {
+      prompt('请手动复制 NFC 电子钥匙链接：', nfcUrl);
+    });
+  },
+
+  renderLocalBadgeList() {
     const container = document.getElementById('deviceListContainer');
     if (!container) return;
 
@@ -265,31 +569,29 @@ const UI = {
     if (list.length === 0) {
       container.innerHTML = `
         <div style="font-size:12px; color:var(--md-sys-color-outline); padding:16px; text-align:center; background:var(--md-sys-color-surface-container); border-radius:12px;">
-          暂无已记忆设备。请点击下方「扫描配对新设备」通过 Web Bluetooth 快速连接！
+          暂无已记忆墨水屏徽章。请点击下方「扫描配对新设备」通过 Web Bluetooth 快速连接！
         </div>
       `;
     } else {
       container.innerHTML = list.map(dev => `
-        <div class="dev-item">
+        <div class="dev-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--md-sys-color-surface-container); border-radius:12px; border:1px solid var(--md-sys-color-outline-variant, #e0e0e0);">
           <div class="dev-item-left">
-            <div class="dev-item-title">
-              <span>📱</span>
+            <div class="dev-item-title" style="display:flex; align-items:center; gap:6px;">
+              <span>📇</span>
               <strong>${dev.alias || dev.name || 'EPD-Display'}</strong>
               <span style="font-size:11px; opacity:0.7;">(${dev.name || 'BLE'})</span>
             </div>
-            <div class="dev-item-meta">
-              ID: ${dev.id ? dev.id.slice(0, 16) + '...' : 'WebBLE'} · 上次连接: ${new Date(dev.lastSeen || Date.now()).toLocaleDateString()}
+            <div class="dev-item-meta" style="font-size:11px; opacity:0.75; font-family:monospace;">
+              ID: ${dev.id ? dev.id.slice(0, 16) + '...' : 'WebBLE'} · 上次连接: ${new Date(dev.lastSeen || Date.now()).toLocaleDateString('zh-CN')}
             </div>
           </div>
-          <div class="dev-item-actions">
+          <div class="dev-item-actions" style="display:flex; gap:6px;">
             <button class="m3-btn small tonal" onclick="UI.renameDevice('${dev.id}')">重命名</button>
             <button class="m3-btn small danger" onclick="UI.deleteDevice('${dev.id}')">删除</button>
           </div>
         </div>
       `).join('');
     }
-
-    this.openModal('devManageModal');
   },
 
   rememberDevice(id, name) {
@@ -315,12 +617,12 @@ const UI = {
     const dev = list.find(d => d.id === id);
     if (!dev) return;
 
-    const next = prompt('输入设备自定义别名:', dev.alias || dev.name);
+    const next = prompt('输入墨水屏徽章自定义别名:', dev.alias || dev.name);
     if (next && next.trim()) {
       dev.alias = next.trim();
       localStorage.setItem('epd_devices', JSON.stringify(list));
-      this.openDeviceManagerModal();
-      this.showToast(`已重命名设备为「${dev.alias}」`, 'success');
+      this.renderLocalBadgeList();
+      this.showToast(`已重命名徽章为「${dev.alias}」`, 'success');
     }
   },
 
@@ -328,8 +630,8 @@ const UI = {
     let list = JSON.parse(localStorage.getItem('epd_devices') || '[]');
     list = list.filter(d => d.id !== id);
     localStorage.setItem('epd_devices', JSON.stringify(list));
-    this.openDeviceManagerModal();
-    this.showToast('已移除设备记忆', 'info');
+    this.renderLocalBadgeList();
+    this.showToast('已从本地移除该墨水屏徽章记忆', 'info');
   },
 
   /*  7. Air Provisioning Modal  */

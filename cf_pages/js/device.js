@@ -19,6 +19,16 @@ const DeviceManager = {
   rxChar: null,
   txChar: null,
   isBleConnected: false,
+  isBleAuthenticated: false,
+  pairedClientName: '',
+  pinPairingEnabled: true,
+  currentBadgeMasterKey: '',
+  trustedDevices: [],
+  _onDevListResolver: null,
+  _onDevRenameResolver: null,
+  _onDevDeleteResolver: null,
+  _onSysPinPairingResolver: null,
+  _onNfcKeyResolver: null,
 
   lanIp: (() => {
     return (localStorage.getItem('epd_lan_ip') || '').trim();
@@ -190,9 +200,15 @@ const DeviceManager = {
       this._onBleDisconnectedBound = () => {
         console.warn('[BLE] Device disconnected');
         this.isBleConnected = false;
+        this.isBleAuthenticated = false;
+        this.pairedClientName = '';
         this.bleDevice = null;
         this.rxChar = null;
         this.txChar = null;
+        if (typeof UI !== 'undefined' && UI.closeModal) {
+          UI.closeModal('unauthConfirmModal');
+          UI.closeModal('pinPairModal');
+        }
         if (this.lanIp) {
           this.testLanConnection().then((ok) => {
             this.activeTransport = ok ? 'wifi' : 'none';
@@ -301,7 +317,132 @@ const DeviceManager = {
                   const netLanStatus = document.getElementById('netLanStatus') || document.getElementById('lanStatusText');
                   if (netLanStatus) netLanStatus.textContent = `局域网: ${s.ip} (蓝牙优先中)`;
                 }
+                if (typeof s.authed === 'boolean') {
+                  this.isBleAuthenticated = s.authed;
+                }
+                if (typeof s.pin_pairing === 'boolean') {
+                  this.pinPairingEnabled = s.pin_pairing;
+                  if (typeof UI !== 'undefined' && UI.updatePinPairingUI) {
+                    UI.updatePinPairingUI(s.pin_pairing);
+                  }
+                }
+                if (!this.isBleAuthenticated) {
+                  this.handleBleAuthHandshake(s);
+                }
               } catch (e) {}
+            } else if (text.startsWith('AUTH:OK:')) {
+              this.isBleAuthenticated = true;
+              const name = text.slice(8).trim();
+              this.pairedClientName = name;
+              console.log('[BLE-AUTH] Authorized successfully as:', name);
+              if (typeof UI !== 'undefined') {
+                if (UI.closeModal) {
+                  UI.closeModal('unauthConfirmModal');
+                  UI.closeModal('pinPairModal');
+                }
+                if (UI.showToast) UI.showToast(`✅ 欢迎回来，${name}！已获得墨水屏控制权限`, 'success', 4000);
+              }
+            } else if (text.startsWith('ERROR:UNAUTHORIZED')) {
+              console.warn('[BLE-AUTH] Command rejected or authentication invalid');
+              const wasAuthed = this.isBleAuthenticated;
+              this.isBleAuthenticated = false;
+              if (wasAuthed && typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('⚠️ 当前控制端权限已被解除，请重新配对', 'warning', 5000);
+              }
+              const badgeKey = this.bleDevice ? (this.bleDevice.id || this.bleDevice.name || 'default') : 'default';
+              localStorage.removeItem('epd_auth_' + badgeKey);
+              if (typeof UI !== 'undefined' && UI.openUnauthConfirmModal) {
+                UI.openUnauthConfirmModal();
+              }
+            } else if (text === 'PAIR:PIN_READY') {
+              console.log('[BLE-PAIR] Hardware dynamic PIN displayed on screen');
+              if (typeof UI !== 'undefined') {
+                if (UI.closeModal) UI.closeModal('unauthConfirmModal');
+                if (UI.openPinPairModal) UI.openPinPairModal();
+              }
+            } else if (text === 'ERROR:PIN_DISABLED') {
+              if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('🛡️ 墨水屏主人已关闭屏幕 PIN 配对（防骚扰模式）！请使用碰一碰 NFC 钥匙绑定。', 'danger', 6000);
+              }
+            } else if (text.startsWith('PAIR:OK:')) {
+              try {
+                const data = JSON.parse(text.slice(8));
+                console.log('[BLE-PAIR] Pair verified / NFC claimed:', data);
+                this.isBleAuthenticated = true;
+                this.pairedClientName = data.device_name || '智能设备';
+                const badgeKey = this.bleDevice ? (this.bleDevice.id || this.bleDevice.name || 'default') : 'default';
+                const authRecord = {
+                  device_id: data.device_id,
+                  token: data.token,
+                  device_name: data.device_name,
+                  master_key: data.master_key || ''
+                };
+                localStorage.setItem('epd_auth_' + badgeKey, JSON.stringify(authRecord));
+                localStorage.setItem('epd_auth_default', JSON.stringify(authRecord));
+                if (data.master_key) {
+                  localStorage.setItem('epd_master_key', data.master_key);
+                  this.currentBadgeMasterKey = data.master_key;
+                }
+                if (typeof UI !== 'undefined') {
+                  if (UI.rememberDevice) UI.rememberDevice(badgeKey, this.bleDevice?.name || 'EPD-Display');
+                  if (UI.closeModal) {
+                    UI.closeModal('pinPairModal');
+                    UI.closeModal('unauthConfirmModal');
+                  }
+                  if (UI.showToast) UI.showToast(`🎉 配对成功！已授权「${authRecord.device_name}」控制此墨水屏`, 'success', 5000);
+                  if (UI.showPairingSuccessGuide) UI.showPairingSuccessGuide(authRecord);
+                }
+              } catch (e) {
+                console.error('[BLE-PAIR] Parse PAIR:OK failed:', e);
+              }
+            } else if (text === 'ERROR:PIN_INVALID') {
+              if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('❌ 6 位 PIN 码错误或已过期（超时120秒），请核对墨水屏重新输入！', 'danger', 5000);
+              }
+            } else if (text.startsWith('DEV_LIST:')) {
+              try {
+                this.trustedDevices = JSON.parse(text.slice(9));
+                if (this._onDevListResolver) {
+                  this._onDevListResolver(this.trustedDevices);
+                  this._onDevListResolver = null;
+                }
+                if (typeof UI !== 'undefined' && UI.renderTrustedDevList) {
+                  UI.renderTrustedDevList(this.trustedDevices);
+                }
+              } catch (e) {
+                console.error('[BLE] Parse DEV_LIST error:', e);
+              }
+            } else if (text.startsWith('DEV_RENAME:OK')) {
+              if (this._onDevRenameResolver) {
+                this._onDevRenameResolver(true);
+                this._onDevRenameResolver = null;
+              }
+            } else if (text.startsWith('DEV_DELETE:OK')) {
+              if (this._onDevDeleteResolver) {
+                this._onDevDeleteResolver(true);
+                this._onDevDeleteResolver = null;
+              }
+            } else if (text.startsWith('SYS_PIN_PAIRING:OK:')) {
+              const val = text.slice(19).trim() === '1';
+              this.pinPairingEnabled = val;
+              if (this._onSysPinPairingResolver) {
+                this._onSysPinPairingResolver(val);
+                this._onSysPinPairingResolver = null;
+              }
+              if (typeof UI !== 'undefined' && UI.updatePinPairingUI) {
+                UI.updatePinPairingUI(val);
+              }
+            } else if (text.startsWith('NFC_KEY:')) {
+              const mk = text.slice(8).trim();
+              this.currentBadgeMasterKey = mk;
+              localStorage.setItem('epd_master_key', mk);
+              if (this._onNfcKeyResolver) {
+                this._onNfcKeyResolver(mk);
+                this._onNfcKeyResolver = null;
+              }
+              if (typeof UI !== 'undefined' && UI.updateNfcKeyUI) {
+                UI.updateNfcKeyUI(mk);
+              }
             } else if (text.startsWith('SYS_DIAG:')) {
               try {
                 const diag = JSON.parse(text.slice(9));
@@ -542,6 +683,12 @@ const DeviceManager = {
   async _pushBleBitmap(packed2bpp, progressCb) {
     if (!this.isBleConnected || !this.bleDevice?.gatt?.connected || !this.rxChar) {
       throw new Error('蓝牙已断开！请点击顶部“连接蓝牙”重新连接。');
+    }
+    if (!this.isBleAuthenticated) {
+      if (typeof UI !== 'undefined' && UI.openUnauthConfirmModal) {
+        UI.openUnauthConfirmModal();
+      }
+      throw new Error('墨水屏未认证：当前控制端尚未配对或未授权，无法推送画面！');
     }
     console.log(`[BLE] Pushing ${packed2bpp.length} bytes over BLE...`);
     try {
@@ -1776,6 +1923,156 @@ const DeviceManager = {
       return { status: 'ok', message: `已通过蓝牙发送模式指令: ${mode}` };
     }
     throw new Error('未连接任何硬件设备');
+  },
+
+  /* ───────────────────────────────────────────────────────────────────────────
+   *  Two-Way Authentication & Device Whitelist Management
+   * ─────────────────────────────────────────────────────────────────────────── */
+  async sendBleText(text) {
+    if (!this.rxChar) throw new Error('BLE 未连接');
+    const enc = new TextEncoder().encode(text);
+    if (this.rxChar.writeValueWithoutResponse) {
+      await this.rxChar.writeValueWithoutResponse(enc);
+    } else {
+      await this.rxChar.writeValue(enc);
+    }
+  },
+
+  async handleBleAuthHandshake(status) {
+    if (this.isBleAuthenticated) return;
+    const badgeKey = this.bleDevice ? (this.bleDevice.id || this.bleDevice.name || 'default') : 'default';
+    let savedAuth = null;
+    try {
+      savedAuth = JSON.parse(localStorage.getItem('epd_auth_' + badgeKey) || localStorage.getItem('epd_auth_default') || 'null');
+    } catch(e) {}
+
+    if (savedAuth && savedAuth.device_id && savedAuth.token) {
+      console.log('[BLE-AUTH] Attempting authentication with stored credentials:', savedAuth.device_id);
+      await this.sendBleText(`AUTH:${savedAuth.device_id}:${savedAuth.token}`);
+      return;
+    }
+
+    // Check if we have an imported NFC key from URL hash or storage
+    const nfcKey = localStorage.getItem('epd_nfc_key');
+    if (nfcKey && nfcKey.length === 32) {
+      console.log('[BLE-AUTH] Found pending NFC Master Key, claiming device authorization...');
+      const devName = (typeof UI !== 'undefined' && UI.getSmartDeviceName) ? UI.getSmartDeviceName() : '我的智能设备';
+      await this.sendBleText(`NFC:CLAIM:${nfcKey}:${devName}`);
+      return;
+    }
+
+    // No valid credentials: ask user if they want to pair via PIN
+    console.log('[BLE-AUTH] No credentials found. Prompting user for pairing confirmation...');
+    if (typeof UI !== 'undefined' && UI.openUnauthConfirmModal) {
+      UI.openUnauthConfirmModal(status);
+    }
+  },
+
+  async requestPinPairing() {
+    await this.sendBleText('PAIR:REQUEST');
+  },
+
+  async verifyPinPairing(pin, devName) {
+    await this.sendBleText(`PAIR:VERIFY:${pin}:${devName}`);
+  },
+
+  async claimNfcPairing(masterKey, devName) {
+    await this.sendBleText(`NFC:CLAIM:${masterKey}:${devName}`);
+  },
+
+  async getTrustedDevices() {
+    return new Promise(async (resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._onDevListResolver = null;
+        resolve(this.trustedDevices || []);
+      }, 4000);
+      this._onDevListResolver = (list) => {
+        clearTimeout(timer);
+        resolve(list);
+      };
+      try {
+        await this.sendBleText('dev:list');
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  },
+
+  async renameTrustedDevice(id, newName) {
+    return new Promise(async (resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._onDevRenameResolver = null;
+        reject(new Error('重命名超时'));
+      }, 4000);
+      this._onDevRenameResolver = (ok) => {
+        clearTimeout(timer);
+        resolve(ok);
+      };
+      try {
+        await this.sendBleText(`dev:rename:${id}:${newName}`);
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  },
+
+  async deleteTrustedDevice(id) {
+    return new Promise(async (resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._onDevDeleteResolver = null;
+        reject(new Error('删除设备超时'));
+      }, 4000);
+      this._onDevDeleteResolver = (ok) => {
+        clearTimeout(timer);
+        resolve(ok);
+      };
+      try {
+        await this.sendBleText(`dev:delete:${id}`);
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  },
+
+  async setPinPairing(enabled) {
+    return new Promise(async (resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._onSysPinPairingResolver = null;
+        reject(new Error('设置超时'));
+      }, 4000);
+      this._onSysPinPairingResolver = (val) => {
+        clearTimeout(timer);
+        resolve(val);
+      };
+      try {
+        await this.sendBleText(`sys:pin_pairing:${enabled ? 1 : 0}`);
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+  },
+
+  async fetchMasterKey() {
+    return new Promise(async (resolve, reject) => {
+      const timer = setTimeout(() => {
+        this._onNfcKeyResolver = null;
+        resolve(this.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '');
+      }, 4000);
+      this._onNfcKeyResolver = (key) => {
+        clearTimeout(timer);
+        resolve(key);
+      };
+      try {
+        await this.sendBleText('nfc:get_master_key');
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
   }
 };
 

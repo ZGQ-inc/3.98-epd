@@ -817,22 +817,124 @@
     </div>
   </div>
 
-  <!-- Modal 2: 🗂️ 记忆设备管理 (devManageModal) -->
+  <!-- Modal 2: 🗂️ 双向设备管理 (devManageModal) -->
   <div class="modal-backdrop" id="devManageModal">
-    <div class="modal-sheet">
+    <div class="modal-sheet" style="max-width:620px;">
       <div class="modal-header">
-        <h3 class="modal-title">🗂️ 已记忆墨水屏设备列表</h3>
+        <h3 class="modal-title">🗂️ 墨水屏与控制端设备管理</h3>
         <button class="modal-close" onclick="UI.closeModal('devManageModal')">&times;</button>
       </div>
-      <div class="card-subtitle">
-        支持同时管理与佩戴多个墨水屏胸牌、痛包挂件与冰箱留言板，一键点击重连或切换
+
+      <!-- Segmented Tabs -->
+      <div class="dev-tabs" style="display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid var(--md-sys-color-outline-variant, #e0e0e0); padding-bottom:10px;">
+        <button type="button" class="m3-btn small tonal active" id="tabDevBadgeBtn" onclick="UI.switchDevManageTab('badge')">📱 当前墨水屏已授权控制端</button>
+        <button type="button" class="m3-btn small outlined" id="tabDevLocalBtn" onclick="UI.switchDevManageTab('local')">🗂️ 我的墨水屏徽章库</button>
       </div>
-      <div id="deviceListContainer" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
-        <!-- Populated via UI.openDeviceManagerModal() -->
+
+      <!-- Tab 1: 当前墨水屏已授权控制端 (Badge NVS Whitelist) -->
+      <div id="tabDevBadgeContent">
+        <div id="devBadgeNotConnectedAlert" style="display:none; font-size:13px; color:var(--md-sys-color-outline); padding:16px; text-align:center; background:var(--md-sys-color-surface-container); border-radius:12px; margin-bottom:14px;">
+          ⚠️ 当前未连接墨水屏蓝牙。请先通过 Web Bluetooth 连接墨水屏，以查看和管理保存在墨水屏 NVS 中的已授权控制端与安全配置。
+        </div>
+
+        <div id="devBadgeConnectedArea">
+          <div style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:10px; line-height:1.5;">
+            以下为当前墨水屏硬件 NVS 中记录的<strong>已授权控制端设备白名单</strong>。仅白名单内的手机/电脑可直接向墨水屏推送画面或更新配置。
+          </div>
+
+          <div id="trustedDevListContainer" style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+            <!-- Populated via UI.renderTrustedDevList() -->
+          </div>
+
+          <!-- Security: PIN Pairing Anti-DoS -->
+          <div style="background:var(--md-sys-color-surface-container, #f8f9fa); border-radius:12px; padding:14px; margin-bottom:14px; border:1px solid var(--md-sys-color-outline-variant, #e0e0e0);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:13px; font-weight:700; color:var(--md-sys-color-primary);">🛡️ 屏幕 PIN 码配对防骚扰</span>
+              <button type="button" class="m3-btn small tonal" id="btnTogglePinPairing" onclick="UI.togglePinPairing()">切换状态</button>
+            </div>
+            <div style="font-size:12px; color:var(--md-sys-color-on-surface-variant); line-height:1.5;" id="pinPairingDesc">
+              状态: <strong>开启</strong> · 漫展或外出时建议关闭。关闭后陌生人无法通过屏幕 PIN 码配对，仅允许已有授权设备控制或碰一碰物理 NFC 钥匙绑定。
+            </div>
+          </div>
+
+          <!-- NFC Master Key Management -->
+          <div style="background:var(--md-sys-color-surface-container, #f8f9fa); border-radius:12px; padding:14px; margin-bottom:14px; border:1px solid var(--md-sys-color-outline-variant, #e0e0e0);">
+            <div style="font-size:13px; font-weight:700; color:var(--md-sys-color-primary); margin-bottom:6px;">
+              🏷️ NFC 物理钥匙（碰一碰极速绑定）
+            </div>
+            <div style="font-size:12px; color:var(--md-sys-color-on-surface-variant); margin-bottom:10px; line-height:1.5;">
+              设备出厂时由硬件随机生成专属 16 字节密钥（永久存入 NVS）。可写入贴在墨水屏背部的 NFC 标签，新手机碰一碰即可自动秒绑：
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+              <input type="text" id="nfcKeyDisplay" class="m3-input" readonly style="font-family:monospace; font-size:12px; background:var(--md-sys-color-surface);" value="读取中...">
+              <button type="button" class="m3-btn small outlined" onclick="UI.copyNfcUrl()">📋 复制链接</button>
+            </div>
+            <button type="button" class="m3-btn btn-full" id="btnWriteNfcTag" onclick="UI.triggerWriteNfcTag()">
+              📱 碰一碰将钥匙写入 NFC 标签 (Web NFC)
+            </button>
+          </div>
+        </div>
       </div>
-      <button class="m3-btn btn-full" onclick="UI.closeModal('devManageModal'); DeviceManager.connectBle();">
-        ➕ 扫描配对新墨水屏设备
-      </button>
+
+      <!-- Tab 2: 我的墨水屏徽章库 (Browser's Saved Badges) -->
+      <div id="tabDevLocalContent" style="display:none;">
+        <div class="card-subtitle" style="margin-bottom:12px;">
+          当前浏览器记忆的墨水屏徽章、工牌与留言板设备列表，可自定义别名或快速切换
+        </div>
+        <div id="deviceListContainer" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+          <!-- Populated via UI.openDeviceManagerModal() -->
+        </div>
+        <button class="m3-btn btn-full" onclick="UI.closeModal('devManageModal'); DeviceManager.connectBle();">
+          ➕ 扫描配对新墨水屏设备
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: 未授权设备接入确认 (unauthConfirmModal) -->
+  <div class="modal-backdrop" id="unauthConfirmModal">
+    <div class="modal-sheet" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🔐 未配对控制端设备</h3>
+        <button class="modal-close" onclick="UI.cancelUnauthConnect()">&times;</button>
+      </div>
+      <div class="card-subtitle" style="margin-bottom:14px;">
+        当前浏览器尚未获得此墨水屏的控制授权
+      </div>
+      <div style="background:var(--md-sys-color-surface-container, #f8f9fa); border-radius:12px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px; border:1px solid var(--md-sys-color-outline-variant, #e0e0e0);">
+        <p style="margin:0 0 8px 0;">🛡️ <strong>墨水屏安全保护机制</strong>：</p>
+        <p style="margin:0 0 6px 0; color:var(--md-sys-color-on-surface-variant, #666);">为防止在漫展或公共场合被他人恶意刷屏蹭连，墨水屏默认拒绝未配对设备的推送与刷新操作。</p>
+        <p style="margin:0; color:var(--md-sys-color-primary, #0066cc);">若您是主人，请点击下方「开始 PIN 配对」，墨水屏屏幕将显示 6 位动态验证码；若选择「取消断开」，墨水屏屏幕将保持当前画面<strong>不刷新</strong>。</p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="m3-btn outlined" style="flex:1;" onclick="UI.cancelUnauthConnect()">取消断开</button>
+        <button class="m3-btn" style="flex:1;" onclick="UI.startPinPairingFromConfirm()">开始 PIN 配对</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: 6位PIN码配对输入 (pinPairModal) -->
+  <div class="modal-backdrop" id="pinPairModal">
+    <div class="modal-sheet" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📱 墨水屏 PIN 码安全配对</h3>
+        <button class="modal-close" onclick="UI.closeModal('pinPairModal'); DeviceManager.disconnectBle();">&times;</button>
+      </div>
+      <div class="card-subtitle" style="margin-bottom:14px;">
+        墨水屏物理屏幕已刷新并显示 6 位动态配对码（120秒内有效）
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label class="form-label">墨水屏屏幕上的 6 位数字 PIN 码:</label>
+        <input type="text" id="pinCodeInput" class="m3-input" inputmode="numeric" maxlength="6" placeholder="例如: 859203" style="font-size:24px; letter-spacing:4px; text-align:center; font-weight:bold;">
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">为此控制端命名（将存入墨水屏 NVS 白名单）:</label>
+        <input type="text" id="pinDevNameInput" class="m3-input" placeholder="例如: 主力机三星 Fold7 / 我的台式机 / 备用机红米">
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="m3-btn outlined" style="flex:1;" onclick="UI.closeModal('pinPairModal'); DeviceManager.disconnectBle();">取消断开</button>
+        <button class="m3-btn" style="flex:1;" onclick="UI.submitPinPairing()">确认绑定</button>
+      </div>
     </div>
   </div>
 

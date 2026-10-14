@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
     let nvs_default = EspDefaultNvsPartition::take()?;
 
     // 2. Load persistent configuration from NVS
-    let config_mgr = ConfigManager::new(nvs_default.clone())?;
+    let mut config_mgr = ConfigManager::new(nvs_default.clone())?;
     let app_config = config_mgr.load();
     let app_config = Arc::new(Mutex::new(app_config));
     let config_mgr = Arc::new(Mutex::new(config_mgr));
@@ -83,12 +83,23 @@ fn main() -> anyhow::Result<()> {
     // Initialize SPIFFS filesystem on 'storage' partition (1.6MB for presets and user assets)
     crate::storage::init_spiffs();
 
-    let (wireless_mode, _ble_enabled) = {
+    let (wireless_mode, ble_device_name, ble_enabled) = {
         let cfg = app_config.lock().unwrap();
-        (cfg.wireless_mode.clone(), cfg.ble_enabled)
+        (cfg.wireless_mode.clone(), cfg.ble_device_name.clone(), cfg.ble_enabled)
     };
 
-    // 4 & 5. Initialize WiFi & Web Server (unless wireless_mode is 'ble_only')
+    // 4. Initialize Bluetooth BLE 5.0 NimBLE subsystem & RF Coexistence FIRST (<50ms startup!)
+    // Guarantees BLE is immediately advertising without waiting for Wi-Fi router outdoors
+    println!("[INIT] Starting Native Bluetooth Low Energy (BLE 5.0 NimBLE) stack first...");
+    crate::ble::BleManager::global().init(
+        &wireless_mode,
+        &ble_device_name,
+        ble_enabled,
+        Some(config_mgr.clone()),
+        Some(app_config.clone()),
+    );
+
+    // 5. Initialize WiFi & Web Server (unless wireless_mode is 'ble_only')
     let (ip_addr, is_ap, ap_name, _web_server) = if wireless_mode == "ble_only" {
         println!("[WIFI] Wireless mode is 'ble_only': WiFi subsystem skipped to maximize BLE stability & battery.");
         ("0.0.0.0".to_string(), false, "EPD-Display-Setup".to_string(), None)
@@ -107,8 +118,8 @@ fn main() -> anyhow::Result<()> {
                         ("192.168.4.1".to_string(), true, ap_ssid.clone())
                     }
                     Err(e) => {
-                        println!("[WIFI] Startup failed: {:?}. Fallback to AP mode.", e);
-                        ("192.168.4.1".to_string(), true, "EPD-Display-Setup".to_string())
+                        println!("[WIFI] Station not reachable: {:?}. Wi-Fi quiet, BLE active.", e);
+                        ("0.0.0.0".to_string(), false, "".to_string())
                     }
                 };
                 // Leak wifi_mgr to guarantee Wi-Fi driver & captive DNS never drop/stop!
@@ -121,49 +132,29 @@ fn main() -> anyhow::Result<()> {
             }
         };
 
-
-        println!("[INIT] Starting Embedded Web Server & REST API on port 80 (IP: {})...", ip);
-        let srv = match WebServer::start(config_mgr.clone(), app_config.clone(), ip.clone(), ap) {
-            Ok(s) => {
-                println!("[HTTP] Web Server successfully running on port 80!");
-                Some(s)
+        let srv = if ip != "0.0.0.0" {
+            println!("[INIT] Starting Embedded Web Server & REST API on port 80 (IP: {})...", ip);
+            match WebServer::start(config_mgr.clone(), app_config.clone(), ip.clone(), ap) {
+                Ok(s) => {
+                    println!("[HTTP] Web Server successfully running on port 80!");
+                    Some(s)
+                }
+                Err(e) => {
+                    println!("[HTTP] WARNING: WebServer failed: {:?}. Continuing...", e);
+                    None
+                }
             }
-            Err(e) => {
-                println!("[HTTP] WARNING: WebServer failed: {:?}. Continuing...", e);
-                None
-            }
+        } else {
+            None
         };
-        // Skip dedicated mDNS thread to conserve 5.5KB SRAM for Wi-Fi and BLE coexistence
-        // Users navigate directly via http://<ip_addr>/ or PWA
-        /*
-        if !ap && ip != "0.0.0.0" {
-            if let Ok(ipv4) = ip.parse::<std::net::Ipv4Addr>() {
-                crate::wifi::mdns::start_mdns("epd-display", ipv4);
-            }
-        }
-        */
 
         (ip, ap, ap_ssid, srv)
     };
 
-    // 4b. Initialize Bluetooth BLE 5.0 NimBLE subsystem & RF Coexistence (ALWAYS initialized)
-    {
-        let (w_mode, b_name, b_enabled) = {
-            let cfg = app_config.lock().unwrap();
-            (cfg.wireless_mode.clone(), cfg.ble_device_name.clone(), cfg.ble_enabled)
-        };
-        crate::ble::BleManager::global().init(
-            &w_mode,
-            &b_name,
-            b_enabled,
-            Some(config_mgr.clone()),
-            Some(app_config.clone()),
-        );
-        crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
-        if !is_ap && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
-            crate::ble::BleManager::global().on_wifi_configured();
-            crate::ntp::init_sntp();
-        }
+    crate::ble::BleManager::global().set_ip_info(&ip_addr, is_ap);
+    if !is_ap && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
+        crate::ble::BleManager::global().on_wifi_configured();
+        crate::ntp::init_sntp();
     }
 
     // 6. Start MQTT client (in Station mode only, and not in ble_only mode)

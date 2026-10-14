@@ -162,6 +162,10 @@ pub enum DisplayCommand {
     ShowWifiDemo { ip: String, ssid: String },
     /// Render PWA studio guidance screen after BLE connection
     ShowPwaGuide { client_name: String, client_mac: String },
+    /// Render dynamic PIN pairing screen with 6-digit code
+    ShowPinScreen { pin: String },
+    /// Render pairing success screen with client name
+    ShowPairingSuccess { device_name: String },
 }
 
 static DISPLAY_SENDER: Mutex<Option<SyncSender<DisplayCommand>>> = Mutex::new(None);
@@ -237,6 +241,26 @@ pub fn request_pwa_guide(client_name: String, client_mac: String) -> bool {
     if let Ok(guard) = DISPLAY_SENDER.lock() {
         if let Some(ref tx) = *guard {
             return tx.try_send(DisplayCommand::ShowPwaGuide { client_name, client_mac }).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to render the dynamic PIN pairing screen (non-blocking).
+pub fn request_pin_screen(pin: String) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ShowPinScreen { pin }).is_ok();
+        }
+    }
+    false
+}
+
+/// Submits a request to render the pairing success screen (non-blocking).
+pub fn request_pairing_success(device_name: String) -> bool {
+    if let Ok(guard) = DISPLAY_SENDER.lock() {
+        if let Some(ref tx) = *guard {
+            return tx.try_send(DisplayCommand::ShowPairingSuccess { device_name }).is_ok();
         }
     }
     false
@@ -438,6 +462,16 @@ pub fn run_display_loop(
                     DisplayCommand::ShowPwaGuide { client_name, client_mac } => {
                         println!("  [epd-worker] Command: ShowPwaGuide (BLE client connected: {} [{}])", client_name, client_mac);
                         crate::modes::provisioning::render_pwa_connected_screen(&mut fb, &client_name, &client_mac);
+                        true
+                    }
+                    DisplayCommand::ShowPinScreen { pin } => {
+                        println!("  [epd-worker] Command: ShowPinScreen (6-digit PIN: {})", pin);
+                        crate::modes::provisioning::render_pin_pairing_screen(&mut fb, &pin);
+                        true
+                    }
+                    DisplayCommand::ShowPairingSuccess { device_name } => {
+                        println!("  [epd-worker] Command: ShowPairingSuccess (Client: {})", device_name);
+                        crate::modes::provisioning::render_pairing_success_screen(&mut fb, &device_name);
                         true
                     }
                 };

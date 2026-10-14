@@ -12,7 +12,7 @@ fn default_true() -> bool {
 }
 
 fn default_wireless_mode() -> String {
-    "auto".to_string()
+    "dual".to_string()
 }
 
 fn default_ble_device_name() -> String {
@@ -21,6 +21,28 @@ fn default_ble_device_name() -> String {
 
 fn default_panel_version() -> String {
     "A0".to_string()
+}
+
+/// Generates a 16-byte cryptographically random hex string via ESP32 hardware TRNG
+pub fn generate_random_16b_hex() -> String {
+    unsafe {
+        let r1 = esp_idf_svc::sys::esp_random();
+        let r2 = esp_idf_svc::sys::esp_random();
+        let r3 = esp_idf_svc::sys::esp_random();
+        let r4 = esp_idf_svc::sys::esp_random();
+        format!("{:08x}{:08x}{:08x}{:08x}", r1, r2, r3, r4)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PairedClient {
+    pub device_id: String,     // Unique client ID (e.g. "dev_3e8f1a0b")
+    pub device_name: String,   // Friendly client alias (e.g. "主力机三星 Fold7", "备用机红米", "我的 GPD 掌机")
+    pub auth_token: String,    // Client-specific session authentication token
+    #[serde(default)]
+    pub paired_at: u64,        // Unix pairing timestamp
+    #[serde(default)]
+    pub last_seen: u64,        // Last active communication timestamp
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,6 +86,47 @@ pub struct AppConfig {
     pub fridge_author: String,
     #[serde(default)]
     pub memo_text: String,
+    #[serde(default)]
+    pub master_key: String,
+    #[serde(default = "default_true")]
+    pub pin_pairing_enabled: bool,
+    #[serde(default)]
+    pub trusted_devices: Vec<PairedClient>,
+}
+
+impl AppConfig {
+    pub fn add_or_update_trusted_device(&mut self, client: PairedClient) {
+        if let Some(pos) = self.trusted_devices.iter().position(|d| d.device_id == client.device_id) {
+            self.trusted_devices[pos] = client;
+        } else {
+            self.trusted_devices.push(client);
+        }
+    }
+
+    pub fn remove_trusted_device(&mut self, device_id: &str) -> bool {
+        let prev_len = self.trusted_devices.len();
+        self.trusted_devices.retain(|d| d.device_id != device_id);
+        self.trusted_devices.len() < prev_len
+    }
+
+    pub fn rename_trusted_device(&mut self, device_id: &str, new_name: &str) -> bool {
+        if let Some(dev) = self.trusted_devices.iter_mut().find(|d| d.device_id == device_id) {
+            dev.device_name = new_name.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn verify_trusted_device(&mut self, device_id: &str, token: &str) -> Option<String> {
+        let now = unsafe { esp_idf_sys::esp_timer_get_time() / 1_000_000 } as u64;
+        if let Some(dev) = self.trusted_devices.iter_mut().find(|d| d.device_id == device_id && d.auth_token == token) {
+            dev.last_seen = now;
+            Some(dev.device_name.clone())
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for AppConfig {
@@ -77,7 +140,7 @@ impl Default for AppConfig {
             mqtt_user: String::new(),
             mqtt_pass: String::new(),
             screen_debug: false,
-            wireless_mode: "auto".to_string(),
+            wireless_mode: "dual".to_string(),
             ble_enabled: true,
             ble_device_name: "EPD-Smart-Display".to_string(),
             panel_version: "A0".to_string(),
@@ -94,6 +157,9 @@ impl Default for AppConfig {
             last_screen_crc: 0,
             custom_layout_json: String::new(),
             mode_params_json: String::new(),
+            master_key: String::new(),
+            pin_pairing_enabled: true,
+            trusted_devices: Vec::new(),
         }
     }
 }
@@ -110,7 +176,7 @@ impl ConfigManager {
 
     /// Check whether a persistent configuration exists in NVS (e.g. Wi-Fi configured or BLE-only set).
     pub fn is_configured(&self) -> bool {
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 4096];
         match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => {
                 if let Ok(cfg) = serde_json::from_slice::<AppConfig>(slice) {
@@ -124,14 +190,15 @@ impl ConfigManager {
     }
 
     /// Load config from NVS, or fallback to default if not yet provisioned.
-    pub fn load(&self) -> AppConfig {
-        let mut buf = [0u8; 1024];
+    /// Automatically ensures master_key is lazily generated via TRNG on boot if empty.
+    pub fn load(&mut self) -> AppConfig {
+        let mut buf = [0u8; 4096];
         let mut cfg = match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => match serde_json::from_slice::<AppConfig>(slice) {
                 Ok(mut c) => {
                     info!("[CONFIG] Configuration loaded successfully from NVS.");
                     if c.wireless_mode.is_empty() {
-                        c.wireless_mode = "auto".to_string();
+                        c.wireless_mode = "dual".to_string();
                     }
                     if c.ble_device_name.is_empty() {
                         c.ble_device_name = "EPD-Smart-Display".to_string();
@@ -153,6 +220,13 @@ impl ConfigManager {
             },
             _ => AppConfig::default(),
         };
+
+        // Lazy generation of 16-byte master key if not already present in NVS
+        if cfg.master_key.trim().is_empty() {
+            cfg.master_key = generate_random_16b_hex();
+            info!("[CONFIG] Generated new 16-byte hardware master key for NFC/claim.");
+            let _ = self.save(&cfg);
+        }
 
         // Load screen CRC from dedicated hardware u32 entry (0 heap allocations)
         if let Ok(Some(crc)) = self.nvs.get_u32("last_crc") {

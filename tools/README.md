@@ -1,6 +1,6 @@
 # 🌐 开放式 HTTP 2bpp 点阵推送 API & Python 工具库
 
-本项目固件内置了极简、开放且零单片机负担的 **RESTful HTTP 原始位图裸推接口**。任何局域网客户端（**Python 脚本、Home Assistant 智能家居、iOS 快捷指令、cURL、Node-RED、树莓派、Linux 服务器**）均可直接向墨水屏推送 105KB 2bpp 高保真四色点阵。
+本项目固件内置了极简、开放且零单片机负担的 **RESTful HTTP 原始位图裸推接口**。任何局域网客户端（**Python 脚本、Home Assistant 智能家居、Android Automate/Tasker、cURL、Node-RED、树莓派、我的台式机、我的 GPD 掌机、Linux 服务器**）均可直接向墨水屏推送 105KB 2bpp 高保真四色点阵。
 
 ---
 

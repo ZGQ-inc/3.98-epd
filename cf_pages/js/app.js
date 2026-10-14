@@ -25,6 +25,29 @@ const App = {
 
   init() {
     console.log('[App] Initializing application orchestrator...');
+
+    // Extract NFC Master Key claim from URL hash: #key=<32-char-hex>
+    try {
+      const hash = window.location.hash || '';
+      if (hash && hash.includes('key=')) {
+        const match = hash.match(/key=([a-fA-F0-9]{32})/i);
+        if (match) {
+          const nfcKey = match[1].toLowerCase();
+          localStorage.setItem('epd_nfc_key', nfcKey);
+          console.log('[NFC] Extracted NFC Master Key from URL hash:', nfcKey);
+          // Clean hash without reload to avoid bookmarking or leaking
+          history.replaceState(null, document.title, window.location.pathname + window.location.search);
+          setTimeout(() => {
+            if (typeof UI !== 'undefined' && UI.showToast) {
+              UI.showToast('🏷️ 已读取 NFC 电子钥匙！连接墨水屏蓝牙将自动免 PIN 认证绑定。', 'success', 6000);
+            }
+          }, 600);
+        }
+      }
+    } catch(e) {
+      console.warn('[NFC] Failed parsing URL hash:', e);
+    }
+
     UI.init();
     DeviceManager.init();
     PresetHub.init();
