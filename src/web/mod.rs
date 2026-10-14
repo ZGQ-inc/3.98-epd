@@ -29,7 +29,7 @@ impl WebServer {
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
-            session_timeout: std::time::Duration::from_secs(5),
+            session_timeout: std::time::Duration::from_secs(10),
             ..Default::default()
         };
 
@@ -70,8 +70,9 @@ impl WebServer {
 
         // 1. Root '/' handler:
         // In AP mode -> serves Captive Portal
-        // In Station mode -> serves full Material Web Console & Layout Studio!
+        // In Station mode -> 302 Redirect to HTTPS PWA Console with device IP (instant, 0 RAM overhead)
         println!("  [web] Registering root handler '/' (is_ap: {})...", is_ap_mode);
+        let ip_redirect_root = ip_addr.clone();
         server.fn_handler("/", Method::Get, move |req| -> anyhow::Result<()> {
             if is_ap_mode {
                 let len_str = CAPTIVE_HTML.len().to_string();
@@ -85,39 +86,45 @@ impl WebServer {
                 return Ok(());
             }
 
-            println!("  [web] Serving / (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
-            let len_str = INDEX_HTML_GZ.len().to_string();
-            let mut resp = req.into_response(200, None, &[
+            let pwa_url = if !ip_redirect_root.is_empty() && ip_redirect_root != "0.0.0.0" {
+                format!("https://398epd.zgqinc.gq/?ip={}", ip_redirect_root)
+            } else {
+                "https://398epd.zgqinc.gq/".to_string()
+            };
+            println!("  [web] Serving / -> 302 Redirect to {}", pwa_url);
+            let body = format!(
+                r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD Console</title></head><body>正在跳转至设备控制台：<a href="{pwa_url}">{pwa_url}</a>...<br><small><a href="/local">打开板载本地控制台</a></small></body></html>"#
+            );
+            let len_str = body.len().to_string();
+            let mut resp = req.into_response(302, None, &[
+                ("Location", &pwa_url),
                 ("Content-Type", "text/html; charset=utf-8"),
-                ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, must-revalidate"),
-                ("ETag", "\"398epd-v3.1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
-                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-            }
-            println!("  [web] Serving / SUCCESS ({} bytes sent in chunks)", INDEX_HTML_GZ.len());
+            resp.write_all(body.as_bytes())?;
             Ok(())
         })?;
 
-        // 1b. Direct '/app' route to console
-        server.fn_handler("/app", Method::Get, |_req| -> anyhow::Result<()> {
-            println!("  [web] Serving /app (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
-            let len_str = INDEX_HTML_GZ.len().to_string();
-            let mut resp = _req.into_response(200, None, &[
+        // 1b. Direct '/app' route -> 302 Redirect to PWA
+        let ip_redirect_app = ip_addr.clone();
+        server.fn_handler("/app", Method::Get, move |_req| -> anyhow::Result<()> {
+            let pwa_url = if !ip_redirect_app.is_empty() && ip_redirect_app != "0.0.0.0" {
+                format!("https://398epd.zgqinc.gq/?ip={}", ip_redirect_app)
+            } else {
+                "https://398epd.zgqinc.gq/".to_string()
+            };
+            let body = format!(
+                r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD Console</title></head><body>正在跳转至设备控制台：<a href="{pwa_url}">{pwa_url}</a>...</body></html>"#
+            );
+            let len_str = body.len().to_string();
+            let mut resp = _req.into_response(302, None, &[
+                ("Location", &pwa_url),
                 ("Content-Type", "text/html; charset=utf-8"),
-                ("Content-Encoding", "gzip"),
                 ("Content-Length", &len_str),
                 ("Connection", "close"),
-                ("Cache-Control", "no-cache, must-revalidate"),
-                ("ETag", "\"398epd-v3.1\""),
             ])?;
-            for chunk in INDEX_HTML_GZ.chunks(1024) {
-                resp.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
-            }
-            println!("  [web] Serving /app SUCCESS ({} bytes sent in chunks)", INDEX_HTML_GZ.len());
+            resp.write_all(body.as_bytes())?;
             Ok(())
         })?;
 
@@ -145,6 +152,22 @@ impl WebServer {
                 Ok(())
             })?;
         }
+
+        // 1c2. Explicit raw offline '/local' route (for offline standalone usage)
+        server.fn_handler("/local", Method::Get, |_req| -> anyhow::Result<()> {
+            println!("  [web] Serving /local (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
+            let len_str = INDEX_HTML_GZ.len().to_string();
+            let mut resp = _req.into_response(200, None, &[
+                ("Content-Type", "text/html; charset=utf-8"),
+                ("Content-Encoding", "gzip"),
+                ("Content-Length", &len_str),
+                ("Connection", "close"),
+                ("Cache-Control", "no-cache, must-revalidate"),
+                ("ETag", "\"398epd-v3.1\""),
+            ])?;
+            resp.write_all(INDEX_HTML_GZ)?;
+            Ok(())
+        })?;
 
         // 1d. PWA Web App Manifest
         server.fn_handler("/manifest.json", Method::Get, |_req| -> anyhow::Result<()> {

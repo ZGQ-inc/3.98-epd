@@ -654,7 +654,7 @@ const DeviceManager = {
     try {
       const url = `http://${this.lanIp}/api/system/status`;
       const fetchOpts = {
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(10000),
         headers: { 'Accept': 'application/json' }
       };
       const res = await fetch(url, fetchOpts);
@@ -1701,7 +1701,7 @@ const DeviceManager = {
         });
       });
     } else if (this.isLanConnected && this.lanIp) {
-      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       data.ble_mtu = 247;
@@ -1709,7 +1709,7 @@ const DeviceManager = {
       data.ble_phy = 'BLE 5.0 PHY (1Mbps / 2Mbps), +9 dBm TX Power';
       return data;
     } else if (this.lanIp) {
-      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`http://${this.lanIp}/api/system/status`, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data = await res.json();
       data.ble_mtu = 247;
@@ -1727,7 +1727,7 @@ const DeviceManager = {
         const timeout = setTimeout(() => {
           this._onSysConfigResolver = null;
           resolve({ wifi_ssid: '', mqtt_broker: '', mqtt_port: 1883, mqtt_user: '', screen_debug: false });
-        }, 4000);
+        }, 10000);
         this._onSysConfigResolver = (cfg) => {
           clearTimeout(timeout);
           resolve({
@@ -1745,7 +1745,7 @@ const DeviceManager = {
         });
       });
     } else if (this.lanIp) {
-      const res = await fetch(`http://${this.lanIp}/api/config`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`http://${this.lanIp}/api/config`, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       return await res.json();
     }
