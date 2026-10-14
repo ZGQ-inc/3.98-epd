@@ -24,7 +24,7 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 8192,
+            stack_size: 6144,
             max_open_sockets: 4,
             max_uri_handlers: 64,
             uri_match_wildcard: true,

@@ -342,8 +342,13 @@ const DeviceManager = {
                 }
                 if (UI.showToast) UI.showToast(`✅ 欢迎回来，${name}！已获得墨水屏控制权限`, 'success', 4000);
               }
-            } else if (text.startsWith('ERROR:UNAUTHORIZED')) {
-              console.warn('[BLE-AUTH] Command rejected or authentication invalid');
+              if (typeof PresetHub !== 'undefined' && PresetHub.syncWithDevice) {
+                PresetHub.syncWithDevice().then(() => {
+                  if (window.App && window.App.renderPresetsUI) window.App.renderPresetsUI();
+                }).catch(() => {});
+              }
+            } else if (text.startsWith('ERROR:AUTH_FAILED')) {
+              console.warn('[BLE-AUTH] Stored credentials rejected by hardware');
               const wasAuthed = this.isBleAuthenticated;
               this.isBleAuthenticated = false;
               if (wasAuthed && typeof UI !== 'undefined' && UI.showToast) {
@@ -351,6 +356,12 @@ const DeviceManager = {
               }
               const badgeKey = this.bleDevice ? (this.bleDevice.id || this.bleDevice.name || 'default') : 'default';
               localStorage.removeItem('epd_auth_' + badgeKey);
+              if (typeof UI !== 'undefined' && UI.openUnauthConfirmModal) {
+                UI.openUnauthConfirmModal();
+              }
+            } else if (text.startsWith('ERROR:UNAUTHORIZED')) {
+              console.warn('[BLE-AUTH] Command blocked: session is not authorized yet');
+              this.isBleAuthenticated = false;
               if (typeof UI !== 'undefined' && UI.openUnauthConfirmModal) {
                 UI.openUnauthConfirmModal();
               }
@@ -391,6 +402,11 @@ const DeviceManager = {
                   }
                   if (UI.showToast) UI.showToast(`🎉 配对成功！已授权「${authRecord.device_name}」控制此墨水屏`, 'success', 5000);
                   if (UI.showPairingSuccessGuide) UI.showPairingSuccessGuide(authRecord);
+                }
+                if (typeof PresetHub !== 'undefined' && PresetHub.syncWithDevice) {
+                  PresetHub.syncWithDevice().then(() => {
+                    if (window.App && window.App.renderPresetsUI) window.App.renderPresetsUI();
+                  }).catch(() => {});
                 }
               } catch (e) {
                 console.error('[BLE-PAIR] Parse PAIR:OK failed:', e);

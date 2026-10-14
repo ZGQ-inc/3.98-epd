@@ -184,9 +184,9 @@ impl<'a> WifiManager<'a> {
         self.wifi.connect()?;
         self.wifi.wait_netif_up()?;
 
-        // Enable light modem power save to ensure Wi-Fi and NimBLE RF coexistence
+        // Disable modem power save to ensure instant network responsiveness and reliable ARP resolution
         unsafe {
-            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_MIN_MODEM);
+            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_NONE);
         };
 
         IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);

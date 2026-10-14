@@ -1263,7 +1263,9 @@ const App = {
       }
 
       if (status.activeTransport !== 'none') {
-        PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
+        if (DeviceManager.isBleAuthenticated || DeviceManager.isLanConnected) {
+          PresetHub.syncWithDevice().then(() => this.renderPresetsUI()).catch(() => {});
+        }
       } else {
         PresetHub._hasRemoteStorageStats = false;
         PresetHub.updateStorageUI();

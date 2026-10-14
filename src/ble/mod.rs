@@ -7,7 +7,7 @@ use log::info;
 use esp32_nimble::{
     BLEDevice, BLECharacteristic, BLEAdvertisementData, NimbleProperties,
     utilities::{BleUuid, mutex::Mutex as NimbleMutex},
-    enums::{PowerType, PowerLevel, AuthReq, SecurityIOCap},
+    enums::{PowerType, PowerLevel, AuthReq, SecurityIOCap, OwnAddrType},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,19 +131,33 @@ impl BleManager {
         device.set_power(PowerType::Default, PowerLevel::P9).ok();
         BLEDevice::set_device_name(name).ok();
 
-        // Configure BLE Security: Use open JustWorks pairing without requiring Bond
-        // Crucial for Web Bluetooth on Windows/Android/Chrome to avoid "GATT Server is disconnected" rejection!
+        // Configure static random address to ensure clean host OS GATT discovery
+        let mut base_mac = [0u8; 6];
+        unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(base_mac.as_mut_ptr()) };
+        let rnd_mac = [
+            0xFA,
+            base_mac[1],
+            base_mac[2],
+            base_mac[3],
+            base_mac[4],
+            base_mac[5] ^ 0x33,
+        ];
+        device.set_rnd_addr(rnd_mac).ok();
+        device.set_own_addr_type(OwnAddrType::Random);
+
+        // Configure BLE Security for seamless pairing (supporting both Legacy & Secure Connections)
         device.security()
-            .set_auth(AuthReq::empty())
-            .set_io_cap(SecurityIOCap::NoInputNoOutput);
+            .set_auth(AuthReq::Bond | AuthReq::Sc)
+            .set_io_cap(SecurityIOCap::NoInputNoOutput)
+            .resolve_rpa();
 
         let server = device.get_server();
-        server.on_connect(|server, desc| {
+        server.on_confirm_pin(|_pin| true);
+        server.on_passkey_request(|| 0);
+        server.on_connect(|_server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
-            // Crucial: Negotiate fast & stable connection parameters for Windows/WebBLE (interval: 30~60ms, timeout: 600ms)
-            server.update_conn_params(desc.conn_handle(), 24, 48, 0, 60).ok();
             let ble = BleManager::global();
             ble.is_authorized.store(false, Ordering::SeqCst);
             *ble.active_pin.lock().unwrap() = None;
@@ -230,7 +244,7 @@ impl BleManager {
                         } else {
                             ble_self.is_authorized.store(false, Ordering::SeqCst);
                             println!("  [ble-rx] Authentication rejected: device not in whitelist or token mismatch.");
-                            ble_self.notify_str("ERROR:UNAUTHORIZED");
+                            ble_self.notify_str("ERROR:AUTH_FAILED");
                         }
                     } else if text == "PAIR:REQUEST" {
                         let pin_enabled = ble_self.app_config.lock().unwrap().as_ref()
@@ -368,6 +382,25 @@ impl BleManager {
                             crate::power::PowerManager::is_low_battery(), panel_ver
                         );
                         ble_self.notify_str(&diag_json);
+                    } else if text == "preset:list" || text == "get_presets" {
+                        let list = crate::storage::list_presets();
+                        let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
+                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
+                        });
+                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
+                            let header = format!("PRESETS_START:{}:{}:{}:{}", list.presets.len(), stats.used_bytes, stats.free_bytes, stats.total_bytes);
+                            tx.lock().set_value(header.as_bytes());
+                            tx.lock().notify();
+                            for p in &list.presets {
+                                std::thread::sleep(std::time::Duration::from_millis(15));
+                                let item = format!("PRESET_ITEM:{}|{}|{}|{}|{}", p.id, p.preset_type, p.size_bytes, p.created_at, p.name);
+                                tx.lock().set_value(item.as_bytes());
+                                tx.lock().notify();
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(15));
+                            tx.lock().set_value(b"PRESETS_END");
+                            tx.lock().notify();
+                        }
                     } else if !ble_self.is_authorized.load(Ordering::SeqCst) {
                         println!("  [ble-rx] Command '{}' rejected: session is unauthorized.", text);
                         ble_self.notify_str("ERROR:UNAUTHORIZED");
@@ -682,25 +715,6 @@ impl BleManager {
                         }
                         let resp = if ok { "SYS_CONFIG:SAVED" } else { "ERROR:CONFIG_SAVE_FAILED" };
                         ble_self.notify_str(resp);
-                    } else if text == "preset:list" || text == "get_presets" {
-                        let list = crate::storage::list_presets();
-                        let stats = crate::storage::get_storage_stats().unwrap_or(crate::storage::StorageStats {
-                            total_bytes: 1528841, used_bytes: 0, free_bytes: 1528841
-                        });
-                        if let Some(ref tx) = *BleManager::global().tx_char.lock().unwrap() {
-                            let header = format!("PRESETS_START:{}:{}:{}:{}", list.presets.len(), stats.used_bytes, stats.free_bytes, stats.total_bytes);
-                            tx.lock().set_value(header.as_bytes());
-                            tx.lock().notify();
-                            for p in &list.presets {
-                                std::thread::sleep(std::time::Duration::from_millis(15));
-                                let item = format!("PRESET_ITEM:{}|{}|{}|{}|{}", p.id, p.preset_type, p.size_bytes, p.created_at, p.name);
-                                tx.lock().set_value(item.as_bytes());
-                                tx.lock().notify();
-                            }
-                            std::thread::sleep(std::time::Duration::from_millis(15));
-                            tx.lock().set_value(b"PRESETS_END");
-                            tx.lock().notify();
-                        }
                     } else if text.starts_with("preset:delete:") {
                         let id = text[14..].trim();
                         let _ = crate::storage::delete_presets(&[id.to_string()]);
