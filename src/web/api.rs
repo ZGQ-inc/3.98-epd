@@ -24,6 +24,7 @@ pub struct SystemStatusResponse {
     pub storage_free_bytes: usize,
     pub nvs_size: usize,
     pub nvs_used_bytes: usize,
+    pub nvs_free_bytes: usize,
     // Chip details
     pub chip_model: &'static str,
     pub cpu_freq_mhz: u32,

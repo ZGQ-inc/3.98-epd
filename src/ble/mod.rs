@@ -131,7 +131,7 @@ impl BleManager {
         device.set_power(PowerType::Default, PowerLevel::P9).ok();
         BLEDevice::set_device_name(name).ok();
 
-        // Configure static random address to ensure clean host OS GATT discovery
+        // Configure clean Static Random address to bypass stale Windows/Host OS bonding cache
         let mut base_mac = [0u8; 6];
         unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(base_mac.as_mut_ptr()) };
         let rnd_mac = [
@@ -145,19 +145,19 @@ impl BleManager {
         device.set_rnd_addr(rnd_mac).ok();
         device.set_own_addr_type(OwnAddrType::Random);
 
-        // Configure BLE Security for seamless pairing (supporting both Legacy & Secure Connections)
+        // Configure BLE Security: Use open JustWorks pairing without requiring Bond
+        // Crucial for Web Bluetooth on Windows/Android/Chrome to avoid "GATT Server is disconnected" rejection!
         device.security()
-            .set_auth(AuthReq::Bond | AuthReq::Sc)
-            .set_io_cap(SecurityIOCap::NoInputNoOutput)
-            .resolve_rpa();
+            .set_auth(AuthReq::empty())
+            .set_io_cap(SecurityIOCap::NoInputNoOutput);
 
         let server = device.get_server();
-        server.on_confirm_pin(|_pin| true);
-        server.on_passkey_request(|| 0);
-        server.on_connect(|_server, desc| {
+        server.on_connect(|server, desc| {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
+            // Crucial: Negotiate fast & stable connection parameters for Windows/WebBLE (interval: 30~60ms, timeout: 600ms)
+            server.update_conn_params(desc.conn_handle(), 24, 48, 0, 60).ok();
             let ble = BleManager::global();
             ble.is_authorized.store(false, Ordering::SeqCst);
             *ble.active_pin.lock().unwrap() = None;

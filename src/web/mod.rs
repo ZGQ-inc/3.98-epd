@@ -24,12 +24,12 @@ impl WebServer {
     ) -> anyhow::Result<Self> {
         println!("  [web] Creating EspHttpServer on port 80...");
         let server_cfg = Configuration {
-            stack_size: 6144,
-            max_open_sockets: 4,
+            stack_size: 5120,
+            max_open_sockets: 2,
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
-            session_timeout: std::time::Duration::from_secs(5),
+            session_timeout: std::time::Duration::from_secs(3),
             so_linger: Some(std::time::Duration::from_secs(0)),
             ..Default::default()
         };
@@ -198,7 +198,7 @@ impl WebServer {
                     ("Connection", "close"),
                     ("Cache-Control", "no-cache, no-store, must-revalidate"),
                 ])?;
-                resp.write_all(CAPTIVE_HTML)?;
+                stream_bytes_chunked(&mut resp, CAPTIVE_HTML)?;
                 Ok(())
             })?;
         }
@@ -245,6 +245,9 @@ impl WebServer {
 
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json"),
+                ("Content-Length", "18"),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(b"{\"status\":\"saved\"}")?;
@@ -254,8 +257,12 @@ impl WebServer {
         // 4. POST /api/wifi/scan
         server.fn_handler("/api/wifi/scan", Method::Post, |req| -> anyhow::Result<()> {
             let json = serde_json::json!([]).to_string();
+            let len_str = json.len().to_string();
             let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "application/json"),
+                ("Content-Length", &len_str),
+                ("Access-Control-Allow-Origin", "*"),
+                ("Access-Control-Allow-Private-Network", "true"),
                 ("Connection", "close"),
             ])?;
             resp.write_all(json.as_bytes())?;
@@ -276,6 +283,7 @@ impl WebServer {
                 used_bytes: 0,
                 free_bytes: 1632 * 1024,
             });
+            let nvs_stats = crate::config::get_nvs_partition_stats();
 
             let status = SystemStatusResponse {
                 free_heap,
@@ -295,14 +303,9 @@ impl WebServer {
                 factory_used_bytes: 1450 * 1024,
                 storage_partition_size: storage_stats.total_bytes,
                 storage_free_bytes: storage_stats.free_bytes,
-                nvs_size: {
-                    let (tot, _, _) = crate::config::get_nvs_partition_stats();
-                    tot
-                },
-                nvs_used_bytes: {
-                    let (_, used, _) = crate::config::get_nvs_partition_stats();
-                    used
-                },
+                nvs_size: nvs_stats.0,
+                nvs_used_bytes: nvs_stats.1,
+                nvs_free_bytes: nvs_stats.2,
                 chip_model: "ESP32-C3 RISC-V 32-bit (rev v0.4)",
                 cpu_freq_mhz: 160,
                 mac_address: {
@@ -484,22 +487,11 @@ impl WebServer {
                         "status": "ok",
                         "message": format!("显示模式已切换为【{}】，正在向墨水屏刷新...", m)
                     }))?;
-                    let mut resp = req.into_response(200, None, &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Access-Control-Allow-Origin", "*"),
-                        ("Connection", "close"),
-                    ])?;
-                    resp.write_all(&json)?;
-                    return Ok(());
+                    return respond_json(req, 200, &json);
                 }
             }
             let json = serde_json::to_vec(&ApiResponse::err("请指定合法的 mode 字符串"))?;
-            let mut resp = req.into_response(400, None, &[
-                ("Content-Type", "application/json"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 400, &json)
         })?;
 
         // 8. POST /api/layout — Fabric.js Canvas Custom Drag & Drop JSON
@@ -517,13 +509,7 @@ impl WebServer {
                 "status": if ok { "ok" } else { "busy" },
                 "message": resp_msg
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 9. POST /api/display/refresh — Immediate full physical waveform refresh
@@ -539,13 +525,7 @@ impl WebServer {
                 "status": if ok { "ok" } else { "busy" },
                 "message": resp_msg
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 9b. POST /api/display/clear — Clear display to 100% pure white
@@ -561,13 +541,7 @@ impl WebServer {
                 "status": if ok { "ok" } else { "busy" },
                 "message": resp_msg
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 9c. POST /api/display/clear_yellow — Clear display to 100% pure yellow
@@ -583,13 +557,7 @@ impl WebServer {
                 "status": if ok { "ok" } else { "busy" },
                 "message": resp_msg
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 10. POST /api/config — Save network and MQTT parameters
@@ -667,19 +635,9 @@ impl WebServer {
                     "status": "ok",
                     "message": msg
                 }))?;
-                let mut resp = req.into_response(200, None, &[
-                    ("Content-Type", "application/json; charset=utf-8"),
-                    ("Connection", "close"),
-                ])?;
-                resp.write_all(&json)?;
-                return Ok(());
+                return respond_json(req, 200, &json);
             }
-            let mut resp = req.into_response(400, None, &[
-                ("Content-Type", "application/json"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(b"{\"status\":\"error\",\"message\":\"Invalid JSON\"}")?;
-            Ok(())
+            respond_json(req, 400, b"{\"status\":\"error\",\"message\":\"Invalid JSON\"}")
         })?;
 
         // 10b. POST /api/system/debug — Toggle screen debug overlay
@@ -710,14 +668,7 @@ impl WebServer {
                 "screen_debug": new_state,
                 "message": if new_state { "屏显 Debug 叠加条已开启，正在刷新墨水屏..." } else { "屏显 Debug 叠加条已关闭，正在刷新墨水屏..." }
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Access-Control-Allow-Private-Network", "true"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 10c. POST /api/system/panel — Set or toggle screen hardware version (A0 / A1)
@@ -745,14 +696,7 @@ impl WebServer {
                 "panel_version": new_ver,
                 "message": format!("墨水屏硬件规格已切换为 {}，正在执行物理全刷新...", new_ver)
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Access-Control-Allow-Private-Network", "true"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 11. POST /api/system/reboot
@@ -762,12 +706,7 @@ impl WebServer {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 unsafe { esp_idf_sys::esp_restart() };
             });
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(b"{\"status\":\"ok\",\"message\":\"Device rebooting...\"}")?;
-            Ok(())
+            respond_json(req, 200, b"{\"status\":\"ok\",\"message\":\"Device rebooting...\"}")
         })?;
 
         // 11b. POST /api/display/test_battery_low — Trigger Low Battery Warning Overlay
@@ -779,12 +718,7 @@ impl WebServer {
                 "status": "ok",
                 "message": "低电量欠压告警卡片已触发并在屏幕中心叠加刷新！"
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 11c. POST /api/wireless/mode — Wireless coexistence mode switch (auto, wifi_only, ble_only, dual)
@@ -802,13 +736,7 @@ impl WebServer {
                                 "status": "error",
                                 "message": "⚠️ 墨水屏当前尚未配置任何可用 Wi-Fi 路由器的 SSID！若此时切换为仅 Wi-Fi 并关闭蓝牙，设备将无法联网且无法蓝牙直连，导致彻底失联！请先在【Wi-Fi 配网】中保存可用 Wi-Fi 后再试。"
                             }))?;
-                            let mut resp = req.into_response(400, None, &[
-                                ("Content-Type", "application/json; charset=utf-8"),
-                                ("Access-Control-Allow-Origin", "*"),
-                                ("Connection", "close"),
-                            ])?;
-                            resp.write_all(&json)?;
-                            return Ok(());
+                            return respond_json(req, 400, &json);
                         }
                     }
                     {
@@ -833,13 +761,6 @@ impl WebServer {
                         "mode": m,
                         "message": format!("无线通信模式已设置为【{}】", mode_cn)
                     }))?;
-                    let mut resp = req.into_response(200, None, &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Access-Control-Allow-Origin", "*"),
-                        ("Access-Control-Allow-Private-Network", "true"),
-                        ("Connection", "close"),
-                    ])?;
-                    resp.write_all(&json)?;
 
                     if m == "wifi_only" || m == "ble_only" {
                         let m_str = m.to_string();
@@ -849,15 +770,10 @@ impl WebServer {
                             unsafe { esp_idf_sys::esp_restart() };
                         });
                     }
-                    return Ok(());
+                    return respond_json(req, 200, &json);
                 }
             }
-            let mut resp = req.into_response(400, None, &[
-                ("Content-Type", "application/json"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(b"{\"status\":\"error\",\"message\":\"Missing mode string\"}")?;
-            Ok(())
+            respond_json(req, 400, b"{\"status\":\"error\",\"message\":\"Missing mode string\"}")
         })?;
 
         // 11d. POST /api/ble/toggle — Manual Bluetooth Enable/Disable
@@ -888,14 +804,7 @@ impl WebServer {
                 "ble_status": crate::ble::BleManager::global().get_status_str(),
                 "message": if enabled { "蓝牙广播已开启" } else { "蓝牙广播已关闭" }
             }))?;
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Access-Control-Allow-Private-Network", "true"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(&json)?;
-            Ok(())
+            respond_json(req, 200, &json)
         })?;
 
         // 11e. POST /api/ble/disconnect — Disconnect client device
@@ -909,21 +818,10 @@ impl WebServer {
                         "status": "ok",
                         "message": format!("已断开与客户端【{}】的连接", id)
                     }))?;
-                    let mut resp = req.into_response(200, None, &[
-                        ("Content-Type", "application/json; charset=utf-8"),
-                        ("Access-Control-Allow-Origin", "*"),
-                        ("Connection", "close"),
-                    ])?;
-                    resp.write_all(&json)?;
-                    return Ok(());
+                    return respond_json(req, 200, &json);
                 }
             }
-            let mut resp = req.into_response(400, None, &[
-                ("Content-Type", "application/json"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(b"{\"status\":\"error\",\"message\":\"Missing client id\"}")?;
-            Ok(())
+            respond_json(req, 400, b"{\"status\":\"error\",\"message\":\"Missing client id\"}")
         })?;
         let config_mgr_rst = config_mgr.clone();
         server.fn_handler("/api/system/reset", Method::Post, move |req| -> anyhow::Result<()> {
@@ -935,14 +833,7 @@ impl WebServer {
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 unsafe { esp_idf_sys::esp_restart() };
             });
-            let mut resp = req.into_response(200, None, &[
-                ("Content-Type", "application/json; charset=utf-8"),
-                ("Access-Control-Allow-Origin", "*"),
-                ("Access-Control-Allow-Private-Network", "true"),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(b"{\"status\":\"ok\",\"message\":\"Factory reset complete. Cleared NVS and storage, rebooting into AP mode...\"}")?;
-            Ok(())
+            respond_json(req, 200, b"{\"status\":\"ok\",\"message\":\"Factory reset complete. Cleared NVS and storage, rebooting into AP mode...\"}")
         })?;
 
         // 13. POST /api/display/bitmap, /api/display/raw, /api/push/raw, /api/push — Direct 1:1 Pixel Bitmap HTTP Push (105,984 bytes)
@@ -1522,6 +1413,23 @@ fn stream_bytes_chunked<W: esp_idf_svc::io::Write>(writer: &mut W, data: &[u8]) 
         writer.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
+    Ok(())
+}
+
+fn respond_json(
+    req: esp_idf_svc::http::server::Request<&mut esp_idf_svc::http::server::EspHttpConnection>,
+    status: u16,
+    json: &[u8],
+) -> anyhow::Result<()> {
+    let len_str = json.len().to_string();
+    let mut resp = req.into_response(status, None, &[
+        ("Content-Type", "application/json; charset=utf-8"),
+        ("Content-Length", &len_str),
+        ("Access-Control-Allow-Origin", "*"),
+        ("Access-Control-Allow-Private-Network", "true"),
+        ("Connection", "close"),
+    ])?;
+    resp.write_all(json)?;
     Ok(())
 }
 

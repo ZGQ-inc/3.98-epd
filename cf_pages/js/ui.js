@@ -677,6 +677,19 @@ const UI = {
     const input = document.getElementById('lanModalIpInput') || document.getElementById('customLanIp');
     const currentIp = window.DeviceManager?.lanIp || localStorage.getItem('epd_lan_ip') || '';
     if (input) input.value = currentIp;
+    const notice = document.getElementById('lanHttpsNotice');
+    const directLink = document.getElementById('lanDirectConsoleLink');
+    if (notice) {
+      if (window.location.protocol === 'https:' && currentIp) {
+        notice.style.display = 'block';
+        if (directLink) {
+          directLink.href = `http://${currentIp}/`;
+          directLink.textContent = `http://${currentIp}/`;
+        }
+      } else {
+        notice.style.display = 'none';
+      }
+    }
     this.openModal('lanIpModal');
   },
 
@@ -701,7 +714,7 @@ const UI = {
         }
       } else {
         if (window.location.protocol === 'https:') {
-          this.showToast(`已保存 IP: ${ip} (提示：HTTPS 下浏览器拦截私有局域网 HTTP，请直接新开标签页访问 http://${ip}/ 控制台，或使用蓝牙直连)`, 'warning', 6000);
+          this.showToast(`已保存 IP: ${ip} (提示：HTTPS 下浏览器拦截私有局域网 HTTP，可直接点击顶部「打开控制台」跳转 http://${ip}/，或使用蓝牙直连)`, 'info', 6000);
         } else {
           this.showToast(`已保存 IP: ${ip} (未检测到响应)`, 'warning', 4000);
         }
@@ -717,12 +730,19 @@ const UI = {
     const consoleLink = document.getElementById('lanConsoleLink');
 
     if (statusText) {
-      statusText.textContent = isConn ? `局域网: ${ip}` : (ip ? `局域网: ${ip} (待连接)` : '未连接局域网');
+      if (isConn) {
+        statusText.textContent = `局域网: ${ip}`;
+      } else if (ip) {
+        statusText.textContent = window.location.protocol === 'https:' ? `局域网: ${ip} (板载控制台)` : `局域网: ${ip} (待连接)`;
+      } else {
+        statusText.textContent = '未连接局域网';
+      }
     }
     if (consoleLink) {
-      if (ip && isConn) {
+      if (ip) {
         consoleLink.style.display = 'inline-block';
         consoleLink.href = `http://${ip}/`;
+        consoleLink.title = `在新标签页打开墨水屏板载控制台 (http://${ip}/)`;
       } else {
         consoleLink.style.display = 'none';
       }
@@ -994,8 +1014,10 @@ const UI = {
       }
       if (document.getElementById('diagNvs')) {
         const totalNvs = Math.round((data.nvs_size || 24576) / 1024);
-        const freeNvs = Math.round(((data.nvs_size || 24576) - (data.nvs_used_bytes || 6144)) / 1024);
-        document.getElementById('diagNvs').textContent = `总量 ${totalNvs} KB · 剩余可用约 ${freeNvs} KB`;
+        const freeNvs = data.nvs_free_bytes !== undefined
+          ? (data.nvs_free_bytes / 1024).toFixed(1)
+          : Math.round(((data.nvs_size || 24576) - (data.nvs_used_bytes || 6144)) / 1024);
+        document.getElementById('diagNvs').textContent = `总量 ${totalNvs} KB · 剩余可用约 ${freeNvs} KB (实测)`;
       }
       if (document.getElementById('diagPanel')) {
         document.getElementById('diagPanel').textContent = data.panel_model || 'SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)';

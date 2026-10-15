@@ -952,6 +952,12 @@
         <label class="form-label">墨水屏局域网 IP 地址:</label>
         <input type="text" id="lanModalIpInput" class="m3-input" placeholder="如 192.168.1.100 或 epd-display.local">
       </div>
+      <div id="lanHttpsNotice" style="display:none; margin: 10px 0; padding: 10px 14px; background: rgba(30,147,229,0.08); border-left: 4px solid var(--md-sys-color-primary); border-radius: 6px; font-size: 12px; line-height: 1.6;">
+        ℹ️ <strong>当前处于 HTTPS 安全网页环境：</strong><br>
+        浏览器安全策略（Mixed Content）限制 HTTPS 网页直接发起局域网 HTTP 请求。<br>
+        • <strong>推荐方式 1（极速直接）：</strong>新标签页打开板载控制台 <a id="lanDirectConsoleLink" href="#" target="_blank" style="color:var(--md-sys-color-primary); font-weight:700; text-decoration:underline;">http://&lt;IP&gt;/</a><br>
+        • <strong>推荐方式 2（无缝直推）：</strong>点击顶部「🔍 扫描连接」使用 WebBLE 蓝牙 5.0，支持超低时延直推与控制。
+      </div>
       <div style="margin: 12px 0 6px 0; font-size:12px; font-weight:700; color:var(--md-sys-color-primary);">
         🏠 Home Assistant / MQTT Broker 快捷配置 (可选)
       </div>

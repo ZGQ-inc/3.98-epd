@@ -30,19 +30,18 @@ pub fn is_station_connected() -> bool {
 
 pub fn pause_wifi_for_ble() {
     if !WIFI_PAUSED_BY_BLE.swap(true, Ordering::SeqCst) {
-        println!("[WIFI] Auto Mode: BLE connected! Shutting down Wi-Fi radio to dedicate 100% antenna to BLE...");
+        println!("[WIFI] RF Coexistence: BLE connected, enabling modem sleep to balance antenna...");
         unsafe {
-            let _ = esp_idf_svc::sys::esp_wifi_stop();
+            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_MIN_MODEM);
         }
     }
 }
 
 pub fn resume_wifi_after_ble() {
     if WIFI_PAUSED_BY_BLE.swap(false, Ordering::SeqCst) {
-        println!("[WIFI] Auto Mode: BLE disconnected, resuming Wi-Fi radio scan...");
+        println!("[WIFI] RF Coexistence: BLE disconnected, restoring full Wi-Fi responsiveness...");
         unsafe {
-            let _ = esp_idf_svc::sys::esp_wifi_start();
-            let _ = esp_idf_svc::sys::esp_wifi_connect();
+            let _ = esp_idf_svc::sys::esp_wifi_set_ps(esp_idf_svc::sys::wifi_ps_type_t_WIFI_PS_NONE);
         }
     }
 }
