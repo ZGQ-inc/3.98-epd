@@ -370,6 +370,15 @@ const UI = {
         if (notConnectedAlert) notConnectedAlert.style.display = 'none';
         if (connectedArea) connectedArea.style.display = 'block';
 
+        // Immediately populate cached data so UI never shows blank or loading state
+        const cachedKey = DeviceManager.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '';
+        if (cachedKey) {
+          this.updateNfcKeyUI(cachedKey);
+        }
+        if (DeviceManager.trustedDevices && DeviceManager.trustedDevices.length > 0) {
+          this.renderTrustedDevList(DeviceManager.trustedDevices);
+        }
+
         DeviceManager.getTrustedDevices().then(list => {
           this.renderTrustedDevList(list);
         }).catch(err => {
@@ -443,6 +452,9 @@ const UI = {
     if (next && next.trim() && next.trim() !== currentName) {
       try {
         await DeviceManager.renameTrustedDevice(id, next.trim());
+        const d = (DeviceManager.trustedDevices || []).find(x => x.device_id === id);
+        if (d) d.device_name = next.trim();
+        try { localStorage.setItem('epd_trusted_devices', JSON.stringify(DeviceManager.trustedDevices)); } catch (e) {}
         this.showToast(`✅ 已更新控制端名称为「${next.trim()}」`, 'success');
         const list = await DeviceManager.getTrustedDevices();
         this.renderTrustedDevList(list);
@@ -458,6 +470,8 @@ const UI = {
     }
     try {
       await DeviceManager.deleteTrustedDevice(id);
+      DeviceManager.trustedDevices = (DeviceManager.trustedDevices || []).filter(x => x.device_id !== id);
+      try { localStorage.setItem('epd_trusted_devices', JSON.stringify(DeviceManager.trustedDevices)); } catch (e) {}
       this.showToast(`🗑️ 已解除「${currentName}」的授权`, 'info');
       const badgeKey = DeviceManager.bleDevice ? (DeviceManager.bleDevice.id || DeviceManager.bleDevice.name || 'default') : 'default';
       let myAuth = null;
@@ -502,9 +516,13 @@ const UI = {
   },
 
   updateNfcKeyUI(key) {
+    const k = key || DeviceManager.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '';
     const input = document.getElementById('nfcKeyDisplay');
     if (input) {
-      input.value = key ? `https://398epd.zgqinc.gq/#key=${key}` : '未生成主密钥';
+      input.value = k ? `https://398epd.zgqinc.gq/#key=${k}` : '';
+      if (!k) {
+        input.placeholder = '未生成主密钥';
+      }
     }
   },
 

@@ -866,7 +866,7 @@
               设备出厂时由硬件随机生成专属 16 字节密钥（永久存入 NVS）。可写入贴在墨水屏背部的 NFC 标签，新手机碰一碰即可自动秒绑：
             </div>
             <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
-              <input type="text" id="nfcKeyDisplay" class="m3-input" readonly style="font-family:monospace; font-size:12px; background:var(--md-sys-color-surface);" value="读取中...">
+              <input type="text" id="nfcKeyDisplay" class="m3-input" readonly style="font-family:monospace; font-size:12px; background:var(--md-sys-color-surface);" placeholder="未生成主密钥" value="">
               <button type="button" class="m3-btn small outlined" onclick="UI.copyNfcUrl()">📋 复制链接</button>
             </div>
             <button type="button" class="m3-btn btn-full" id="btnWriteNfcTag" onclick="UI.triggerWriteNfcTag()">

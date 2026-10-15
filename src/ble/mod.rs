@@ -156,8 +156,8 @@ impl BleManager {
             let peer_mac = desc.address().to_string();
             println!("  [ble-hardware] WebBLE Host connected: {}", peer_mac);
             info!("[BLE] WebBLE Host connected: {}", peer_mac);
-            // Crucial: Negotiate fast & stable connection parameters for Windows/WebBLE (interval: 30~60ms, timeout: 600ms)
-            server.update_conn_params(desc.conn_handle(), 24, 48, 0, 60).ok();
+            // Crucial: Negotiate fast & stable connection parameters (interval: 30~60ms, timeout: 5000ms)
+            server.update_conn_params(desc.conn_handle(), 24, 48, 0, 500).ok();
             let ble = BleManager::global();
             ble.is_authorized.store(false, Ordering::SeqCst);
             *ble.active_pin.lock().unwrap() = None;
@@ -409,13 +409,25 @@ impl BleManager {
                         println!("  [ble-rx] Command '{}' rejected: session is unauthorized.", text);
                         ble_self.notify_str("ERROR:UNAUTHORIZED");
                     } else if text == "dev:list" || text == "get_devices" {
-                        let json = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
-                            let cfg = ac.lock().unwrap();
-                            serde_json::to_string(&cfg.trusted_devices).unwrap_or_else(|_| "[]".to_string())
-                        } else {
-                            "[]".to_string()
-                        };
-                        ble_self.notify_str(&format!("DEV_LIST:{}", json));
+                        if let Some(ref tx) = *ble_self.tx_char.lock().unwrap() {
+                            let devs = if let Some(ref ac) = *ble_self.app_config.lock().unwrap() {
+                                ac.lock().unwrap().trusted_devices.clone()
+                            } else {
+                                Vec::new()
+                            };
+                            println!("  [ble-tx] Streaming {} trusted devices from NVS...", devs.len());
+                            tx.lock().set_value(format!("DEV_START:{}", devs.len()).as_bytes());
+                            tx.lock().notify();
+                            for d in &devs {
+                                std::thread::sleep(std::time::Duration::from_millis(20));
+                                let item = format!("DEV_ITEM:{}|{}|{}|{}", d.device_id, d.device_name, d.paired_at, d.last_seen);
+                                tx.lock().set_value(item.as_bytes());
+                                tx.lock().notify();
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(20));
+                            tx.lock().set_value(b"DEV_END");
+                            tx.lock().notify();
+                        }
                     } else if text.starts_with("dev:rename:") {
                         let sub = &text[11..];
                         let parts: Vec<&str> = sub.splitn(2, ':').collect();

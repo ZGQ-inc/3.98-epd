@@ -22,8 +22,16 @@ const DeviceManager = {
   isBleAuthenticated: false,
   pairedClientName: '',
   pinPairingEnabled: true,
-  currentBadgeMasterKey: '',
-  trustedDevices: [],
+  currentBadgeMasterKey: (() => localStorage.getItem('epd_master_key') || '')(),
+  trustedDevices: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('epd_trusted_devices') || '[]');
+    } catch(e) {
+      return [];
+    }
+  })(),
+  _devStreamBuf: [],
+  _bleWriteQueue: Promise.resolve(),
   _onDevListResolver: null,
   _onDevRenameResolver: null,
   _onDevDeleteResolver: null,
@@ -419,18 +427,57 @@ const DeviceManager = {
               if (typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('❌ 6 位 PIN 码错误或已过期（超时120秒），请核对墨水屏重新输入！', 'danger', 5000);
               }
+            } else if (text.startsWith('DEV_START:')) {
+              this._devStreamBuf = [];
+            } else if (text.startsWith('DEV_ITEM:')) {
+              if (!this._devStreamBuf) this._devStreamBuf = [];
+              const raw = text.slice(9);
+              const p = raw.split('|');
+              if (p.length >= 2) {
+                this._devStreamBuf.push({
+                  device_id: p[0] || '',
+                  device_name: p[1] || '未命名设备',
+                  paired_at: parseInt(p[2] || '0', 10) || 0,
+                  last_seen: parseInt(p[3] || '0', 10) || 0
+                });
+              }
+            } else if (text.startsWith('DEV_END')) {
+              this.trustedDevices = this._devStreamBuf || [];
+              this._devStreamBuf = [];
+              try {
+                localStorage.setItem('epd_trusted_devices', JSON.stringify(this.trustedDevices));
+              } catch (e) {}
+              if (this._onDevListResolver) {
+                this._onDevListResolver(this.trustedDevices);
+                this._onDevListResolver = null;
+              }
+              if (typeof UI !== 'undefined' && UI.renderTrustedDevList) {
+                UI.renderTrustedDevList(this.trustedDevices);
+              }
             } else if (text.startsWith('DEV_LIST:')) {
               try {
                 this.trustedDevices = JSON.parse(text.slice(9));
-                if (this._onDevListResolver) {
-                  this._onDevListResolver(this.trustedDevices);
-                  this._onDevListResolver = null;
-                }
-                if (typeof UI !== 'undefined' && UI.renderTrustedDevList) {
-                  UI.renderTrustedDevList(this.trustedDevices);
-                }
               } catch (e) {
-                console.error('[BLE] Parse DEV_LIST error:', e);
+                console.warn('[BLE] Direct JSON parse failed for DEV_LIST, trying chunk extraction:', e);
+                const jsonStr = text.slice(9);
+                const matches = jsonStr.match(/\{[^{}]*\}/g);
+                if (matches && matches.length > 0) {
+                  const recovered = [];
+                  for (const m of matches) {
+                    try { recovered.push(JSON.parse(m)); } catch (_) {}
+                  }
+                  if (recovered.length > 0) this.trustedDevices = recovered;
+                }
+              }
+              try {
+                localStorage.setItem('epd_trusted_devices', JSON.stringify(this.trustedDevices));
+              } catch (e) {}
+              if (this._onDevListResolver) {
+                this._onDevListResolver(this.trustedDevices);
+                this._onDevListResolver = null;
+              }
+              if (typeof UI !== 'undefined' && UI.renderTrustedDevList) {
+                UI.renderTrustedDevList(this.trustedDevices);
               }
             } else if (text.startsWith('DEV_RENAME:OK')) {
               if (this._onDevRenameResolver) {
@@ -1955,11 +2002,17 @@ const DeviceManager = {
   async sendBleText(text) {
     if (!this.rxChar) throw new Error('BLE 未连接');
     const enc = new TextEncoder().encode(text);
-    if (this.rxChar.writeValueWithoutResponse) {
-      await this.rxChar.writeValueWithoutResponse(enc);
-    } else {
-      await this.rxChar.writeValue(enc);
-    }
+    const writeOp = async () => {
+      if (this.rxChar.writeValueWithoutResponse) {
+        await this.rxChar.writeValueWithoutResponse(enc);
+      } else {
+        await this.rxChar.writeValue(enc);
+      }
+      await new Promise(r => setTimeout(r, 20));
+    };
+    const p = this._bleWriteQueue.then(writeOp, writeOp);
+    this._bleWriteQueue = p.catch(() => {});
+    return p;
   },
 
   async handleBleAuthHandshake(status) {
@@ -2005,11 +2058,11 @@ const DeviceManager = {
   },
 
   async getTrustedDevices() {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       const timer = setTimeout(() => {
         this._onDevListResolver = null;
         resolve(this.trustedDevices || []);
-      }, 4000);
+      }, 3500);
       this._onDevListResolver = (list) => {
         clearTimeout(timer);
         resolve(list);
@@ -2018,7 +2071,9 @@ const DeviceManager = {
         await this.sendBleText('dev:list');
       } catch (e) {
         clearTimeout(timer);
-        reject(e);
+        this._onDevListResolver = null;
+        console.warn('[BLE] send dev:list failed, using cache:', e);
+        resolve(this.trustedDevices || []);
       }
     });
   },
@@ -2081,11 +2136,12 @@ const DeviceManager = {
   },
 
   async fetchMasterKey() {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
+      const cached = this.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '';
       const timer = setTimeout(() => {
         this._onNfcKeyResolver = null;
-        resolve(this.currentBadgeMasterKey || localStorage.getItem('epd_master_key') || '');
-      }, 4000);
+        resolve(this.currentBadgeMasterKey || cached);
+      }, 3500);
       this._onNfcKeyResolver = (key) => {
         clearTimeout(timer);
         resolve(key);
@@ -2094,7 +2150,9 @@ const DeviceManager = {
         await this.sendBleText('nfc:get_master_key');
       } catch (e) {
         clearTimeout(timer);
-        reject(e);
+        this._onNfcKeyResolver = null;
+        console.warn('[BLE] send nfc:get_master_key failed, using cache:', e);
+        resolve(this.currentBadgeMasterKey || cached);
       }
     });
   }

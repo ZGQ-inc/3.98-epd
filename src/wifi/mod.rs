@@ -177,6 +177,27 @@ impl<'a> WifiManager<'a> {
             ip_info.gw.addr = u32::from_ne_bytes([192, 168, 4, 1]);
             ip_info.netmask.addr = u32::from_ne_bytes([255, 255, 255, 0]);
             let _ = esp_idf_svc::sys::esp_netif_set_ip_info(ap_handle, &ip_info);
+
+            // Configure DHCPS to offer 192.168.4.1 as the DNS server (Option 6)
+            let mut offer_dns: u8 = 1;
+            let _ = esp_idf_svc::sys::esp_netif_dhcps_option(
+                ap_handle,
+                esp_idf_svc::sys::esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
+                esp_idf_svc::sys::esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
+                &mut offer_dns as *mut _ as *mut _,
+                1,
+            );
+
+            // Set AP main DNS server to 192.168.4.1
+            let mut dns_info: esp_idf_svc::sys::esp_netif_dns_info_t = std::mem::zeroed();
+            dns_info.ip.u_addr.ip4.addr = u32::from_ne_bytes([192, 168, 4, 1]);
+            dns_info.ip.type_ = esp_idf_svc::sys::lwip_ip_addr_type_IPADDR_TYPE_V4 as u8;
+            let _ = esp_idf_svc::sys::esp_netif_set_dns_info(
+                ap_handle,
+                esp_idf_svc::sys::esp_netif_dns_type_t_ESP_NETIF_DNS_MAIN,
+                &mut dns_info,
+            );
+
             let _ = esp_idf_svc::sys::esp_netif_dhcps_start(ap_handle);
         }
         println!("[WIFI] SoftAP netif configured and DHCP server active: {}", ap_ssid);
