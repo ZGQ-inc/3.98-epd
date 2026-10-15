@@ -29,7 +29,8 @@ impl WebServer {
             max_uri_handlers: 64,
             uri_match_wildcard: true,
             lru_purge_enable: true,
-            session_timeout: std::time::Duration::from_secs(10),
+            session_timeout: std::time::Duration::from_secs(5),
+            so_linger: Some(std::time::Duration::from_secs(0)),
             ..Default::default()
         };
 
@@ -70,63 +71,45 @@ impl WebServer {
 
         // 1. Root '/' handler:
         // In AP mode -> serves Captive Portal
-        // In Station mode -> 302 Redirect to HTTPS PWA Console with device IP (instant, 0 RAM overhead)
+        // In Station mode -> serves Local Web Console (gzip-compressed index.html) directly!
         println!("  [web] Registering root handler '/' (is_ap: {})...", is_ap_mode);
-        let ip_redirect_root = ip_addr.clone();
         server.fn_handler("/", Method::Get, move |req| -> anyhow::Result<()> {
             if is_ap_mode {
-                let len_str = CAPTIVE_HTML.len().to_string();
                 let mut resp = req.into_response(200, None, &[
                     ("Content-Type", "text/html; charset=utf-8"),
-                    ("Content-Length", &len_str),
                     ("Cache-Control", "no-cache, no-store, must-revalidate"),
                     ("Connection", "close"),
                 ])?;
-                resp.write_all(CAPTIVE_HTML)?;
+                stream_bytes_chunked(&mut resp, CAPTIVE_HTML)?;
                 return Ok(());
             }
 
-            let pwa_url = if !ip_redirect_root.is_empty() && ip_redirect_root != "0.0.0.0" {
-                format!("https://398epd.zgqinc.gq/?ip={}", ip_redirect_root)
-            } else {
-                "https://398epd.zgqinc.gq/".to_string()
-            };
-            println!("  [web] Serving / -> 302 Redirect to {}", pwa_url);
-            let body = format!(
-                r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD Console</title></head><body>正在跳转至设备控制台：<a href="{pwa_url}">{pwa_url}</a>...<br><small><a href="/local">打开板载本地控制台</a></small></body></html>"#
-            );
-            let len_str = body.len().to_string();
-            let mut resp = req.into_response(302, None, &[
-                ("Location", &pwa_url),
+            println!("  [web] Serving / (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
+            let mut resp = req.into_response(200, None, &[
                 ("Content-Type", "text/html; charset=utf-8"),
-                ("Content-Length", &len_str),
+                ("Content-Encoding", "gzip"),
                 ("Connection", "close"),
+                ("Cache-Control", "no-cache, must-revalidate"),
+                ("ETag", "\"398epd-v3.2\""),
             ])?;
-            resp.write_all(body.as_bytes())?;
+            stream_bytes_chunked(&mut resp, INDEX_HTML_GZ)?;
             Ok(())
         })?;
 
-        // 1b. Direct '/app' route -> 302 Redirect to PWA
-        let ip_redirect_app = ip_addr.clone();
-        server.fn_handler("/app", Method::Get, move |_req| -> anyhow::Result<()> {
-            let pwa_url = if !ip_redirect_app.is_empty() && ip_redirect_app != "0.0.0.0" {
-                format!("https://398epd.zgqinc.gq/?ip={}", ip_redirect_app)
-            } else {
-                "https://398epd.zgqinc.gq/".to_string()
-            };
-            let body = format!(
-                r#"<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url={pwa_url}"><title>Redirecting to EPD Console</title></head><body>正在跳转至设备控制台：<a href="{pwa_url}">{pwa_url}</a>...</body></html>"#
-            );
-            let len_str = body.len().to_string();
-            let mut resp = _req.into_response(302, None, &[
-                ("Location", &pwa_url),
-                ("Content-Type", "text/html; charset=utf-8"),
-                ("Content-Length", &len_str),
-                ("Connection", "close"),
-            ])?;
-            resp.write_all(body.as_bytes())?;
-            Ok(())
-        })?;
+        // 1b. Direct '/app' and '/index.html' routes -> also serve local console directly
+        for path in &["/app", "/index.html"] {
+            server.fn_handler(path, Method::Get, move |req| -> anyhow::Result<()> {
+                let mut resp = req.into_response(200, None, &[
+                    ("Content-Type", "text/html; charset=utf-8"),
+                    ("Content-Encoding", "gzip"),
+                    ("Connection", "close"),
+                    ("Cache-Control", "no-cache, must-revalidate"),
+                    ("ETag", "\"398epd-v3.2\""),
+                ])?;
+                stream_bytes_chunked(&mut resp, INDEX_HTML_GZ)?;
+                Ok(())
+            })?;
+        }
 
         // 1c. Dedicated PWA mobile app routes -> 302 HTTP Redirect to HTTPS PWA
         let ip_redirect_str = ip_addr.clone();
@@ -156,16 +139,14 @@ impl WebServer {
         // 1c2. Explicit raw offline '/local' route (for offline standalone usage)
         server.fn_handler("/local", Method::Get, |_req| -> anyhow::Result<()> {
             println!("  [web] Serving /local (index.html.gz, {} bytes)...", INDEX_HTML_GZ.len());
-            let len_str = INDEX_HTML_GZ.len().to_string();
             let mut resp = _req.into_response(200, None, &[
                 ("Content-Type", "text/html; charset=utf-8"),
                 ("Content-Encoding", "gzip"),
-                ("Content-Length", &len_str),
                 ("Connection", "close"),
                 ("Cache-Control", "no-cache, must-revalidate"),
-                ("ETag", "\"398epd-v3.1\""),
+                ("ETag", "\"398epd-v3.2\""),
             ])?;
-            resp.write_all(INDEX_HTML_GZ)?;
+            stream_bytes_chunked(&mut resp, INDEX_HTML_GZ)?;
             Ok(())
         })?;
 
@@ -314,8 +295,14 @@ impl WebServer {
                 factory_used_bytes: 1450 * 1024,
                 storage_partition_size: storage_stats.total_bytes,
                 storage_free_bytes: storage_stats.free_bytes,
-                nvs_size: 24 * 1024,
-                nvs_used_bytes: 6 * 1024,
+                nvs_size: {
+                    let (tot, _, _) = crate::config::get_nvs_partition_stats();
+                    tot
+                },
+                nvs_used_bytes: {
+                    let (_, used, _) = crate::config::get_nvs_partition_stats();
+                    used
+                },
                 chip_model: "ESP32-C3 RISC-V 32-bit (rev v0.4)",
                 cpu_freq_mhz: 160,
                 mac_address: {
@@ -1527,6 +1514,15 @@ fn build_preset_list_chunks(
         + "]}".len();
 
     (total_len, p_jsons, stats_json, msg_part, clean_part)
+}
+
+/// Streams static assets in safe 1024-byte chunks with 5ms pacing to allow Wi-Fi PHY DMA transmission and ACK recycling.
+fn stream_bytes_chunked<W: esp_idf_svc::io::Write>(writer: &mut W, data: &[u8]) -> anyhow::Result<()> {
+    for chunk in data.chunks(1024) {
+        writer.write_all(chunk).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    Ok(())
 }
 
 fn stream_preset_list_response<W: esp_idf_svc::io::Write>(

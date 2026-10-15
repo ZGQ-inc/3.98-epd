@@ -664,7 +664,11 @@ const DeviceManager = {
         return true;
       }
     } catch (e) {
-      console.warn('[LAN] Connection test failed:', e.message);
+      if (window.location.protocol === 'https:') {
+        console.warn(`[LAN] 浏览器安全策略拦截 (Mixed Content): 当前页面为 HTTPS，浏览器禁止向局域网 HTTP (${this.lanIp}) 发起 fetch 请求。如需直接访问局域网控制台，请在浏览器新标签页访问 http://${this.lanIp}/。在当前 PWA 中推荐使用 Web 蓝牙 5.0 一键连接。`);
+      } else {
+        console.warn('[LAN] Connection test failed:', e.message);
+      }
     }
     this.isLanConnected = false;
     if (this.onStatusChange) this.onStatusChange(this.getConnectionStatus());

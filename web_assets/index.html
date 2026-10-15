@@ -1,484 +1,160 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>3.98" 墨水屏设备管理后台</title>
-  <style>
-    :root {
-      --primary: #a8c7fa; --on-primary: #002d6f; --container: #1e2024; --surface: #121316;
-      --on-surface: #e2e2e6; --outline: #8e9099; --border: #44474e; --p-box: #004396;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--surface); color: var(--on-surface); padding: 14px; max-width: 680px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
-    .brand { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    .card { background: var(--container); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-    .card-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .pwa-card { background: linear-gradient(135deg, #002d6f, #004396); border-color: var(--primary); color: #fff; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: 0.2s; }
-    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
-    .btn-primary { background: var(--primary); color: var(--on-primary); }
-    .btn-tonal { background: #33353a; color: #fff; border: 1px solid var(--border); }
-    .btn-danger { background: #ba1a1a; color: #fff; }
-    .btn-outlined { background: transparent; color: var(--primary); border: 1px solid var(--border); }
-    .btn.active { background: var(--primary); color: var(--on-primary); }
-    .form-group { margin-bottom: 10px; }
-    .form-label { display: block; font-size: 12px; color: var(--outline); margin-bottom: 4px; }
-    .input { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: #fff; font-size: 13px; }
-    table { width: 100%; font-size: 12px; border-collapse: collapse; }
-    td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    td:first-child { color: var(--outline); width: 42%; }
-    footer { margin-top: 24px; text-align: center; font-size: 12px; color: var(--outline); padding-top: 12px; border-top: 1px solid var(--border); }
-    footer a { color: var(--primary); text-decoration: none; }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3.98" 墨水屏设备控制台</title>
+<style>
+:root { --p: #a8c7fa; --bg: #121316; --c: #1e2024; --fg: #e2e2e6; --m: #8e9099; --b: #3a3d45; }
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size: 12px; }
+body { background: var(--bg); color: var(--fg); padding: 10px; max-width: 560px; margin: 0 auto; }
+h1 { font-size: 14px; display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--b); margin-bottom: 8px; }
+.card { background: var(--c); border: 1px solid var(--b); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.title { font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+.btn { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--b); font-size: 11px; font-weight: 600; cursor: pointer; text-decoration: none; background: #2d3036; color: #fff; }
+.btn-p { background: var(--p); color: #002d6f; border: none; }
+.btn-d { background: #ba1a1a; color: #fff; border: none; }
+.btn.active { background: var(--p); color: #002d6f; border-color: var(--p); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+label { display: block; font-size: 10px; color: var(--m); margin-bottom: 2px; }
+input { width: 100%; padding: 5px 6px; border-radius: 4px; border: 1px solid var(--b); background: var(--bg); color: #fff; font-size: 11px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+td { padding: 3px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+td:first-child { color: var(--m); width: 42%; }
+footer { margin-top: 12px; text-align: center; font-size: 10px; color: var(--m); padding-top: 8px; border-top: 1px solid var(--b); }
+footer a { color: var(--p); text-decoration: none; }
+</style>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <span>📟 3.98" 墨水屏设备控制台</span>
-    </div>
-    <span style="font-size:12px; color:#4caf50;">● 在线</span>
-  </header>
+<h1><span>📟 3.98" 墨水屏设备控制台</span><span style="color:#4caf50;font-size:11px">● 在线</span></h1>
 
-  <!-- PWA Studio Hero Card -->
-  <div class="card pwa-card">
-    <div style="font-size:15px; font-weight:700; margin-bottom:6px;">✨ 推荐使用全功能独立随身工坊 PWA</div>
-    <p style="font-size:12px; opacity:0.9; margin-bottom:12px; line-height:1.5;">
-      支持智能工牌、痛卡 OC 立绘、相册 4 色微粒量化、手绘画板、预设库与多设备形态自适应。无需消耗单片机内存，秒级畅快操作！
-    </p>
-    <a id="pwaLaunchBtn" href="https://398epd.zgqinc.gq/" target="_blank" rel="noopener" class="btn btn-primary" style="font-weight:700;">🚀 立即启动随身工坊 (PWA)</a>
-    <script>
-      (function() {
-        var h = window.location.hostname || '';
-        if (h && h !== 'localhost' && h !== '127.0.0.1') {
-          var el = document.getElementById('pwaLaunchBtn');
-          if (el) el.href = 'https://398epd.zgqinc.gq/?ip=' + encodeURIComponent(h);
-        }
-      })();
-    </script>
-  </div>
+<div class="card" style="background:linear-gradient(135deg,#002d6f,#004396);border-color:var(--p);color:#fff">
+<div class="title"><span>✨ 随身工坊 PWA</span><a id="pwaBtn" href="https://398epd.zgqinc.gq/" target="_blank" class="btn btn-p">🚀 启动随身工坊</a></div>
+<p style="font-size:10px;opacity:.9">智能工牌、痛卡立绘、微粒量化、画板与预设库</p>
+</div>
 
-  <!-- Screen Debug Overlay Card -->
-  <div class="card">
-    <div class="card-title">
-      <span>📺 屏幕底层 Debug 叠加层</span>
-      <span id="screenDebugText" style="font-size:12px; font-weight:700; color:var(--primary);">--</span>
-    </div>
-    <p style="font-size:12px; color:var(--outline); margin-bottom:10px;">
-      在墨水屏物理屏幕底部绘制 20px 硬件状态条（实时标注 IP、MAC、Wi-Fi 模式与运行状态）
-    </p>
-    <button class="btn btn-tonal" id="btnDebugToggle" onclick="toggleScreenDebug()">切换屏显 Debug</button>
-  </div>
+<div class="card">
+<div class="title"><span>🖥️ 墨水屏硬件规格版本 (A0 / A1)</span><span id="pnlBadge" style="font-size:10px;padding:1px 5px;border-radius:6px;background:var(--p);color:#000;font-weight:700">A0</span></div>
+<div style="font-size:10px;color:var(--m);margin-bottom:6px">若画面错位或半屏条纹，一键切换：</div>
+<div style="display:flex;gap:6px">
+<button class="btn btn-p" id="b-a0" onclick="setPnl('A0')">A0 扫描走线 (默认)</button>
+<button class="btn" id="b-a1" onclick="setPnl('A1')">A1 扫描走线</button>
+<button class="btn" id="btnDbg" onclick="toggleDbg()" style="margin-left:auto">切换屏显 Debug</button>
+</div>
+</div>
 
-  <!-- Wireless Mode & BLE Management -->
-  <div class="card">
-    <div class="card-title">
-      <span>📡 无线工作模式与 BLE 广播管理</span>
-      <span id="bleStatusBadge" style="font-size:11px; padding:2px 8px; border-radius:10px; background:#757575; color:#fff;">--</span>
-    </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-      <button class="btn btn-tonal btn-sm opt-wmode" id="opt-auto" onclick="setWirelessMode('auto')">智能自动 (Auto)</button>
-      <button class="btn btn-tonal btn-sm opt-wmode" id="opt-dual" onclick="setWirelessMode('dual')">双模并发 (Dual)</button>
-      <button class="btn btn-tonal btn-sm opt-wmode" id="opt-ble_only" onclick="setWirelessMode('ble_only')">仅蓝牙 (BLE Only)</button>
-      <button class="btn btn-tonal btn-sm opt-wmode" id="opt-wifi_only" onclick="setWirelessMode('wifi_only')">仅 Wi-Fi</button>
-      <button class="btn btn-primary btn-sm" id="btnToggleBle" onclick="toggleBleBroadcast()">切换蓝牙广播</button>
-    </div>
-    <div id="bleClientsArea" style="font-size:12px; color:var(--outline); margin-bottom:6px;">
-      <span>已连接客户端: </span><span id="bleClientsCount" style="color:#fff; font-weight:700;">0 台在线</span>
-    </div>
-    <div id="bleDeviceList" style="display:flex; flex-direction:column; gap:6px;"></div>
-  </div>
+<div class="card">
+<div class="title"><span>📡 无线工作模式与 BLE 广播</span><span id="bleBadge" style="font-size:10px;padding:1px 5px;border-radius:6px;background:#757575">--</span></div>
+<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+<button class="btn wm-btn" id="wm-auto" onclick="setWm('auto')">智能自动</button>
+<button class="btn wm-btn" id="wm-dual" onclick="setWm('dual')">双模并发</button>
+<button class="btn wm-btn" id="wm-ble_only" onclick="setWm('ble_only')">仅蓝牙</button>
+<button class="btn wm-btn" id="wm-wifi_only" onclick="setWm('wifi_only')">仅 Wi-Fi</button>
+<button class="btn btn-p" id="btnBle" onclick="toggleBle()" style="margin-left:auto">蓝牙广播</button>
+</div>
+<div id="bleDevs" style="display:flex;flex-direction:column;gap:3px"></div>
+</div>
 
-  <!-- EPD Screen Hardware Revision Switch -->
-  <div class="card">
-    <div class="card-title">
-      <span>🖥️ 墨水屏硬件规格版本 (A0 / A1 扫描走线切换)</span>
-      <span id="panelVersionBadge" style="font-size:11px; padding:2px 8px; border-radius:10px; background:var(--primary); color:#000; font-weight:700;">A0 走线 (默认)</span>
-    </div>
-    <div style="font-size:12px; color:var(--outline); margin-bottom:10px;">
-      适配华为保护壳拆机屏幕的不同物理批次走线。若屏幕画面出现隔行错位、半屏交错条纹或撕裂，一键切换此项即可立即修正并保存到 NVS：
-    </div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button class="btn btn-primary btn-sm opt-panel" id="opt-panel-a0" onclick="setPanelVersion('A0')">A0 扫描走线 (默认)</button>
-      <button class="btn btn-tonal btn-sm opt-panel" id="opt-panel-a1" onclick="setPanelVersion('A1')">A1 扫描走线</button>
-    </div>
-  </div>
+<div class="card">
+<div class="title"><span>⚙️ 系统硬件指标与诊断</span><button class="btn" onclick="loadStatus()">🔄 刷新</button></div>
+<table><tbody id="diagTbody"></tbody></table>
+<div style="display:flex;gap:6px;margin-top:8px">
+<button class="btn" onclick="reboot()">软重启设备</button>
+<button class="btn btn-d" onclick="factoryReset()">恢复出厂设置</button>
+</div>
+</div>
 
-  <!-- Full 18-Item Hardware Diagnostics -->
-  <div class="card">
-    <div class="card-title">
-      <span>⚙️ 系统硬件指标与底层诊断 (19项)</span>
-      <button class="btn btn-tonal btn-sm" onclick="loadStatus()">🔄 刷新</button>
-    </div>
-    <table>
-      <tbody>
-        <tr><td>主控芯片架构 (SoC)</td><td id="dChip">ESP32-C3 RISC-V 160MHz (rev v0.4)</td></tr>
-        <tr><td>物理网卡 MAC 地址</td><td id="dMac" style="font-family:monospace;">--:--:--:--:--:--</td></tr>
-        <tr><td>Wi-Fi 信号强度 (RSSI)</td><td id="dWifi">-</td></tr>
-        <tr><td>当前局域网 IP / 域名</td><td id="dIp">-</td></tr>
-        <tr><td>北京时间 (阿里云 NTP)</td><td id="dNtpTime">-</td></tr>
-        <tr><td>系统连续运行时间 (Uptime)</td><td id="dUptime">-</td></tr>
-        <tr><td>实时可用堆内存 (SRAM)</td><td id="dHeap">-</td></tr>
-        <tr><td>SPI Flash 闪存规格</td><td id="dFlash">4 MB (4,194,304 字节，DIO 40MHz)</td></tr>
-        <tr><td>内部存储分区 (storage)</td><td id="dStorage">总量 1632 KB · 剩余可用约 1632 KB</td></tr>
-        <tr><td>参数配置分区 (nvs)</td><td id="dNvs">总量 24 KB · 剩余可用约 18 KB</td></tr>
-        <tr><td>墨水屏硬件与控制器</td><td id="dPanel">SE0398NZ07-FNG-A0/A1 (4-Color BWRY 768×552)</td></tr>
-        <tr><td>屏幕物理扫描走线版本</td><td id="dPanelVersion">A0 (倒序互换扫描 Gate 映射)</td></tr>
-        <tr><td>硬件接口总线</td><td>Hardware SPI 8MHz (SCK=4, MOSI=6, CS=7, DC=1, RST=2, BUSY=10)</td></tr>
-        <tr><td>中文字库方案</td><td>Flash MMU 零内存占用标准点阵中文字库 (7445字)</td></tr>
-        <tr><td>无线通信工作模式</td><td id="dWirelessMode">智能自动 (Auto)</td></tr>
-        <tr><td>蓝牙 BLE 5.0 运行状态</td><td id="dBleStatus">广播中</td></tr>
-        <tr><td>已连接蓝牙客户端数</td><td id="dBleClients">0 台客户端在线</td></tr>
-        <tr><td>屏显 Debug 叠加条状态</td><td id="dDebugOverlay">已关闭</td></tr>
-        <tr><td>电池状态与电量预警</td><td id="dBattery">供电正常 (USB 5V / 3.3V LDO)</td></tr>
-        <tr><td>最近系统复位原因</td><td id="dResetReason">Power-on / Normal</td></tr>
-      </tbody>
-    </table>
-    <div style="display:flex; gap:8px; margin-top:12px;">
-      <button class="btn btn-tonal" onclick="reboot()">软重启设备</button>
-      <button class="btn btn-danger" onclick="factoryReset()">恢复出厂设置 (清空 NVS & Storage)</button>
-    </div>
-  </div>
+<div class="card">
+<div class="title">📶 Wi-Fi 与 MQTT 配置</div>
+<div class="grid">
+<div><label>WiFi 名称</label><input type="text" id="ssid" placeholder="WiFi 名称"></div>
+<div><label>WiFi 密码</label><input type="password" id="pass" placeholder="WiFi 密码"></div>
+</div>
+<div class="grid" style="grid-template-columns:2fr 1fr">
+<div><label>MQTT 主机</label><input type="text" id="mqttHost" placeholder="IP / 主机名"></div>
+<div><label>MQTT 端口</label><input type="number" id="mqttPort" placeholder="1883" value="1883"></div>
+</div>
+<button class="btn btn-p" style="width:100%" onclick="saveCfg()">💾 保存 Wi-Fi 与 MQTT 配置</button>
+</div>
 
-  <!-- Full Wi-Fi & MQTT Configuration -->
-  <div class="card">
-    <div class="card-title">📶 Wi-Fi 网络与 MQTT Broker (Home Assistant) 配置</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-      <div class="form-group">
-        <label class="form-label">WiFi 名称 (SSID)</label>
-        <input type="text" id="ssid" class="input" placeholder="输入 2.4GHz WiFi 名称">
-      </div>
-      <div class="form-group">
-        <label class="form-label">WiFi 密码</label>
-        <input type="password" id="pass" class="input" placeholder="输入 WiFi 密码">
-      </div>
-    </div>
-    <div style="display:grid; grid-template-columns:2fr 1fr; gap:8px;">
-      <div class="form-group">
-        <label class="form-label">MQTT Broker 主机地址</label>
-        <input type="text" id="mqttHost" class="input" placeholder="homeassistant.local 或 IP">
-      </div>
-      <div class="form-group">
-        <label class="form-label">MQTT 端口</label>
-        <input type="number" id="mqttPort" class="input" placeholder="1883" value="1883">
-      </div>
-    </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-      <div class="form-group">
-        <label class="form-label">MQTT 用户名 (可选)</label>
-        <input type="text" id="mqttUser" class="input" placeholder="留空免密">
-      </div>
-      <div class="form-group">
-        <label class="form-label">MQTT 密码 (可选)</label>
-        <input type="password" id="mqttPass" class="input" placeholder="留空无密码">
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%; margin-top:4px;" onclick="saveConfig()">💾 保存网络与 MQTT 配置</button>
-  </div>
+<footer>
+<div><a href="https://github.com/ZGQ-inc/3.98-epd" target="_blank">GitHub</a> · <a href="https://domain.zgqinc.gq/" target="_blank">作者主页</a> · MIT License</div>
+</footer>
 
-  <!-- Footer -->
-  <footer>
-    <div style="margin-bottom:6px;">
-      <a href="https://github.com/ZGQ-inc/3.98-epd" target="_blank">GitHub 开源仓库</a>
-      <span> · </span>
-      <a href="https://github.com/ZGQ-inc/3.98-epd/blob/main/LICENSE" target="_blank">📄 MIT 许可证</a>
-      <span> · </span>
-      <a href="https://domain.zgqinc.gq/" target="_blank">个人主页</a>
-    </div>
-    <div>Copyright &copy; 2026 ZGQ Inc. · Released under the <a href="https://github.com/ZGQ-inc/3.98-epd/blob/main/LICENSE" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline;">MIT License</a></div>
-  </footer>
+<script>
+let curIp='',gBle=true,gPnl='A0';
+const $=id=>document.getElementById(id);
+const api=async(p,b)=>(await fetch('/api/'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:b===null?{method:'POST'}:{})).json();
 
-  <script>
-    let gBleEnabled = true;
-    let currentDeviceIp = '';
+async function loadStatus(){
+try{
+const d=await api('system/status');
+if(d.ip_address&&d.ip_address!=='0.0.0.0'){curIp=d.ip_address;$('pwaBtn').href='https://398epd.zgqinc.gq/?ip='+curIp}
+gPnl=d.panel_version||'A0';
+$('pnlBadge').textContent=gPnl==='A1'?'A1 走线':'A0 走线';
+$('pnlBadge').style.background=gPnl==='A1'?'#ff9800':'var(--p)';
+$('b-a0').className='btn '+(gPnl==='A0'?'btn-p':'');
+$('b-a1').className='btn '+(gPnl==='A1'?'btn-p':'');
+$('btnDbg').textContent=d.screen_debug?'Debug: 已开启':'Debug: 已关闭';
+gBle=d.ble_enabled;
+const st=d.ble_status||'OFF';
+$('bleBadge').textContent=st==='CONN'?'已连接':(st==='ADV'?'广播中':'已关闭');
+$('bleBadge').style.background=st==='CONN'?'#1565c0':(st==='ADV'?'#2e7d32':'#757575');
+$('btnBle').textContent=gBle?'关闭蓝牙':'开启蓝牙';
+document.querySelectorAll('.wm-btn').forEach(b=>b.classList.remove('active'));
+const wb=$('wm-'+d.wireless_mode);if(wb)wb.classList.add('active');
 
-    async function loadStatus() {
-      try {
-        const r = await fetch('/api/system/status');
-        const d = await r.json();
-        if (d.ip_address && d.ip_address !== '0.0.0.0') {
-          currentDeviceIp = d.ip_address;
-          updatePwaLaunchLink();
-        }
-        if (document.getElementById('dChip')) document.getElementById('dChip').textContent = d.chip_model || 'ESP32-C3 RISC-V 160MHz';
-        if (document.getElementById('dMac')) document.getElementById('dMac').textContent = d.mac_address || '--';
-        if (document.getElementById('dWifi')) document.getElementById('dWifi').textContent = `${d.wifi_mode} (${d.wifi_rssi} dBm)`;
-        if (document.getElementById('dIp')) document.getElementById('dIp').textContent = `http://${d.ip_address} / http://epd-display.local`;
+const devs=d.ble_devices||[];
+$('bleDevs').innerHTML=devs.length?devs.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:var(--bg);border-radius:4px"><span>📱 ${x.name||'WebBLE'} (${x.rssi||0}dBm)</span><button class="btn btn-d" style="padding:1px 5px" onclick="disBle('${x.id}')">断开</button></div>`).join(''):'<div style="padding:2px;font-size:10px;color:var(--m);text-align:center">暂无已连接蓝牙设备</div>';
 
-        const up = d.uptime_secs || 0;
-        const days = Math.floor(up / 86400);
-        const hours = Math.floor((up % 86400) / 3600);
-        const mins = Math.floor((up % 3600) / 60);
-        const secs = up % 60;
-        if (document.getElementById('dUptime')) document.getElementById('dUptime').textContent = `${days}天 ${hours}小时 ${mins}分 ${secs}秒`;
-        if (document.getElementById('dNtpTime')) {
-          const ntpDesc = d.ntp_synced ? '✅ NTP 已授时' : '⏳ 正在校时...';
-          document.getElementById('dNtpTime').textContent = d.current_time ? `${d.current_time} (${ntpDesc})` : ntpDesc;
-        }
+const u=d.uptime_secs||0;
+const upStr=`${Math.floor(u/86400)}天 ${Math.floor((u%86400)/3600)}时 ${Math.floor((u%3600)/60)}分 ${u%60}秒`;
+const nvsTot=d.nvs_size||24192;
+const nvsUsed=d.nvs_used_bytes||6752;
+const nvsFree=nvsTot-nvsUsed;
 
-        if (document.getElementById('dHeap')) document.getElementById('dHeap').textContent = `${(d.free_heap || 0).toLocaleString()} 字节 (最低 ${(d.min_free_heap || 0).toLocaleString()} 字节)`;
-        if (document.getElementById('dFlash')) document.getElementById('dFlash').textContent = `${Math.round((d.flash_chip_size || 4194304) / 1048576)} MB (DIO 40MHz)`;
-        if (document.getElementById('dStorage')) {
-          const tot = Math.round((d.storage_partition_size || 1632 * 1024) / 1024);
-          const free = Math.round((d.storage_free_bytes || 1632 * 1024) / 1024);
-          document.getElementById('dStorage').textContent = `总量 ${tot} KB · 剩余可用约 ${free} KB`;
-        }
-        if (document.getElementById('dNvs')) {
-          const tot = Math.round((d.nvs_size || 24576) / 1024);
-          const free = Math.round(((d.nvs_size || 24576) - (d.nvs_used_bytes || 6144)) / 1024);
-          document.getElementById('dNvs').textContent = `总量 ${tot} KB · 剩余可用约 ${free} KB`;
-        }
-        if (document.getElementById('dPanel')) document.getElementById('dPanel').textContent = d.panel_model || 'SE0398NZ07-FNG-A0/A1 (768×552 BWRY)';
-        if (document.getElementById('dWirelessMode')) document.getElementById('dWirelessMode').textContent = d.wireless_mode || '智能自动 (Auto)';
-        if (document.getElementById('dBleClients')) document.getElementById('dBleClients').textContent = `${(d.ble_devices || []).length} 台在线`;
-        if (document.getElementById('bleClientsCount')) document.getElementById('bleClientsCount').textContent = `${(d.ble_devices || []).length} 台在线`;
-        if (document.getElementById('dBattery')) document.getElementById('dBattery').textContent = d.battery_low ? '⚠️ 低电量预警 (请接通 USB-C)' : '供电正常 (USB 5V / 3.3V LDO)';
-        if (document.getElementById('dResetReason')) document.getElementById('dResetReason').textContent = d.reset_reason || 'Normal';
+const rows=[
+['主控芯片',d.chip_model||'ESP32-C3'],
+['MAC 地址',d.mac_address||'--'],
+['Wi-Fi 信号 (RSSI)',`${d.wifi_mode||'STA'} (${d.wifi_rssi||0} dBm)`],
+['局域网 IP / 状态',`${d.ip_address||'--'} (在线)`],
+['北京时间 (NTP)',d.current_time||(d.ntp_synced?'已同步':'校时中')],
+['连续运行时间',upStr],
+['可用堆内存 (SRAM)',`${(d.free_heap||0).toLocaleString()} B (最低 ${(d.min_free_heap||0).toLocaleString()} B)`],
+['配置分区 (NVS 硬件实测)',`剩余 ${(nvsFree/1024).toFixed(1)} KB (总 ${(nvsTot/1024).toFixed(1)} KB, 已用 ${(nvsUsed/1024).toFixed(1)} KB)`],
+['内部存储 (storage)',`剩余约 ${Math.round((d.storage_free_bytes||0)/1024)} KB`],
+['墨水屏规格与走线',`${d.panel_model||'768x552 BWRY'} · ${gPnl} 走线`],
+['无线工作模式',d.wireless_mode||'自动 (Auto)'],
+['供电状态',d.battery_low?'⚠️ 低电量':'供电正常 (5V/3.3V)'],
+['复位原因',d.reset_reason||'Normal']
+];
+$('diagTbody').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+}catch(e){}
+}
 
-        updateWirelessModeUI(d.wireless_mode);
-        updateBleStatusUI(d.ble_enabled, d.ble_status, d.ble_devices);
-        if (d.screen_debug !== undefined) updateScreenDebugUI(d.screen_debug);
-        if (d.panel_version) updatePanelVersionUI(d.panel_version);
-      } catch(e) {}
-    }
+async function setPnl(v){try{await api('system/panel',{version:v});alert('已切换为 '+v);loadStatus()}catch(e){alert('失败: '+e.message)}}
+async function toggleDbg(){try{await api('system/debug',null);loadStatus()}catch(e){alert('失败: '+e.message)}}
+async function setWm(m){try{await api('wireless/mode',{mode:m});alert('已切换为 '+m);loadStatus()}catch(e){alert('失败: '+e.message)}}
+async function toggleBle(){try{await api('ble/toggle',{enabled:!gBle});loadStatus()}catch(e){alert('失败: '+e.message)}}
+async function disBle(id){if(confirm('确认断开？')){await api('ble/disconnect',{id});loadStatus()}}
+async function reboot(){if(confirm('确认重启设备？'))await api('system/reboot',null)}
+async function factoryReset(){if(confirm('警告：确认清除所有配置并恢复出厂设置？'))await api('system/reset',null)}
 
-    function updateWirelessModeUI(mode) {
-      document.querySelectorAll('.opt-wmode').forEach(b => b.classList.remove('active'));
-      const el = document.getElementById('opt-' + mode);
-      if (el) el.classList.add('active');
-    }
+async function saveCfg(){
+try{
+await api('config',{wifi_ssid:$('ssid').value.trim(),wifi_pass:$('pass').value.trim(),mqtt_broker:$('mqttHost').value.trim(),mqtt_port:parseInt($('mqttPort').value)||1883,panel_version:gPnl});
+alert('🎉 配置已成功保存！');
+}catch(e){alert('保存失败: '+e.message)}
+}
 
-    function updateBleStatusUI(enabled, statusStr, devices) {
-      gBleEnabled = enabled;
-      const badge = document.getElementById('bleStatusBadge');
-      const btn = document.getElementById('btnToggleBle');
-      const diag = document.getElementById('dBleStatus');
-      const list = document.getElementById('bleDeviceList');
-
-      const text = statusStr === 'CONN' ? '已连接 (CONN)' : (statusStr === 'ADV' ? '广播中 (ADV)' : '已关闭 (OFF)');
-      const bg = statusStr === 'CONN' ? '#1565c0' : (statusStr === 'ADV' ? '#2e7d32' : '#757575');
-
-      if (badge) { badge.textContent = text; badge.style.background = bg; }
-      if (diag) diag.textContent = text;
-      if (btn) btn.textContent = enabled ? '关闭蓝牙广播' : '开启蓝牙广播';
-
-      const devs = devices || [];
-      if (list) {
-        if (devs.length === 0) {
-          list.innerHTML = `<div style="padding:8px; background:var(--surface); border-radius:6px; font-size:11px; color:var(--outline); text-align:center;">暂无已连接蓝牙客户端</div>`;
-        } else {
-          list.innerHTML = devs.map(d => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:var(--surface); border-radius:6px; font-size:12px;">
-              <div>
-                <span style="font-weight:700;">📱 ${d.name || 'WebBLE Client'}</span>
-                <span style="font-size:11px; color:var(--outline); margin-left:6px;">信号: ${d.rssi || 0} dBm</span>
-              </div>
-              <button class="btn btn-danger btn-sm" onclick="disconnectBle('${d.id}')">断开</button>
-            </div>
-          `).join('');
-        }
-      }
-    }
-
-    function updateScreenDebugUI(enabled) {
-      const txt = document.getElementById('screenDebugText');
-      const diag = document.getElementById('dDebugOverlay');
-      const btn = document.getElementById('btnDebugToggle');
-      if (txt) {
-        txt.textContent = enabled ? '已开启 (ON)' : '已关闭 (OFF)';
-        txt.style.color = enabled ? '#4caf50' : 'var(--primary)';
-      }
-      if (diag) {
-        diag.textContent = enabled ? '已开启 (屏幕底部 20px IP与状态条)' : '已关闭';
-        diag.style.color = enabled ? '#4caf50' : 'inherit';
-      }
-      if (btn) {
-        btn.textContent = enabled ? '关闭屏显 Debug' : '开启屏显 Debug';
-      }
-    }
-
-    let gPanelVersion = 'A0';
-
-    function updatePanelVersionUI(ver) {
-      gPanelVersion = ver || 'A0';
-      const badge = document.getElementById('panelVersionBadge');
-      const diag = document.getElementById('dPanelVersion');
-      const bA0 = document.getElementById('opt-panel-a0');
-      const bA1 = document.getElementById('opt-panel-a1');
-      if (badge) {
-        badge.textContent = gPanelVersion === 'A1' ? 'A1 走线' : 'A0 走线 (默认)';
-        badge.style.background = gPanelVersion === 'A1' ? '#ff9800' : 'var(--primary)';
-        badge.style.color = '#000';
-      }
-      if (diag) {
-        diag.textContent = gPanelVersion === 'A1' ? 'A1 (双向对称扫描 Gate 映射)' : 'A0 (倒序互换扫描 Gate 映射)';
-        diag.style.color = gPanelVersion === 'A1' ? '#ff9800' : 'inherit';
-      }
-      if (bA0) bA0.className = gPanelVersion === 'A0' ? 'btn btn-primary btn-sm opt-panel' : 'btn btn-tonal btn-sm opt-panel';
-      if (bA1) bA1.className = gPanelVersion === 'A1' ? 'btn btn-primary btn-sm opt-panel' : 'btn btn-tonal btn-sm opt-panel';
-    }
-
-    async function setPanelVersion(version) {
-      try {
-        const r = await fetch('/api/system/panel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ version })
-        });
-        const d = await r.json();
-        updatePanelVersionUI(d.panel_version || version);
-        alert('🎉 ' + (d.message || `墨水屏硬件规格已切换为 ${version}，正在刷新！`));
-        loadStatus();
-      } catch(e) {
-        alert('❌ 切换失败: ' + e.message);
-      }
-    }
-
-    async function toggleScreenDebug() {
-      try {
-        const r = await fetch('/api/system/debug', { method: 'POST' });
-        const d = await r.json();
-        updateScreenDebugUI(d.screen_debug);
-        alert('⚡ ' + (d.message || '屏显 Debug 已切换'));
-      } catch(e) {
-        alert('❌ 切换失败: ' + e.message);
-      }
-    }
-
-    async function setWirelessMode(mode) {
-      try {
-        const r = await fetch('/api/wireless/mode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode })
-        });
-        const d = await r.json();
-        updateWirelessModeUI(mode);
-        alert('🎉 ' + (d.message || '无线模式已切换'));
-        loadStatus();
-      } catch(e) {
-        alert('❌ 切换失败: ' + e.message);
-      }
-    }
-
-    async function toggleBleBroadcast() {
-      try {
-        const r = await fetch('/api/ble/toggle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: !gBleEnabled })
-        });
-        const d = await r.json();
-        updateBleStatusUI(d.ble_enabled, d.ble_status, []);
-        alert('🎉 ' + (d.message || '蓝牙广播已更新'));
-      } catch(e) {
-        alert('❌ 操作失败: ' + e.message);
-      }
-    }
-
-    async function disconnectBle(id) {
-      if (!confirm('确认断开该蓝牙客户端？')) return;
-      try {
-        await fetch('/api/ble/disconnect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id })
-        });
-        loadStatus();
-      } catch(e) {
-        alert('❌ 断开失败: ' + e.message);
-      }
-    }
-
-    async function loadConfig() {
-      try {
-        const r = await fetch('/api/config');
-        if (!r.ok) return;
-        const cfg = await r.json();
-        if (cfg.wifi_ssid) document.getElementById('ssid').value = cfg.wifi_ssid;
-        if (cfg.wifi_pass) document.getElementById('pass').value = cfg.wifi_pass;
-        if (cfg.mqtt_broker) document.getElementById('mqttHost').value = cfg.mqtt_broker;
-        if (cfg.mqtt_port) document.getElementById('mqttPort').value = cfg.mqtt_port;
-        if (cfg.mqtt_user) document.getElementById('mqttUser').value = cfg.mqtt_user;
-        if (cfg.mqtt_pass) document.getElementById('mqttPass').value = cfg.mqtt_pass;
-        if (cfg.screen_debug !== undefined) updateScreenDebugUI(cfg.screen_debug);
-        if (cfg.panel_version) updatePanelVersionUI(cfg.panel_version);
-      } catch(e) {}
-    }
-
-    async function saveConfig() {
-      const ssid = document.getElementById('ssid').value.trim();
-      const pass = document.getElementById('pass').value.trim();
-      const mqttHost = document.getElementById('mqttHost').value.trim();
-      const mqttPort = parseInt(document.getElementById('mqttPort').value) || 1883;
-      const mqttUser = document.getElementById('mqttUser').value.trim();
-      const mqttPass = document.getElementById('mqttPass').value;
-
-      try {
-        const r = await fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wifi_ssid: ssid,
-            wifi_pass: pass,
-            mqtt_broker: mqttHost,
-            mqtt_port: mqttPort,
-            mqtt_user: mqttUser,
-            mqtt_pass: mqttPass,
-            panel_version: gPanelVersion
-          })
-        });
-        const d = await r.json();
-        alert('🎉 ' + (d.message || '网络与 MQTT 配置已成功保存！'));
-      } catch(e) {
-        alert('❌ 保存失败: ' + e.message);
-      }
-    }
-
-    async function reboot() {
-      if (confirm('确认软重启设备？')) {
-        await fetch('/api/system/reboot', { method:'POST' });
-        alert('设备正在重启...');
-      }
-    }
-
-    async function factoryReset() {
-      if (confirm('警告：确认恢复出厂设置？将同时彻底清空 NVS 参数配置与 Storage 效果库预设！')) {
-        await fetch('/api/system/reset', { method:'POST' });
-        alert('已恢复出厂设置 (清空 NVS 与 Storage 分区)，设备正在重启...');
-      }
-    }
-
-    function updatePwaLaunchLink() {
-      const host = currentDeviceIp || window.location.hostname || '';
-      const targetUrl = host ? `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(host)}` : 'https://398epd.zgqinc.gq/';
-      const btn = document.getElementById('pwaLaunchBtn') || document.querySelector('.pwa-card a');
-      if (btn) {
-        btn.href = targetUrl;
-        if (host) btn.title = `跳转至随身工坊 (携带参数: ?ip=${host})`;
-        btn.onclick = function(e) {
-          const freshHost = currentDeviceIp || window.location.hostname || '';
-          const url = freshHost ? `https://398epd.zgqinc.gq/?ip=${encodeURIComponent(freshHost)}` : 'https://398epd.zgqinc.gq/';
-          this.href = url;
-          if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-          const win = window.open(url, '_blank');
-          if (!win || win.closed || typeof win.closed === 'undefined') {
-            window.location.href = url;
-          }
-          return false;
-        };
-      }
-    }
-
-    window.onload = function() {
-      updatePwaLaunchLink();
-      loadStatus();
-      loadConfig();
-    };
-  </script>
+window.onload=()=>{
+loadStatus();
+api('config').then(c=>{
+if(c.wifi_ssid)$('ssid').value=c.wifi_ssid;
+if(c.wifi_pass)$('pass').value=c.wifi_pass;
+if(c.mqtt_broker)$('mqttHost').value=c.mqtt_broker;
+if(c.mqtt_port)$('mqttPort').value=c.mqtt_port;
+}).catch(()=>{});
+};
+</script>
 </body>
 </html>

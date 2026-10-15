@@ -700,7 +700,11 @@ const UI = {
           window.PresetHub.syncWithDevice();
         }
       } else {
-        this.showToast(`已保存 IP: ${ip} (未检测到响应)`, 'warning', 4000);
+        if (window.location.protocol === 'https:') {
+          this.showToast(`已保存 IP: ${ip} (提示：HTTPS 下浏览器拦截私有局域网 HTTP，请直接新开标签页访问 http://${ip}/ 控制台，或使用蓝牙直连)`, 'warning', 6000);
+        } else {
+          this.showToast(`已保存 IP: ${ip} (未检测到响应)`, 'warning', 4000);
+        }
       }
     }
   },

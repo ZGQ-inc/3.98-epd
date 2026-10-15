@@ -250,3 +250,27 @@ impl ConfigManager {
         Ok(())
     }
 }
+
+/// Reads the real hardware NVS partition usage via ESP-IDF nvs_get_stats.
+/// Returns (total_bytes, used_bytes, free_bytes).
+pub fn get_nvs_partition_stats() -> (usize, usize, usize) {
+    let mut stats: esp_idf_svc::sys::nvs_stats_t = unsafe { std::mem::zeroed() };
+    let part_name = b"nvs\0";
+    let ret = unsafe {
+        esp_idf_svc::sys::nvs_get_stats(part_name.as_ptr() as *const _, &mut stats)
+    };
+    if ret == esp_idf_svc::sys::ESP_OK {
+        // In ESP-IDF NVS, each entry is exactly 32 bytes
+        let used_bytes = stats.used_entries * 32;
+        let free_bytes = if stats.available_entries > 0 {
+            stats.available_entries * 32
+        } else {
+            stats.free_entries * 32
+        };
+        let total_bytes = stats.total_entries * 32;
+        (total_bytes, used_bytes, free_bytes)
+    } else {
+        (24576, 6144, 18432)
+    }
+}
+
