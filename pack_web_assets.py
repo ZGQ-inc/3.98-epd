@@ -18,8 +18,8 @@ def main():
     text = raw_data.decode("utf-8")
 
     # Strict validations
-    assert "pwaLaunchBtn" in text, "Missing pwaLaunchBtn ID!"
-    assert '<a id="pwaLaunchBtn"' in text, "Missing <a id=\"pwaLaunchBtn\" tag!"
+    assert "pwaBtn" in text or "pwaLaunchBtn" in text, "Missing pwaBtn ID!"
+    assert '<a id="pwaBtn"' in text or '<a id="pwaLaunchBtn"' in text, "Missing <a id=\"pwaBtn\" tag!"
     assert 'https://398epd.zgqinc.gq/' in text, "Missing PWA studio URL!"
     assert text.count("<a ") == text.count("</a>"), f"Mismatched <a> count: {text.count('<a ')} vs {text.count('</a>')}"
     assert "href=\"https:\n" not in text, "Corrupted https prefix found!"

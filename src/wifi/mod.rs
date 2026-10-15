@@ -19,9 +19,14 @@ use crate::wifi::captive::CaptivePortalDns;
 static IS_SOFTAP_RUNNING: AtomicBool = AtomicBool::new(false);
 static IS_STATION_CONNECTED: AtomicBool = AtomicBool::new(false);
 static WIFI_PAUSED_BY_BLE: AtomicBool = AtomicBool::new(false);
+static IS_SOFTAP_PROVISIONING_MODE: AtomicBool = AtomicBool::new(false);
 
 pub fn is_softap_active() -> bool {
     IS_SOFTAP_RUNNING.load(Ordering::SeqCst)
+}
+
+pub fn is_softap_provisioning() -> bool {
+    IS_SOFTAP_PROVISIONING_MODE.load(Ordering::SeqCst)
 }
 
 pub fn is_station_connected() -> bool {
@@ -47,6 +52,7 @@ pub fn resume_wifi_after_ble() {
 }
 
 pub fn stop_softap() {
+    IS_SOFTAP_PROVISIONING_MODE.store(false, Ordering::SeqCst);
     if IS_SOFTAP_RUNNING.swap(false, Ordering::SeqCst) {
         println!("[WIFI] Smart Coexistence: Shutting down SoftAP hotspot beacon...");
         unsafe {
@@ -58,7 +64,12 @@ pub fn stop_softap() {
 }
 
 pub fn restart_softap_if_needed() {
-    if !IS_STATION_CONNECTED.load(Ordering::SeqCst) && !IS_SOFTAP_RUNNING.load(Ordering::SeqCst) {
+    // SoftAP only ever restarts if the device is in unconfigured initial provisioning mode!
+    // Once configured (via Wi-Fi or BLE paired), SoftAP is NEVER started.
+    if IS_SOFTAP_PROVISIONING_MODE.load(Ordering::SeqCst)
+        && !IS_STATION_CONNECTED.load(Ordering::SeqCst)
+        && !IS_SOFTAP_RUNNING.load(Ordering::SeqCst)
+    {
         println!("[WIFI] Smart Coexistence: Resuming SoftAP hotspot broadcast...");
         unsafe {
             let _ = esp_idf_svc::sys::esp_wifi_set_mode(esp_idf_svc::sys::wifi_mode_t_WIFI_MODE_AP);
@@ -107,13 +118,24 @@ impl<'a> WifiManager<'a> {
     }
 
     /// Initializes WiFi according to configuration:
-    /// - If SSID is empty: Starts SoftAP mode and Captive Portal for unconfigured out-of-box setup.
+    /// - If unconfigured (no SSID AND no trusted BLE devices): Starts SoftAP mode and Captive Portal for out-of-box setup.
     /// - If SSID is present: Connects to STA. If away from home, remains quiet without launching unwanted open AP.
+    /// - If configured via BLE but no SSID: Keeps Wi-Fi quiet (no SoftAP broadcast).
     pub fn start(&mut self, config: &AppConfig) -> anyhow::Result<WifiModeStatus> {
         if config.wifi_ssid.is_empty() {
-            info!("[WIFI] No WiFi credentials configured. Starting SoftAP mode...");
-            self.start_softap()
+            if config.is_configured() {
+                info!("[WIFI] Device configured via BLE (no Wi-Fi SSID set): SoftAP suppressed, Wi-Fi radio quiet.");
+                println!("[WIFI] BLE-only / paired configuration: SoftAP disabled, Wi-Fi radio standing by.");
+                IS_SOFTAP_PROVISIONING_MODE.store(false, Ordering::SeqCst);
+                IS_SOFTAP_RUNNING.store(false, Ordering::SeqCst);
+                IS_STATION_CONNECTED.store(false, Ordering::SeqCst);
+                Err(anyhow::anyhow!("No Wi-Fi credentials set (BLE paired mode)"))
+            } else {
+                info!("[WIFI] Unconfigured out-of-box state: Starting SoftAP mode...");
+                self.start_softap()
+            }
         } else {
+            IS_SOFTAP_PROVISIONING_MODE.store(false, Ordering::SeqCst);
             info!("[WIFI] Attempting connection to SSID: '{}'...", config.wifi_ssid);
             match self.start_sta(&config.wifi_ssid, &config.wifi_pass) {
                 Ok(ip) => Ok(WifiModeStatus::StationConnected(ip)),
@@ -129,6 +151,7 @@ impl<'a> WifiManager<'a> {
     }
 
     fn start_softap(&mut self) -> anyhow::Result<WifiModeStatus> {
+        IS_SOFTAP_PROVISIONING_MODE.store(true, Ordering::SeqCst);
         let mac = self.wifi.wifi().get_mac(WifiDeviceId::Ap)?;
         let ap_ssid = format!("EPD-Display-{:02X}{:02X}", mac[4], mac[5]);
 

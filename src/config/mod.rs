@@ -127,6 +127,11 @@ impl AppConfig {
             None
         }
     }
+
+    /// Returns true if the device has completed initial setup (Wi-Fi SSID set, BLE paired, or ble_only mode).
+    pub fn is_configured(&self) -> bool {
+        !self.wifi_ssid.is_empty() || !self.trusted_devices.is_empty() || self.wireless_mode == "ble_only"
+    }
 }
 
 impl Default for AppConfig {
@@ -174,13 +179,13 @@ impl ConfigManager {
         Ok(Self { nvs })
     }
 
-    /// Check whether a persistent configuration exists in NVS (e.g. Wi-Fi configured or BLE-only set).
+    /// Check whether a persistent configuration exists in NVS (e.g. Wi-Fi configured, BLE paired, or BLE-only set).
     pub fn is_configured(&self) -> bool {
-        let mut buf = [0u8; 4096];
+        let mut buf = vec![0u8; 2048];
         match self.nvs.get_blob(CONFIG_KEY, &mut buf) {
             Ok(Some(slice)) => {
                 if let Ok(cfg) = serde_json::from_slice::<AppConfig>(slice) {
-                    !cfg.wifi_ssid.is_empty() || cfg.wireless_mode == "ble_only"
+                    cfg.is_configured()
                 } else {
                     false
                 }

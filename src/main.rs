@@ -157,8 +157,8 @@ fn main() -> anyhow::Result<()> {
         crate::ntp::init_sntp();
     }
 
-    // 6. Start MQTT client (in Station mode only, and not in ble_only mode)
-    if !is_ap && wireless_mode != "ble_only" {
+    // 6. Start MQTT client (in Station mode only with valid IP, and not in ble_only mode)
+    if !is_ap && wireless_mode != "ble_only" && !ip_addr.is_empty() && ip_addr != "0.0.0.0" {
         let mac_str = {
             let mut mac = [0u8; 6];
             unsafe { esp_idf_svc::sys::esp_efuse_mac_get_default(mac.as_mut_ptr()) };
@@ -182,11 +182,10 @@ fn main() -> anyhow::Result<()> {
     // E-ink is bistable: screen physically retains the image indefinitely without power!
     // Never refresh on boot unless:
     // a) Chip booted from brownout (undervoltage detected: must overlay low battery warning!)
-    // b) Unconfigured (first boot)
-    // c) Unconfigured (first boot): show Welcome Screen with project repo & dual Wi-Fi/BLE guides
-    // d) In SoftAP mode (configured previously, but fell back to AP)
+    // b) Unconfigured (first boot): show Welcome Screen with project repo & dual Wi-Fi/BLE guides
+    // c) In SoftAP mode (configured previously, but fell back to AP)
     let is_brownout = crate::power::PowerManager::check_undervoltage_on_boot();
-    let is_configured = config_mgr.lock().unwrap().is_configured();
+    let is_configured = app_config.lock().unwrap().is_configured();
     crate::display::set_unconfigured(!is_configured);
     println!("[CONFIG] Device is_configured: {}", is_configured);
 

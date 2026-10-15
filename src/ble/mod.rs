@@ -301,6 +301,8 @@ impl BleManager {
                             ble_self.is_authorized.store(true, Ordering::SeqCst);
                             crate::display::request_pairing_success(dev_name.clone());
                             println!("  [ble-rx] Pair verified! Registered new trusted device '{}' (ID: {})", dev_name, dev_id);
+                            // Device is now configured: terminate SoftAP hotspot immediately
+                            crate::wifi::stop_softap();
                             let resp = format!(
                                 "PAIR:OK:{{\"device_id\":\"{}\",\"token\":\"{}\",\"device_name\":\"{}\",\"master_key\":\"{}\"}}",
                                 dev_id, token, dev_name, master_key
@@ -345,6 +347,8 @@ impl BleManager {
                         if claimed {
                             ble_self.is_authorized.store(true, Ordering::SeqCst);
                             crate::display::request_pairing_success(dev_name.clone());
+                            // Device is now configured: terminate SoftAP hotspot immediately
+                            crate::wifi::stop_softap();
                             let resp = format!(
                                 "PAIR:OK:{{\"device_id\":\"{}\",\"token\":\"{}\",\"device_name\":\"{}\"}}",
                                 dev_id, token, dev_name

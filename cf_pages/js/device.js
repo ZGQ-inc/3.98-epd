@@ -104,7 +104,11 @@ const DeviceManager = {
           }
         } else {
           if (typeof UI !== 'undefined' && UI.showToast) {
-            UI.showToast(`已自动配置局域网设备: ${queryIp}。若浏览器提示混合内容拦截，可使用蓝牙直连或在地址栏允许不安全内容`, 'info', 4500);
+            if (window.location.protocol === 'https:') {
+              UI.showToast(`已识别设备 IP: ${queryIp}。受浏览器安全策略限制，HTTPS 页面禁止直连局域网 HTTP。请点击下方“Web 蓝牙”一键连接，或在浏览器打开 http://${queryIp}/ 本地控制台`, 'info', 6000);
+            } else {
+              UI.showToast(`无法连通局域网设备: ${queryIp}，请确认设备已开机并在同一局域网`, 'warning', 4500);
+            }
           }
         }
       });
@@ -400,7 +404,7 @@ const DeviceManager = {
                     UI.closeModal('pinPairModal');
                     UI.closeModal('unauthConfirmModal');
                   }
-                  if (UI.showToast) UI.showToast(`🎉 配对成功！已授权「${authRecord.device_name}」控制此墨水屏`, 'success', 5000);
+                  if (UI.showToast) UI.showToast(`🎉 蓝牙配对成功！设备已完成初始化授权。重启设备后将关闭初始SoftAP热点，直接进入业务模式。`, 'success', 6500);
                   if (UI.showPairingSuccessGuide) UI.showPairingSuccessGuide(authRecord);
                 }
                 if (typeof PresetHub !== 'undefined' && PresetHub.syncWithDevice) {
@@ -654,7 +658,7 @@ const DeviceManager = {
     try {
       const url = `http://${this.lanIp}/api/system/status`;
       const fetchOpts = {
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(2500),
         headers: { 'Accept': 'application/json' }
       };
       const res = await fetch(url, fetchOpts);
