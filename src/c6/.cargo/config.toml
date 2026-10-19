@@ -1,0 +1,21 @@
+[build]
+target = "riscv32imac-esp-espidf"
+target-dir = "C:\\esp_b\\epd_v2"
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+# Host build target (Windows with LLVM rust-lld + xwin SDK)
+[target.x86_64-pc-windows-msvc]
+linker = "C:\\Users\\ZGQ\\.rustup\\toolchains\\esp\\lib\\rustlib\\x86_64-pc-windows-msvc\\bin\\rust-lld.exe"
+
+[target.riscv32imac-esp-espidf]
+linker = "ldproxy"
+rustflags = ["--cfg", "espidf_time64"]
+
+[env]
+ESP_IDF_VERSION = "v5.4"
+ESP_IDF_SDKCONFIG_DEFAULTS = "C:\\Users\\ZGQ\\Documents\\antigravity\\epd\\src\\c6\\sdkconfig.defaults"
+ESP_IDF_PATH_ISSUES = "warn"
+ESP_IDF_TOOLS_INSTALL_DIR = "custom:C:\\esp_b\\.embuild\\espressif"
+LIB = "C:\\Users\\ZGQ\\.xwin\\crt\\lib\\x64;C:\\Users\\ZGQ\\.xwin\\sdk\\lib\\ucrt\\x64;C:\\Users\\ZGQ\\.xwin\\sdk\\lib\\um\\x64"

@@ -50,3 +50,9 @@ scratch/
 
 # MCP
 PROGRESS.md
+
+# Local generated scripts & scratch artifacts
+local/
+hardware/renders
+test_*
+hardware/scripts

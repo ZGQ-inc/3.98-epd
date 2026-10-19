@@ -28,41 +28,50 @@
 
 ---
 
-## 📦 固件编译与剥离 (Build & Strip)
+## 📦 预编译固件清单 (Pre-built Binaries)
 
-项目 `Cargo.toml` 已经内置了符号剥离配置（`debug = 0`, `strip = true`, `lto = "fat"`）：
+本目录提供分别适配两种硬件版本的开箱即用二进制固件：
 
-```bash
-# 1. 在项目根目录执行 release 编译
-cargo +esp build --release
+| 固件文件名 | 适配芯片 | 体积大小 | 适用硬件与说明 | 源码工程目录 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`epd-firmware-c3.bin`** | ESP32-C3 | **1,764,592 字节 (~1.68 MB)** | **V1.0 原型机 (ESP32-C3 SuperMini)**<br>集成完整 Wi-Fi Web 控制台、Gzip PWA 前端、NTP 对时、HTTP 原始位图推图、Flash 中文字库与 SPIFFS 效果存储。 | 项目根目录 `src/` |
+| **`epd-firmware-c6.bin`** | ESP32-C6 | **357,792 字节 (~349 KB)** | **V2.0 极限超薄工牌 (Project SlimBadge C6)**<br>基于 C6-MINI-1 架构，针对 5.4mm 极限超薄硬件优化，内置 SY6970 智能快充与库仑计遥测、低功耗 BLE 5.3 栈驱动。 | `src/c6/` |
+| `epd-firmware.bin` | ESP32-C3 | 1,764,592 字节 | 兼容旧版构建路径（与 `epd-firmware-c3.bin` 相同）。 | 项目根目录 `src/` |
 
-# 2. 将 ELF 可执行文件提取为纯净裸机固件镜像 (.bin)
-espflash save-image --chip esp32c3 target/riscv32imc-esp-espidf/release/epd-firmware firmware/epd-firmware.bin
-```
-
-> **💡 ELF 与 BIN 的体积说明**:
-> - `target/.../release/epd-firmware` 是未提取的 ELF 格式，早期包含 DWARF 调试符号时可达 20MB+（现经 `strip = true` 优化后约 3MB）；
-> - 真正通过 `espflash save-image` 或 `espflash flash` 烧录进 ESP32-C3 Flash 的裸机二进制固件（`.bin`）仅为 **1,764,592 字节（约 1.68 MB）**，完全适配 2MB 固件分区。
+> **💡 固件体积差异说明**:
+> - **C3 固件体积较大 (~1.7MB)**：是因为编译时嵌入了完整的 lwIP TCP/IP 协议栈、Wi-Fi 驱动、HTTP 嵌入式服务器、Gzip 压缩的本地控制台网页资源 (`web_assets/index.html.gz`) 以及 mDNS 服务等全功能网络应用。
+> - **C6 固件体积小巧 (~350KB)**：聚焦于低功耗待机与传感器调度，去除了全栈大型 Web 服务，主要启用 NimBLE 5.3 蓝牙协议栈与 I2C SY6970 电源管理驱动。
 
 ---
 
 ## ⚡ 一键烧录到设备 (Flash)
 
-### 方式一：使用 `espflash` 自动烧录 (最推荐)
-将 ESP32-C3 SuperMini 通过 Type-C 数据线连接至电脑（设备管理器中查看端口号，例如 Windows 上的 `COMx` 或 Linux 上的 `/dev/ttyUSB0`）：
-```bash
-# 自动检测串口并烧录
-espflash flash --release
+### 1. ESP32-C3 (V1.0 原型机) 烧录
 
-# 或指定具体串口（请将 COM17 替换为你的实际串口号）
-espflash flash --port COM17 --release
-```
+- **方式一：使用 `espflash` 自动烧录**:
+  ```bash
+  # 根目录执行
+  espflash flash --release
+  ```
 
-### 方式二：免编译直接使用 `esptool.py` 刷入预打包固件
-本目录已预先提供构建好的 `epd-firmware.bin` (1.76MB)：
-```bash
-esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-firmware.bin
-```
+- **方式二：直接使用 `esptool.py` 刷入预打包固件**:
+  ```bash
+  esptool.py --chip esp32c3 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-firmware-c3.bin
+  ```
+
+### 2. ESP32-C6 (V2.0 SlimBadge) 烧录
+
+- **方式一：使用 `espflash` 自动烧录**:
+  ```bash
+  # 在 src/c6 目录执行
+  cd src/c6
+  espflash flash --release
+  ```
+
+- **方式二：直接使用 `esptool.py` 刷入预打包固件**:
+  ```bash
+  esptool.py --chip esp32c6 -p <PORT> -b 460800 write_flash 0x20000 firmware/epd-firmware-c6.bin
+  ```
 
 ---
 

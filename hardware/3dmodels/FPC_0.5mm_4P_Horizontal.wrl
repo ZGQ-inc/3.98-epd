@@ -1,0 +1,226 @@
+#VRML V2.0 utf8
+# Precision 4-Pin 0.5mm Pitch Horizontal FPC Connector
+# Designed for Project SlimBadge C6 (J_NFC)
+# 4 Signal Pins at X = -0.75, -0.25, +0.25, +0.75 mm (Pads 1-4)
+# 2 Side Lugs at X = -1.90, +1.90 mm (MP1, MP2)
+# Cable insertion mouth & flip actuator at South (-Y)
+# Solder pins extend North (+Y) onto PCB pads
+
+Group {
+  children [
+    # 1. Main Insulator Body (Cream / Off-White LCP)
+    Transform {
+      translation 0.0 -0.15 0.55
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.94 0.92 0.85
+              specularColor 0.25 0.25 0.25
+              ambientIntensity 0.3
+              shininess 0.4
+            }
+          }
+          geometry Box {
+            size 4.2 1.7 1.1
+          }
+        }
+      ]
+    }
+
+    # 2. Side Retention Wings / Housing Ears
+    Transform {
+      translation -2.0 -0.15 0.50
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.92 0.90 0.82
+            }
+          }
+          geometry Box { size 0.5 1.5 1.0 }
+        }
+      ]
+    }
+    Transform {
+      translation 2.0 -0.15 0.50
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.92 0.90 0.82
+            }
+          }
+          geometry Box { size 0.5 1.5 1.0 }
+        }
+      ]
+    }
+
+    # 3. Flip-Lock Actuator (Amber-Brown PPS Plastic, South Facing)
+    Transform {
+      translation 0.0 -0.80 0.65
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.45 0.22 0.08
+              specularColor 0.35 0.30 0.25
+              ambientIntensity 0.25
+              shininess 0.6
+            }
+          }
+          geometry Box {
+            size 3.6 0.65 0.90
+          }
+        }
+      ]
+    }
+
+    # Actuator Pivot Hinge Detail
+    Transform {
+      translation -1.75 -0.80 0.65
+      children [
+        Shape {
+          appearance Appearance {
+            material Material { diffuseColor 0.38 0.18 0.06 }
+          }
+          geometry Box { size 0.2 0.7 0.8 }
+        }
+      ]
+    }
+    Transform {
+      translation 1.75 -0.80 0.65
+      children [
+        Shape {
+          appearance Appearance {
+            material Material { diffuseColor 0.38 0.18 0.06 }
+          }
+          geometry Box { size 0.2 0.7 0.8 }
+        }
+      ]
+    }
+
+    # 4. FPC Cable Entry Slot (Dark Cavity on South Face)
+    Transform {
+      translation 0.0 -1.00 0.30
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.08 0.08 0.08
+            }
+          }
+          geometry Box {
+            size 2.8 0.2 0.35
+          }
+        }
+      ]
+    }
+
+    # 5. Exactly 4 Gold-Plated Solder Pins (Extending North +Y onto Pads 1, 2, 3, 4)
+    # Pin 1 at X = -0.75 mm
+    Transform {
+      translation -0.75 0.80 0.08
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.88 0.76 0.38
+              specularColor 0.85 0.75 0.40
+              ambientIntensity 0.4
+              shininess 0.85
+            }
+          }
+          geometry Box { size 0.24 0.70 0.15 }
+        }
+      ]
+    }
+    # Pin 2 at X = -0.25 mm
+    Transform {
+      translation -0.25 0.80 0.08
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.88 0.76 0.38
+              specularColor 0.85 0.75 0.40
+              ambientIntensity 0.4
+              shininess 0.85
+            }
+          }
+          geometry Box { size 0.24 0.70 0.15 }
+        }
+      ]
+    }
+    # Pin 3 at X = +0.25 mm
+    Transform {
+      translation 0.25 0.80 0.08
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.88 0.76 0.38
+              specularColor 0.85 0.75 0.40
+              ambientIntensity 0.4
+              shininess 0.85
+            }
+          }
+          geometry Box { size 0.24 0.70 0.15 }
+        }
+      ]
+    }
+    # Pin 4 at X = +0.75 mm
+    Transform {
+      translation 0.75 0.80 0.08
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.88 0.76 0.38
+              specularColor 0.85 0.75 0.40
+              ambientIntensity 0.4
+              shininess 0.85
+            }
+          }
+          geometry Box { size 0.24 0.70 0.15 }
+        }
+      ]
+    }
+
+    # 6. Side Mounting Lugs (Silver Tin Plated Steel)
+    # MP1 at X = -1.90, Y = -0.20 (KiCad Y = 14.70)
+    Transform {
+      translation -1.90 -0.20 0.10
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.85 0.85 0.88
+              specularColor 0.90 0.90 0.90
+              ambientIntensity 0.5
+              shininess 0.9
+            }
+          }
+          geometry Box { size 0.60 0.90 0.20 }
+        }
+      ]
+    }
+    # MP2 at X = +1.90, Y = -0.20 (KiCad Y = 14.70)
+    Transform {
+      translation 1.90 -0.20 0.10
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              diffuseColor 0.85 0.85 0.88
+              specularColor 0.90 0.90 0.90
+              ambientIntensity 0.5
+              shininess 0.9
+            }
+          }
+          geometry Box { size 0.60 0.90 0.20 }
+        }
+      ]
+    }
+  ]
+}
