@@ -57,3 +57,4 @@ hardware/renders
 test_*
 hardware/scripts
 hardware/pcb_c6_slimbadge/.history
+drc_*
