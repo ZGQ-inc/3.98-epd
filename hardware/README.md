@@ -8,14 +8,14 @@
 
 ```text
 hardware/
-├── pcb/                        -> 主板 (SlimBadge C6) 与 NFC FPC 完整工程、原理图、BOM 及光绘
-│   ├── epd_c6_slimbadge.*      -> ESP32-C6 主控板 KiCad 工程/原理图/PCB (0短路/0开路/0交叉)
-│   ├── nfc_antenna_fpc.*       -> 超薄贴纸式 NFC 天线 FPC 柔性板工程
-│   ├── BOM_JLCSMT_*.csv        -> 嘉立创 SMT 物料清单 (100% 匹配 LCSC 编号)
+├── pcb_pro/                    -> SlimBadge-C6 Pro 旗舰顶配版 (全功能、高规格进口物料，附 NFC FPC)
+├── pcb_std/                    -> SlimBadge-C6 Standard 普通版 (全功能保留、成熟国产平替，附 NFC FPC)
+├── pcb_lite/                   -> SlimBadge-C6 Lite 极致精简版 (裁剪非必要传感器/TF/NFC，直降至¥40)
+│   ├── epd_c6_slimbadge.*      -> ESP32-C6 精简主控板 KiCad 工程/原理图/PCB
+│   ├── BOM_JLCSMT_*.csv        -> 嘉立创 SMT 贴片清单 (精简 32 行物料)
 │   ├── CPL_JLCSMT_*.csv        -> 嘉立创 SMT 贴片坐标清单
 │   ├── gerber_slimbadge/       -> 主控板无压缩光绘与钻孔文件目录 (22项 Gerber + Drill)
-│   ├── gerber_nfc_fpc/         -> NFC FPC 无压缩光绘与钻孔文件目录 (18项 Gerber + Drill)
-│   └── README.md               -> PCB 规格与制造工艺说明文档
+│   └── README.md               -> Lite 精简版规格与元器件裁剪明细说明
 ├── 3d_models/                  -> 3D 打印外壳 STL 模型、3MF 打印配置、OpenSCAD 参数化源码
 │   ├── case_front_0.7glass.stl -> 0.7mm 强化玻璃视窗专用窄边前框
 │   ├── case_middle_L_frame.stl -> 沉金一体中框主体 (双向挂绳孔、NFC槽、双Type-C开孔)
