@@ -16,7 +16,7 @@ hardware/
 │   ├── CPL_JLCSMT_*.csv        -> 嘉立创 SMT 贴片坐标清单
 │   ├── gerber_slimbadge/       -> 主控板无压缩光绘与钻孔文件目录 (22项 Gerber + Drill)
 │   └── README.md               -> Lite 精简版规格与元器件裁剪明细说明
-├── 3d_models/                  -> 3D 打印外壳 STL 模型、3MF 打印配置、OpenSCAD 参数化源码
+├── 3d_models_v1/               -> 3D 打印外壳 STL 模型、3MF 打印配置、OpenSCAD 参数化源码
 │   ├── case_front_0.7glass.stl -> 0.7mm 强化玻璃视窗专用窄边前框
 │   ├── case_middle_L_frame.stl -> 沉金一体中框主体 (双向挂绳孔、NFC槽、双Type-C开孔)
 │   ├── case_back_slim.stl      -> 超薄磁吸后盖 (4沉头磁铁位)
@@ -24,8 +24,8 @@ hardware/
 │   ├── epd_case_v2.scad        -> OpenSCAD 参数化建模源码
 │   ├── 398epd_bambulab.3mf     -> 拓竹 (Bambu Lab) 多色打印工程配置
 │   └── FPC_0.5mm_4P_Horizontal.wrl -> 元器件 3D 渲染模型
-├── scripts/                    -> 自动化构建、DRC 验证与光绘导出脚本
-├── renders/                    -> 高清 3D 硬件外观与装配渲染图
+├── 3d_models_v2/               -> 适用于PCB的 3D 打印外壳
+├── renders/                    -> 高清 3D 硬件外观渲染图
 └── fpc_adapter/                -> 屏幕供应商 0.8mm 转 0.5mm 45° 辅助转接板参考资料
 ```
 

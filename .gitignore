@@ -53,7 +53,7 @@ PROGRESS.md
 
 # Local generated scripts & scratch artifacts
 local/
-hardware/renders
+# hardware/renders
 test_*
 hardware/scripts
 hardware/pcb_c6_slimbadge/.history
