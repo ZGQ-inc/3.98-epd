@@ -58,3 +58,6 @@ test_*
 hardware/scripts
 hardware/pcb_c6_slimbadge/.history
 drc_*
+temp_*
+check_*
+audit_*
