@@ -8,18 +8,25 @@
 
 ```text
 hardware/
-├── BOM.md                  -> 详细元器件选型与物料采购清单
-├── 3d_models/              -> 3D 打印即用型 STL 文件与 OpenSCAD 源码
-│   ├── case_front.stl      -> 前框 (正面 6.9mm 窄边框，M2 铜螺母预埋孔)
-│   ├── case_middle.stl     -> 中框主体 (FPC侧与开关对面底壁双向双挂绳孔 1.5mm，支持横屏/竖屏挂绳，正面 25mm NFC 槽，双 Type-C 开孔，开关滑轨与 'O'/`|` 标识)
-│   ├── case_back.stl       -> 标准后盖 (FPC 侧居中 25mm NFC 槽，4 个磁铁沉孔，电池防挤压 R7 圆角)
-│   ├── case_back_logo.stl  -> 定制后盖 (带 "Made by ZGQ Inc." 激光/成型凹刻文字)
-│   ├── switch_cap.stl      -> 防脱落滑动按键推钮 (外露 1.5mm，防脱咬合卡爪，4 道防滑齿)
-│   ├── acrylic_template.stl-> 91.0 × 64.0 × 1.5 mm 亚克力视窗 1:1 划线/切割辅助治具
-│   └── epd_case.scad       -> 完整的 OpenSCAD 参数化建模源码
-├── scripts/
-│   └── build_epd_case.py   -> Python 3D 网格生成脚本 (纯数学算法 + Delaunay 三角剖分)
-└── fpc_adapter/            -> 24-Pin 0.8mm 转 0.5mm 45° 转接板工程（已作废归档，现采用 OSHWHub flamj0 高压驱动板）
+├── pcb/                        -> 主板 (SlimBadge C6) 与 NFC FPC 完整工程、原理图、BOM 及光绘
+│   ├── epd_c6_slimbadge.*      -> ESP32-C6 主控板 KiCad 工程/原理图/PCB (0短路/0开路/0交叉)
+│   ├── nfc_antenna_fpc.*       -> 超薄贴纸式 NFC 天线 FPC 柔性板工程
+│   ├── BOM_JLCSMT_*.csv        -> 嘉立创 SMT 物料清单 (100% 匹配 LCSC 编号)
+│   ├── CPL_JLCSMT_*.csv        -> 嘉立创 SMT 贴片坐标清单
+│   ├── gerber_slimbadge/       -> 主控板无压缩光绘与钻孔文件目录 (22项 Gerber + Drill)
+│   ├── gerber_nfc_fpc/         -> NFC FPC 无压缩光绘与钻孔文件目录 (18项 Gerber + Drill)
+│   └── README.md               -> PCB 规格与制造工艺说明文档
+├── 3d_models/                  -> 3D 打印外壳 STL 模型、3MF 打印配置、OpenSCAD 参数化源码
+│   ├── case_front_0.7glass.stl -> 0.7mm 强化玻璃视窗专用窄边前框
+│   ├── case_middle_L_frame.stl -> 沉金一体中框主体 (双向挂绳孔、NFC槽、双Type-C开孔)
+│   ├── case_back_slim.stl      -> 超薄磁吸后盖 (4沉头磁铁位)
+│   ├── switch_cap_slim.stl     -> 微型防脱落滑动按键推钮
+│   ├── epd_case_v2.scad        -> OpenSCAD 参数化建模源码
+│   ├── 398epd_bambulab.3mf     -> 拓竹 (Bambu Lab) 多色打印工程配置
+│   └── FPC_0.5mm_4P_Horizontal.wrl -> 元器件 3D 渲染模型
+├── scripts/                    -> 自动化构建、DRC 验证与光绘导出脚本
+├── renders/                    -> 高清 3D 硬件外观与装配渲染图
+└── fpc_adapter/                -> 屏幕供应商 0.8mm 转 0.5mm 45° 辅助转接板参考资料
 ```
 
 > ⚠️ **关于转接板作废归档说明**：  
