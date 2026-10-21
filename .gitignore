@@ -62,3 +62,5 @@ temp_*
 check_*
 audit_*
 build_*
+apply_*
+inspect_*
