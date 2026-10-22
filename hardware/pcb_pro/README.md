@@ -1,30 +1,24 @@
-# SlimBadge-C6 Pro 旗舰顶配版
+# SlimBadge-C6 Pro 旗舰版 (极致性能与工业级选料)
 
-## 1. 版本定位
-- **定位**：全功能顶配旗舰版，追求极致元器件品质与精度，适合极客样机、开发调试与高规格小批量。
-- **BOM 元件总成本**：约 **¥126.74**（当前立创商城报价）。
+## 1. 版本定位与成本
+- **定位**：旗舰版，采用工业级低温漂器件、顶级传感器配置、高耐久开关与高容量 SPI Flash。
+- **BOM 器件数**：40 项 (主板) + 1 项 (FPC NFC 天线)。
+- **单套预估成本**：约 ¥125.53。
 
-## 2. 硬件特性全览
-- **主控模块**：ESP32-C6-MINI-1-N4 (RISC-V 160MHz, WiFi 6 2.4GHz, Bluetooth 5 (LE), Zigbee 3.0, Thread 1.3, 内置 4MB Flash)
-- **电源管理系统**：Silergy SY6970QCC (15W NVDC 同步降压充电管理，集成硬件高精度 I2C 电量计、动态路径管理、系统过压/过流/过温保护)
-- **快充诱骗接口**：WCH CH224K (ESSOP-10，支持 USB PD 3.0 / QC 3.0 诱骗)
-- **外部海量扩展**：
-  - 128Mbit (16MB) 高速 SPI NOR Flash：Winbond W25Q128JVSIQ
-  - 沉板自弹 MicroSD 卡座：Hirose (广濑) DM3D-SF
-- **工业级传感矩阵**：
-  - 6 轴 IMU 陀螺仪与加速度计：QST QMI8658A (LGA-14)
-  - 瑞士进口高精度温湿度传感器：Sensirion SHT40-AD1B (DFN-4, ±1.8%RH, ±0.2°C)
-  - 人眼感度匹配环境光传感器：TI OPT3001DNPR (USON-6)
-- **近场与时钟通信**：
-  - 双界面 NFC / RFID 标签芯片：STMicroelectronics ST25DV04K-IER6C3 (UFDFN-8) + 4P 0.5mm 卧贴天线 FPC 接口
-  - 独立掉电走时硬件 RTC：NXP PCF8563TS/5 (TSSOP-8) + 精密 32.768kHz SMD 晶体
-- **优质机电元件**：
-  - 工业级手感贴片滑动开关：C&K PCM12SMTBR
-  - 沉板 Type-C 16Pin 连接器：首韩 TYPE-C 16PIN 2MD(073)
+## 2. 关键硬件变更说明
+1. **移除 CH224K PD 诱骗芯片**：
+   - 全系统一取消诱骗升压，USB Type-C 标准 5V 输入直供系统，同步降压充电机效率提升至 94%+，发热降低 60% 以上。
+2. **新增侧按微动轻触按键 (SW2)**：
+   - 采用标准超薄侧按轻触开关 `SW_SPST_B3U-3000P`（LCSC: C135850），放置于板边顶部 ($X=13.5, Y=1.7$)。
+   - 按键轴心向外侧水平延伸 0.25mm，实现真正的**侧边按压（侧按）**，适配外壳侧键装配。
+   - 信号连通 `GPIO9`，支持 Bootloader 恢复与功能交互。
+3. **新增 6 位镀金调试测试焊盘矩阵 (TP1 ~ TP6)**：
+   - 布局 6 个 1.2mm 镀金测试点：`VBUS`、`3V3`、`BAT`、`BOOT` 及双 `GND`。
+4. **板载 SPI Flash (U12) 3D 模型渲染**：
+   - 绑定物理 SOIC-8 3D 模型，元器件实体在全角度 3D 图中均完整渲染。
 
-## 3. 生产与配单文件
-- 原理图：[`epd_c6_slimbadge.kicad_sch`](file:///c:/Users/ZGQ/Documents/antigravity/epd/hardware/pcb_pro/epd_c6_slimbadge.kicad_sch)
-- PCB 工程：[`epd_c6_slimbadge.kicad_pcb`](file:///c:/Users/ZGQ/Documents/antigravity/epd/hardware/pcb_pro/epd_c6_slimbadge.kicad_pcb)
-- 立创商城 BOM：[`BOM_SZLCSC_SlimBadge_C6.csv`](file:///c:/Users/ZGQ/Documents/antigravity/epd/hardware/pcb_pro/BOM_SZLCSC_SlimBadge_C6.csv)
-- 嘉立创 SMT 贴片 BOM：[`BOM_JLCSMT_SlimBadge_C6.csv`](file:///c:/Users/ZGQ/Documents/antigravity/epd/hardware/pcb_pro/BOM_JLCSMT_SlimBadge_C6.csv)
-- 嘉立创坐标文件：[`CPL_JLCSMT_SlimBadge_C6.csv`](file:///c:/Users/ZGQ/Documents/antigravity/epd/hardware/pcb_pro/CPL_JLCSMT_SlimBadge_C6.csv)
+## 3. 生产文件
+- PCB: `epd_c6_slimbadge.kicad_pcb`
+- SCH: `epd_c6_slimbadge.kicad_sch`
+- SMT BOM: `BOM_JLCSMT_SlimBadge_C6.csv`
+- CPL: `CPL_JLCSMT_SlimBadge_C6.csv`

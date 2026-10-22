@@ -64,3 +64,6 @@ audit_*
 build_*
 apply_*
 inspect_*
+
+#KiCad
+*.lck
